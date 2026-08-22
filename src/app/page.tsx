@@ -39,6 +39,7 @@ export default function Home() {
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [isListView, setIsListView] = useState(true);
   
@@ -267,14 +268,14 @@ export default function Home() {
   };
 
   const THEMES = [
-    { id: 'bg-gray-50', name: 'Minimal', color: '#f9fafb' },
+    { id: 'bg-gray-100', name: 'Minimal', color: '#f3f4f6' },
     { id: 'bg-slate-900', name: 'Midnight', color: '#0f172a' },
     { id: 'bg-zinc-950', name: 'Abyss', color: '#09090b' },
-    { id: 'bg-stone-100', name: 'Sand', color: '#f5f5f4' },
-    { id: 'bg-rose-50', name: 'Blush', color: '#fff1f2' },
-    { id: 'bg-blue-50', name: 'Ocean', color: '#eff6ff' },
-    { id: 'bg-emerald-50', name: 'Mint', color: '#ecfdf5' },
-    { id: 'bg-violet-50', name: 'Lavender', color: '#f5f3ff' }
+    { id: 'bg-stone-200', name: 'Sand', color: '#e7e5e4' },
+    { id: 'bg-rose-100', name: 'Blush', color: '#ffe4e6' },
+    { id: 'bg-blue-100', name: 'Ocean', color: '#dbeafe' },
+    { id: 'bg-emerald-100', name: 'Mint', color: '#d1fae5' },
+    { id: 'bg-violet-100', name: 'Lavender', color: '#ede9fe' }
   ];
 
   // Theme Logic
@@ -376,23 +377,35 @@ export default function Home() {
                 <div className="flex gap-2">
                   {['squircle', 'carre', 'rond'].map(s => (
                     <button key={s} onClick={() => updateTargetShape(s)}
-                      className={`flex-1 py-2 text-sm font-medium rounded-xl border transition-all ${targetShape === s ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
-                      {s}
+                      className={`flex-1 py-3 flex justify-center items-center rounded-xl border transition-all ${targetShape === s ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+                      <div className={`w-5 h-5 border-2 ${targetShape === s ? 'border-white bg-blue-400' : isDark ? 'border-slate-500 bg-slate-700' : 'border-gray-400 bg-gray-200'} ${s === 'rond' ? 'rounded-full' : s === 'carre' ? 'rounded-md' : 'rounded-[40%]'}`} />
                     </button>
                   ))}
                 </div>
               </div>
 
               <div>
-                <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${t.textMuted}`}>Color</label>
-                <div className="flex gap-2">
-                  {['encre', 'lagon', 'prune'].map(c => (
-                    <button key={c} onClick={() => updateTargetColor(c)}
-                      className={`flex-1 py-2 text-sm font-medium rounded-xl border transition-all ${targetColor === c ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
-                      {c}
-                    </button>
-                  ))}
-                </div>
+                <button onClick={() => setShowColorPicker(!showColorPicker)} className={`w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wider mb-2 transition-colors ${t.textMuted} hover:text-gray-700`}>
+                  <span>Mascot Color</span>
+                  {showColorPicker ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </button>
+                <AnimatePresence>
+                  {showColorPicker && (
+                    <motion.div initial={{height: 0, opacity: 0}} animate={{height: 'auto', opacity: 1}} exit={{height: 0, opacity: 0}} className="overflow-hidden">
+                      <div className="grid grid-cols-3 gap-2 pt-1 pb-2">
+                        {['encre', 'lagon', 'prune'].map(c => {
+                          const colorHex = c === 'encre' ? '#1e293b' : c === 'lagon' ? '#0ea5e9' : '#9333ea';
+                          return (
+                            <button key={c} onClick={() => updateTargetColor(c)}
+                              className={`flex flex-col items-center justify-center py-2 rounded-xl border transition-all ${targetColor === c ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-400'}`}>
+                              <div className="w-5 h-5 rounded-full shadow-inner border border-black/10" style={{ backgroundColor: colorHex }} />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </div>
