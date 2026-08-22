@@ -19,6 +19,7 @@ export type ShapeId =
   | 'goutte'
   | 'oeuf'
   | 'soleil'
+  | 'fromage'
 
 export interface BotShape {
   id: ShapeId
@@ -72,7 +73,8 @@ export const SHAPES: BotShape[] = [
   { id: 'nuage', radii: cloud },
   { id: 'goutte', radii: droplet },
   { id: 'oeuf', radii: normalize([...PROFILES.egg], 1.05) },
-  { id: 'soleil', radii: sun }
+  { id: 'soleil', radii: sun },
+  { id: 'fromage', radii: normalize(superellipseProfile(3.2), 1.1) }
 ]
 
 // Map indexee par `string` et non par `ShapeId` : les appelants interrogent avec

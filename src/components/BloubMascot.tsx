@@ -232,6 +232,15 @@ export default function BloubMascot({
           <path data-mask-body="" fill="#fff" />
           {/* Black eye holes — cut through the body */}
           <g data-mask-eyes="" />
+          {/* Cheese holes for fromage shape */}
+          {shape === 'fromage' && (
+            <g fill="#000">
+              <circle cx="-35" cy="-25" r="10" />
+              <circle cx="45" cy="20" r="8" />
+              <circle cx="-15" cy="40" r="7" />
+              <circle cx="30" cy="-35" r="11" />
+            </g>
+          )}
         </mask>
       </defs>
 
