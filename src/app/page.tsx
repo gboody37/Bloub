@@ -651,26 +651,6 @@ export default function Home() {
                   <Download size={14} className="opacity-60" />
                 </a>
 
-                {/* Windows Portable ZIP Option */}
-                <a 
-                  href="/downloads/Todos-Windows-Portable.zip" 
-                  download="Todos-Windows-Portable.zip"
-                  className={`w-full flex items-center justify-between py-3 px-4 rounded-2xl border transition-all font-semibold text-sm ${
-                    isDark 
-                      ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' 
-                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <Monitor size={18} className="text-orange-500" />
-                    <span className="text-left">
-                      Windows Portable Version (ZIP)
-                      <span className="block text-[10px] font-normal opacity-60">Works instantly, no installation required</span>
-                    </span>
-                  </span>
-                  <Download size={14} className="opacity-60" />
-                </a>
-
                 {/* Web App PWA Installer Option */}
                 <button 
                   onClick={() => {
@@ -689,28 +669,6 @@ export default function Home() {
                   </span>
                   <ChevronRight size={14} className="opacity-60" />
                 </button>
-
-                {/* Antigravity CLI Skill Option */}
-                <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-4`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-orange-500 flex items-center gap-1.5">
-                      <Cpu size={14} /> Antigravity /todo Skill
-                    </span>
-                    <a 
-                      href="/downloads/install-todo-skill.ps1" 
-                      download="install-todo-skill.ps1"
-                      className="text-xs font-semibold text-blue-500 hover:text-blue-600 flex items-center gap-1"
-                    >
-                      Download <Download size={10} />
-                    </a>
-                  </div>
-                  <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                    To control this app using `/todo` inside Antigravity, download this script, open PowerShell, and run:
-                    <code className={`block mt-1.5 p-1.5 rounded font-mono text-[10px] ${isDark ? 'bg-slate-900 text-orange-300' : 'bg-gray-100 text-orange-700'}`}>
-                      .\install-todo-skill.ps1
-                    </code>
-                  </p>
-                </div>
 
               </div>
             </div>
@@ -917,42 +875,27 @@ export default function Home() {
                 )}
               </div>
 
-              {/* Antigravity CLI Key Section */}
-              {session && (
-                <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-4`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-orange-500 flex items-center gap-1.5">
-                      <Cpu size={14} /> Antigravity Sync Key
-                    </span>
-                    <button
-                      onClick={() => {
-                        const key = 'AGY-TODO-' + btoa(session.user.id);
-                        navigator.clipboard.writeText(key);
-                        setCopiedApiKey(true);
-                        setTimeout(() => setCopiedApiKey(false), 2000);
-                      }}
-                      className="text-xs font-semibold text-blue-500 hover:text-blue-600 transition-colors"
-                    >
-                      {copiedApiKey ? 'Copied!' : 'Copy'}
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between gap-2 mt-1">
-                    <code className={`flex-1 font-mono text-xs p-2 rounded truncate select-all ${isDark ? 'bg-slate-900 text-orange-300/80' : 'bg-gray-100 text-orange-700/80'}`}>
-                      {showApiKey ? 'AGY-TODO-' + btoa(session.user.id) : '••••••••••••••••••••••••'}
-                    </code>
-                    <button
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border ${
-                        isDark 
-                          ? 'border-slate-700 text-slate-300 hover:bg-slate-800' 
-                          : 'border-gray-200 text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
-                      {showApiKey ? 'Hide' : 'Show'}
-                    </button>
-                  </div>
+              {/* Antigravity CLI Skill Option */}
+              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-4`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-orange-500 flex items-center gap-1.5">
+                    <Cpu size={14} /> Antigravity /todo Skill
+                  </span>
+                  <a 
+                    href="/downloads/install-todo-skill.ps1" 
+                    download="install-todo-skill.ps1"
+                    className="text-xs font-semibold text-blue-500 hover:text-blue-600 flex items-center gap-1"
+                  >
+                    Download <Download size={10} />
+                  </a>
                 </div>
-              )}
+                <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                  Control this app using <code className="font-mono text-[10px] font-semibold text-orange-400">/todo</code> inside Antigravity. Download the script, open PowerShell, and run:
+                  <code className={`block mt-1.5 p-1.5 rounded font-mono text-[10px] ${isDark ? 'bg-slate-900 text-orange-300' : 'bg-gray-100 text-orange-700'}`}>
+                    .\install-todo-skill.ps1
+                  </code>
+                </p>
+              </div>
               
               {/* Sign Out Button */}
               <div className={`mt-6 pt-4 border-t ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
@@ -1525,26 +1468,6 @@ export default function Home() {
                 <Download size={14} className="opacity-60" />
               </a>
 
-              {/* Windows Portable ZIP Option */}
-              <a 
-                href="/downloads/Todos-Windows-Portable.zip" 
-                download="Todos-Windows-Portable.zip"
-                className={`w-full flex items-center justify-between py-3 px-4 rounded-2xl border transition-all font-semibold text-sm ${
-                  isDark 
-                    ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' 
-                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <Monitor size={18} className="text-orange-500" />
-                  <span className="text-left">
-                    Windows Portable Version (ZIP)
-                    <span className="block text-[10px] font-normal opacity-60">Works instantly, no installation required</span>
-                  </span>
-                </span>
-                <Download size={14} className="opacity-60" />
-              </a>
-
               {/* Web App PWA Installer Option */}
               <button 
                 onClick={() => {
@@ -1563,28 +1486,6 @@ export default function Home() {
                 </span>
                 <ChevronRight size={14} className="opacity-60" />
               </button>
-
-              {/* Antigravity CLI Skill Option */}
-              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-4`}>
-                <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-orange-500 flex items-center gap-1.5">
-                      <Cpu size={14} /> Antigravity /todo Skill
-                    </span>
-                  <a 
-                    href="/downloads/install-todo-skill.ps1" 
-                    download="install-todo-skill.ps1"
-                    className="text-xs font-semibold text-blue-500 hover:text-blue-600 flex items-center gap-1"
-                  >
-                    Download <Download size={10} />
-                  </a>
-                </div>
-                <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                  To control this app using `/todo` inside Antigravity, download this script, open PowerShell, and run:
-                  <code className={`block mt-1.5 p-1.5 rounded font-mono text-[10px] ${isDark ? 'bg-slate-900 text-orange-300' : 'bg-gray-100 text-orange-700'}`}>
-                    .\install-todo-skill.ps1
-                  </code>
-                </p>
-              </div>
 
             </div>
           </div>
