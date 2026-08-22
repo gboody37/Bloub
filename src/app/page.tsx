@@ -28,6 +28,8 @@ export default function Home() {
   const [newCatText, setNewCatText] = useState('');
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [isListView, setIsListView] = useState(true);
 
   // Mascot
   const [mascotState, setMascotState] = useState<StateId>('idle');
@@ -36,11 +38,54 @@ export default function Home() {
   const [mascotColor, setMascotColor] = useState('encre');
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Load preferences
+  useEffect(() => {
+    const savedExpr = localStorage.getItem('mascotExpression') as ExpressionId;
+    const savedShape = localStorage.getItem('mascotShape');
+    const savedColor = localStorage.getItem('mascotColor');
+    if (savedExpr) setMascotExpression(savedExpr);
+    if (savedShape) setMascotShape(savedShape);
+    if (savedColor) setMascotColor(savedColor);
+  }, []);
+
+  // Save preferences
+  useEffect(() => {
+    localStorage.setItem('mascotExpression', mascotExpression);
+    localStorage.setItem('mascotShape', mascotShape);
+    localStorage.setItem('mascotColor', mascotColor);
+  }, [mascotExpression, mascotShape, mascotColor]);
+
+  // AFK Timer (Sleep)
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    const resetAFK = () => {
+      clearTimeout(timeout);
+      if (mascotState === 'sleep') {
+        setMascotState('idle');
+        setMascotExpression(localStorage.getItem('mascotExpression') as ExpressionId || 'timide');
+      }
+      timeout = setTimeout(() => {
+        setMascotState('sleep');
+        setMascotExpression('sleep');
+      }, 15000); // Sleep after 15s of inactivity
+    };
+    window.addEventListener('mousemove', resetAFK);
+    window.addEventListener('keydown', resetAFK);
+    window.addEventListener('touchstart', resetAFK);
+    resetAFK();
+    return () => {
+      window.removeEventListener('mousemove', resetAFK);
+      window.removeEventListener('keydown', resetAFK);
+      window.removeEventListener('touchstart', resetAFK);
+      clearTimeout(timeout);
+    };
+  }, [mascotState]);
+
   const resetToIdle = useCallback(() => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     idleTimerRef.current = setTimeout(() => {
       setMascotState('idle');
-      setMascotExpression('neutre');
+      setMascotExpression(localStorage.getItem('mascotExpression') as ExpressionId || 'timide');
     }, 2000);
   }, []);
 
@@ -50,14 +95,6 @@ export default function Home() {
     resetToIdle();
   }, [resetToIdle]);
 
-  // Idle timer → sleep
-  useEffect(() => {
-    const sleepTimer = setTimeout(() => {
-      setMascotState('sleep');
-      setMascotExpression('somnolent');
-    }, 5 * 60 * 1000);
-    return () => clearTimeout(sleepTimer);
-  }, [todos]);
 
   // Fetch data
   useEffect(() => {
@@ -278,58 +315,39 @@ export default function Home() {
           </form>
         </div>
 
-        {/* Add task input */}
-        <form onSubmit={addTodo} className="flex items-center gap-3 mb-6">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={inputText}
-              onChange={e => { setInputText(e.target.value); if (e.target.value) triggerMascot('thinking', 'curieux'); else triggerMascot('idle', 'neutre'); }}
-              placeholder="Add a task..."
-              className="w-full bg-white border border-gray-200 rounded-2xl py-3.5 px-5 text-base text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:border-gray-400 focus:ring-0 transition-colors"
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-11 h-11 bg-gray-900 hover:bg-gray-800 active:scale-95 rounded-2xl text-white flex items-center justify-center flex-shrink-0 shadow-sm transition-all"
-          >
-            <Plus size={20} strokeWidth={2.5} />
-          </button>
-        </form>
+        {/* Add Task FAB */}
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="fixed bottom-24 right-6 w-14 h-14 bg-gray-900 text-white rounded-full shadow-xl shadow-gray-400/30 flex items-center justify-center hover:bg-gray-800 transition-all hover:scale-105 active:scale-95 z-40"
+        >
+          <Plus size={28} />
+        </button>
 
         {/* Task list */}
-        <motion.ul layout className="space-y-2">
-          <AnimatePresence>
-            {filteredTodos.length === 0 && (
-              <motion.li 
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="text-center py-12 text-gray-400 text-sm">
-                Nothing here yet.
-              </motion.li>
-            )}
-            {filteredTodos
-              .slice()
-              .sort((a, b) => Number(b.id) - Number(a.id))
-              .map(todo => {
+        <ul className="space-y-2 relative pb-8">
+          {filteredTodos.length === 0 && (
+            <li className="text-center py-20 text-gray-400 text-sm">
+              {activeTab === 'lists' ? "No tasks in this list yet." : "Nothing due today!"}
+            </li>
+          )}
+          {filteredTodos
+            .slice()
+            .sort((a, b) => Number(b.id) - Number(a.id))
+            .map(todo => {
               const isExpanded = expandedTask === todo.id;
               const subtasksDone = (todo.subtasks ?? []).filter(s => s.completed).length;
               const subtasksTotal = (todo.subtasks ?? []).length;
               const isOverdue = !todo.completed && todo.dueDate && new Date(todo.dueDate) < new Date();
 
               return (
-                <motion.li 
-                  layout
-                  initial={{ opacity: 0, y: -40, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-                  transition={{ type: 'spring', bounce: 0.4, duration: 0.6 }}
+                <li 
                   key={todo.id}
-                  className={`bg-white rounded-2xl border overflow-hidden ${
+                  className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden ${
                     todo.completed
                       ? 'border-gray-100 opacity-50'
                       : isOverdue
                       ? 'border-red-200 shadow-sm shadow-red-50'
-                      : 'border-gray-200 shadow-sm'
+                      : 'border-gray-200 shadow-sm hover:border-gray-300 hover:shadow-md'
                   }`}
                 >
                   <div className="flex items-center gap-3 px-4 py-3.5">
@@ -379,52 +397,44 @@ export default function Home() {
                   </div>
 
                   {/* Expanded panel */}
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <motion.div 
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="border-t border-gray-100 px-4 py-3 space-y-3 overflow-hidden"
-                      >
-                        {/* Priority picker */}
-                        <div className="flex items-center gap-2">
-                          <Flag size={14} className="text-gray-400" />
-                          <span className="text-xs text-gray-400 mr-1">Priority:</span>
-                          {(['high', 'medium', 'low'] as const).map(p => (
-                            <button key={p}
-                              onClick={() => mutate({ type: 'SET_PRIORITY', id: todo.id, priority: p }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
-                              className={`px-2 py-0.5 rounded-full text-xs font-medium transition-all border ${
-                                todo.priority === p ? 'text-white border-transparent' : 'text-gray-500 border-gray-200 hover:border-gray-400'
-                              }`}
-                              style={todo.priority === p ? { backgroundColor: PRIORITY_COLOR[p] } : {}}
-                            >
-                              {PRIORITY_LABEL[p]}
-                            </button>
-                          ))}
-                        </div>
+                  {isExpanded && (
+                    <div className="border-t border-gray-100 px-4 py-3 space-y-3">
+                      {/* Priority picker */}
+                      <div className="flex items-center gap-2">
+                        <Flag size={14} className="text-gray-400" />
+                        <span className="text-xs text-gray-400 mr-1">Priority:</span>
+                        {(['high', 'medium', 'low'] as const).map(p => (
+                          <button key={p}
+                            onClick={() => mutate({ type: 'SET_PRIORITY', id: todo.id, priority: p }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium transition-all border ${
+                              todo.priority === p ? 'text-white border-transparent' : 'text-gray-500 border-gray-200 hover:border-gray-400'
+                            }`}
+                            style={todo.priority === p ? { backgroundColor: PRIORITY_COLOR[p] } : {}}
+                          >
+                            {PRIORITY_LABEL[p]}
+                          </button>
+                        ))}
+                      </div>
 
-                        {/* Due date */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-400">Due:</span>
-                          <input type="date"
-                            value={todo.dueDate ? todo.dueDate.split('T')[0] : ''}
-                            onChange={e => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: e.target.value }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
-                            className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-gray-400"
-                          />
-                          {todo.dueDate && (
-                            <button onClick={() => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: null }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
-                              className="text-gray-300 hover:text-gray-500"><X size={12} /></button>
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.li>
+                      {/* Due date */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400">Due:</span>
+                        <input type="date"
+                          value={todo.dueDate ? todo.dueDate.split('T')[0] : ''}
+                          onChange={e => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: e.target.value }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
+                          className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-gray-400"
+                        />
+                        {todo.dueDate && (
+                          <button onClick={() => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: null }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
+                            className="text-gray-300 hover:text-gray-500"><X size={12} /></button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </li>
               );
             })}
-          </AnimatePresence>
-        </motion.ul>
+        </ul>
       </div>
       
       {/* Bottom Navigation */}

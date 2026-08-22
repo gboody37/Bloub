@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Vibe Todos",
-  description: "The shared to-do list for vibe coders",
+  description: "A premium AI-powered todo app.",
   manifest: "/manifest.json",
 };
 
