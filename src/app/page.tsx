@@ -31,6 +31,9 @@ export default function Home() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [isListView, setIsListView] = useState(true);
 
+  // Settings
+  const [bgTheme, setBgTheme] = useState('bg-gray-50');
+
   // Mascot
   const [mascotState, setMascotState] = useState<StateId>('idle');
   const [mascotExpression, setMascotExpression] = useState<ExpressionId>('timide');
@@ -43,9 +46,11 @@ export default function Home() {
     const savedExpr = localStorage.getItem('mascotExpression') as ExpressionId;
     const savedShape = localStorage.getItem('mascotShape');
     const savedColor = localStorage.getItem('mascotColor');
+    const savedTheme = localStorage.getItem('bgTheme');
     if (savedExpr) setMascotExpression(savedExpr);
     if (savedShape) setMascotShape(savedShape);
     if (savedColor) setMascotColor(savedColor);
+    if (savedTheme) setBgTheme(savedTheme);
   }, []);
 
   // Save preferences
@@ -53,7 +58,8 @@ export default function Home() {
     localStorage.setItem('mascotExpression', mascotExpression);
     localStorage.setItem('mascotShape', mascotShape);
     localStorage.setItem('mascotColor', mascotColor);
-  }, [mascotExpression, mascotShape, mascotColor]);
+    localStorage.setItem('bgTheme', bgTheme);
+  }, [mascotExpression, mascotShape, mascotColor, bgTheme]);
 
   // AFK Timer (Sleep)
   useEffect(() => {
@@ -95,37 +101,24 @@ export default function Home() {
     resetToIdle();
   }, [resetToIdle]);
 
+  const fetchTodos = async () => {
+    const res = await fetch('/api/data');
+    const data = await res.json();
+    setTodos(data.todos);
+    setCategories(data.categories);
+  };
 
-  // Fetch data
   useEffect(() => {
-    fetch('/api/data').then(r => r.json()).then(d => {
-      setTodos(d.todos ?? []);
-      setCategories(d.categories ?? [{ id: 'default', name: 'General' }]);
-      // Expression based on initial state
-      const hasOverdue = (d.todos ?? []).some((t: Todo) =>
-        !t.completed && t.dueDate && new Date(t.dueDate) < new Date()
-      );
-      if (d.todos?.length === 0) {
-        setMascotExpression('timide');
-        setMascotState('egg');
-      } else if (hasOverdue) {
-        setMascotExpression('colere');
-      } else {
-        setMascotExpression('attentif');
-      }
-    });
+    fetchTodos();
   }, []);
 
-  const mutate = async (payload: any) => {
+  const mutate = async (body: any) => {
     const res = await fetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body)
     });
-    const d = await res.json();
-    setTodos(d.todos);
-    setCategories(d.categories);
-    return d;
+    return res.json();
   };
 
   const addTodo = async (e: React.FormEvent) => {
@@ -138,15 +131,38 @@ export default function Home() {
     triggerMascot('wide', 'surpris');
     await mutate({ type: 'ADD_TODO', text: inputText, categoryId: activeCategory });
     setInputText('');
+    setShowAddModal(false);
   };
 
   const addCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCatText.trim()) return;
-    triggerMascot('hexagon', 'curieux');
+    triggerMascot('orbit', 'heureux');
     await mutate({ type: 'ADD_CATEGORY', name: newCatText });
     setNewCatText('');
-    resetToIdle();
+  };
+
+  const deleteCategory = async (id: string) => {
+    if (id === 'default') return;
+    if (confirm('Delete this list?')) {
+      triggerMascot('idle', 'triste');
+      await mutate({ type: 'DELETE_CATEGORY', id });
+      if (activeCategory === id) setActiveCategory('default');
+    }
+  };
+
+  const handleCategoryClick = (cat: { id: string, name: string }) => {
+    setActiveCategory(cat.id);
+    setIsListView(false);
+    
+    // Deterministic shape & color morphing based on category
+    const shapes: ('squircle'|'carre'|'rond')[] = ['squircle', 'carre', 'rond'];
+    const colors: ('encre'|'lagon'|'prune')[] = ['encre', 'lagon', 'prune'];
+    const hash = cat.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    
+    setMascotShape(shapes[hash % shapes.length]);
+    setMascotColor(colors[hash % colors.length]);
+    triggerMascot('alert', 'excite');
   };
 
   const toggleTodo = async (id: string, completed: boolean) => {
@@ -176,14 +192,6 @@ export default function Home() {
     setTimeout(() => triggerMascot('idle', 'neutre'), 2500);
   };
 
-  const deleteCategory = async (id: string) => {
-    if (id === 'default') return;
-    triggerMascot('comet', 'triste');
-    await mutate({ type: 'DELETE_CATEGORY', id });
-    if (activeCategory === id) setActiveCategory('default');
-    setTimeout(() => triggerMascot('idle', 'neutre'), 2500);
-  };
-
   const filteredTodos = todos.filter(t => {
     if (activeTab === 'lists') return t.categoryId === activeCategory;
     if (activeTab === 'today') {
@@ -198,14 +206,27 @@ export default function Home() {
   const totalCount = filteredTodos.length;
 
   return (
-    <main className="min-h-screen bg-[#f5f5f5] font-sans select-none relative">
-      {/* Settings button */}
-      <button
-        onClick={() => { setShowSettings(true); triggerMascot('swirl', 'curieux'); }}
-        className="absolute top-5 right-5 p-2 rounded-full text-gray-400 hover:text-gray-800 hover:bg-white/70 transition-all"
-      >
-        <Settings size={20} />
-      </button>
+    <main className={`min-h-screen max-w-md mx-auto ${bgTheme} flex flex-col font-sans relative transition-colors duration-500`}>
+      {/* Header */}
+      <header className="pt-12 pb-6 px-6 bg-white/50 backdrop-blur-md sticky top-0 z-30 shadow-sm shadow-gray-100/50 flex justify-between items-end border-b border-gray-100/50">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+            {activeTab === 'lists' ? (isListView ? 'My Lists' : categories.find(c => c.id === activeCategory)?.name) : activeTab === 'today' ? 'Today' : 'Stats'}
+          </h1>
+          {!isListView && activeTab === 'lists' && (
+            <p className="text-gray-400 text-sm mt-1 font-medium">{completedCount} of {totalCount} completed</p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 drop-shadow-sm pointer-events-auto" onClick={() => triggerMascot('orbit', 'heureux')}>
+            <BloubMascot state={mascotState} expression={mascotExpression} shape={mascotShape} color={mascotColor} />
+          </div>
+          <button onClick={() => setShowSettings(true)} className="p-2 bg-gray-50 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-all active:scale-95">
+            <Settings size={22} />
+          </button>
+        </div>
+      </header>
 
       {/* Settings Modal */}
       {showSettings && (
@@ -215,233 +236,256 @@ export default function Home() {
             onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-semibold text-gray-900">Customize</h2>
-              <button onClick={() => setShowSettings(false)} className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400">
-                <X size={18} />
-              </button>
+              <button onClick={() => setShowSettings(false)} className="text-gray-400 hover:text-gray-700 bg-gray-100 p-1.5 rounded-full"><X size={18}/></button>
             </div>
 
-            <div className="mb-6">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Shape</p>
-              <div className="grid grid-cols-4 gap-2">
-                {(['squircle', 'cercle', 'nuage', 'goutte', 'galet', 'capsule', 'triangle', 'hexagone'] as const).map(s => (
-                  <button key={s} onClick={() => setMascotShape(s)}
-                    className={`p-2 rounded-xl text-xs font-medium capitalize transition-all border ${
-                      mascotShape === s ? 'bg-gray-900 text-white border-gray-900' : 'text-gray-600 border-gray-200 hover:border-gray-400'
-                    }`}>
-                    {s === 'cercle' ? 'circle' : s === 'nuage' ? 'cloud' : s === 'goutte' ? 'drop' : s === 'galet' ? 'pebble' : s === 'hexagone' ? 'hex' : s}
-                  </button>
-                ))}
+            <div className="space-y-5">
+              <div>
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">App Theme</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'bg-gray-50', name: 'Minimal' },
+                    { id: 'bg-slate-900', name: 'Midnight' },
+                    { id: 'bg-stone-100', name: 'Sand' },
+                    { id: 'bg-rose-50', name: 'Blush' }
+                  ].map(t => (
+                    <button key={t.id} onClick={() => setBgTheme(t.id)}
+                      className={`py-2 text-sm font-medium rounded-xl border ${bgTheme === t.id ? 'bg-gray-900 text-white border-transparent' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Color</p>
-              <div className="flex flex-wrap gap-2">
-                {['encre', 'rouge', 'orange', 'ambre', 'vert', 'turquoise', 'bleu', 'violet', 'rose', 'gris', 'brun'].map(c => {
-                  const colorMap: Record<string, string> = {
-                    encre: '#0a0a0c', rouge: '#e8483f', orange: '#f08a24', ambre: '#f0b429',
-                    vert: '#3ecf8e', turquoise: '#2fbfa0', bleu: '#3b93f0', violet: '#8b5cf6',
-                    rose: '#e152b0', gris: '#a3a3a3', brun: '#8b5e3c'
-                  };
-                  return (
+              <div>
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Default Shape</label>
+                <div className="flex gap-2">
+                  {['squircle', 'carre', 'rond'].map(s => (
+                    <button key={s} onClick={() => setMascotShape(s)}
+                      className={`flex-1 py-2 text-sm font-medium rounded-xl border ${mascotShape === s ? 'bg-gray-900 text-white border-transparent' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Default Color</label>
+                <div className="flex gap-2">
+                  {['encre', 'lagon', 'prune'].map(c => (
                     <button key={c} onClick={() => setMascotColor(c)}
-                      className={`w-8 h-8 rounded-full border-2 transition-all ${mascotColor === c ? 'border-gray-800 scale-110 shadow-md' : 'border-transparent'}`}
-                      style={{ backgroundColor: colorMap[c] }} />
-                  );
-                })}
+                      className={`flex-1 py-2 text-sm font-medium rounded-xl border ${mascotColor === c ? 'bg-gray-900 text-white border-transparent' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+                      {c}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      <div className="max-w-lg mx-auto pt-12 px-5 pb-24">
-
-        {/* Mascot Header */}
-        <div className="flex flex-col items-center mb-8">
-          <BloubMascot
-            size={148}
-            state={mascotState}
-            expression={mascotExpression}
-            shape={mascotShape}
-            color={mascotColor}
-            onInteract={() => triggerMascot('orbit', 'fier')}
-          />
-          <h1 className="text-2xl font-bold text-gray-900 mt-2 tracking-tight">Tasks</h1>
-          {totalCount > 0 && (
-            <p className="text-sm text-gray-400 mt-0.5">
-              {completedCount} of {totalCount} done
-            </p>
-          )}
-        </div>
-
-        {/* Category pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-5 scrollbar-hide -mx-1 px-1">
-          {categories.map(cat => (
-            <div key={cat.id} className="relative group flex-shrink-0">
-              <button
-                onClick={() => { setActiveCategory(cat.id); triggerMascot('hexagon', 'attentif'); }}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
-                  activeCategory === cat.id
-                    ? 'bg-gray-900 text-white shadow-sm'
-                    : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                {cat.name}
-              </button>
-              {cat.id !== 'default' && activeCategory === cat.id && (
-                <button
-                  onClick={() => deleteCategory(cat.id)}
-                  className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-gray-200 hover:bg-red-100 hover:text-red-500 text-gray-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-sm"
-                >
-                  <X size={10} />
-                </button>
-              )}
+      {/* Add Task Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-end justify-center sm:items-center sm:p-6"
+          onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-md shadow-2xl animate-pop-in"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">New Task</h2>
+              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-700 bg-gray-100 p-1.5 rounded-full"><X size={18}/></button>
             </div>
-          ))}
-          <form onSubmit={addCategory} className="flex-shrink-0">
-            <div className="flex items-center bg-white border border-dashed border-gray-300 rounded-full px-3 py-1.5 gap-1 hover:border-gray-400 transition-colors">
+            
+            <form onSubmit={addTodo}>
               <input
                 type="text"
-                value={newCatText}
-                onChange={e => setNewCatText(e.target.value)}
-                placeholder="New list"
-                className="bg-transparent outline-none text-sm text-gray-600 w-16 placeholder-gray-400"
+                autoFocus
+                value={inputText}
+                onChange={e => {
+                  setInputText(e.target.value);
+                  if (e.target.value.length === 1 && !inputText) triggerMascot('alert', 'heureux');
+                }}
+                onFocus={() => triggerMascot('thinking', 'curieux')}
+                placeholder="What needs to be done?"
+                className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 px-4 text-base font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:border-gray-400 focus:bg-white transition-all mb-4"
               />
-              <button type="submit" className="text-gray-400 hover:text-gray-800 transition-colors">
-                <Plus size={14} />
+              <button
+                type="submit"
+                disabled={!inputText.trim()}
+                className="w-full bg-gray-900 text-white font-semibold py-4 rounded-2xl shadow-md hover:bg-gray-800 disabled:opacity-50 transition-all active:scale-95"
+              >
+                Save Task
               </button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
+      )}
 
-        {/* Add Task FAB */}
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="fixed bottom-24 right-6 w-14 h-14 bg-gray-900 text-white rounded-full shadow-xl shadow-gray-400/30 flex items-center justify-center hover:bg-gray-800 transition-all hover:scale-105 active:scale-95 z-40"
-        >
-          <Plus size={28} />
-        </button>
-
-        {/* Task list */}
-        <ul className="space-y-2 relative pb-8">
-          {filteredTodos.length === 0 && (
-            <li className="text-center py-20 text-gray-400 text-sm">
-              {activeTab === 'lists' ? "No tasks in this list yet." : "Nothing due today!"}
-            </li>
-          )}
-          {filteredTodos
-            .slice()
-            .sort((a, b) => Number(b.id) - Number(a.id))
-            .map(todo => {
-              const isExpanded = expandedTask === todo.id;
-              const subtasksDone = (todo.subtasks ?? []).filter(s => s.completed).length;
-              const subtasksTotal = (todo.subtasks ?? []).length;
-              const isOverdue = !todo.completed && todo.dueDate && new Date(todo.dueDate) < new Date();
-
-              return (
-                <li 
-                  key={todo.id}
-                  className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden ${
-                    todo.completed
-                      ? 'border-gray-100 opacity-50'
-                      : isOverdue
-                      ? 'border-red-200 shadow-sm shadow-red-50'
-                      : 'border-gray-200 shadow-sm hover:border-gray-300 hover:shadow-md'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 px-4 py-3.5">
-                    {/* Checkbox */}
-                    <button onClick={() => toggleTodo(todo.id, todo.completed)} className="flex-shrink-0">
-                      {todo.completed
-                        ? <CheckCircle2 size={22} className="text-gray-800" />
-                        : <Circle size={22} className={`${isOverdue ? 'text-red-300' : 'text-gray-200'} hover:text-gray-400 transition-colors`} />
-                      }
-                    </button>
-
-                    {/* Text */}
-                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedTask(isExpanded ? null : todo.id)}>
-                      <p className={`text-sm font-medium truncate ${todo.completed ? 'line-through text-gray-400' : isOverdue ? 'text-red-600' : 'text-gray-800'}`}>
-                        {todo.text}
-                      </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {todo.dueDate && (
-                          <span className={`text-xs ${isOverdue ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
-                            {isOverdue ? '⚠ ' : ''}
-                            {new Date(todo.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </span>
-                        )}
-                        {subtasksTotal > 0 && (
-                          <span className="text-xs text-gray-400">{subtasksDone}/{subtasksTotal} subtasks</span>
-                        )}
+      {/* Main Content Area */}
+      <div className="px-6 py-6 flex-1 relative">
+        
+        {/* Lists Master View */}
+        {activeTab === 'lists' && isListView ? (
+          <div className="space-y-4">
+            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">My Lists</h2>
+            <ul className="space-y-3">
+              {categories.map(cat => {
+                const count = todos.filter(t => t.categoryId === cat.id && !t.completed).length;
+                return (
+                  <li key={cat.id} className="group flex items-center justify-between bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-gray-300 cursor-pointer transition-all"
+                      onClick={() => handleCategoryClick(cat)}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
+                        <ListTodo size={20} />
                       </div>
+                      <span className="font-semibold text-gray-800">{cat.name}</span>
                     </div>
-
-                    {/* Priority dot */}
-                    {todo.priority && (
-                      <div className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: PRIORITY_COLOR[todo.priority] }} />
-                    )}
-
-                    {/* Expand toggle */}
-                    <button onClick={() => setExpandedTask(isExpanded ? null : todo.id)}
-                      className="text-gray-300 hover:text-gray-500 transition-colors flex-shrink-0">
-                      {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                    </button>
-
-                    {/* Delete */}
-                    <button onClick={() => deleteTodo(todo.id)}
-                      className="text-gray-200 hover:text-red-400 transition-colors flex-shrink-0">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-
-                  {/* Expanded panel */}
-                  {isExpanded && (
-                    <div className="border-t border-gray-100 px-4 py-3 space-y-3">
-                      {/* Priority picker */}
-                      <div className="flex items-center gap-2">
-                        <Flag size={14} className="text-gray-400" />
-                        <span className="text-xs text-gray-400 mr-1">Priority:</span>
-                        {(['high', 'medium', 'low'] as const).map(p => (
-                          <button key={p}
-                            onClick={() => mutate({ type: 'SET_PRIORITY', id: todo.id, priority: p }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
-                            className={`px-2 py-0.5 rounded-full text-xs font-medium transition-all border ${
-                              todo.priority === p ? 'text-white border-transparent' : 'text-gray-500 border-gray-200 hover:border-gray-400'
-                            }`}
-                            style={todo.priority === p ? { backgroundColor: PRIORITY_COLOR[p] } : {}}
-                          >
-                            {PRIORITY_LABEL[p]}
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Due date */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400">Due:</span>
-                        <input type="date"
-                          value={todo.dueDate ? todo.dueDate.split('T')[0] : ''}
-                          onChange={e => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: e.target.value }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
-                          className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-gray-400"
-                        />
-                        {todo.dueDate && (
-                          <button onClick={() => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: null }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
-                            className="text-gray-300 hover:text-gray-500"><X size={12} /></button>
-                        )}
-                      </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-gray-400 bg-gray-100 px-3 py-1 rounded-full">{count}</span>
+                      {cat.id !== 'default' && (
+                        <button onClick={(e) => { e.stopPropagation(); deleteCategory(cat.id); }} className="text-gray-200 hover:text-red-400 transition-colors p-1 opacity-0 group-hover:opacity-100">
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
-                  )}
+                  </li>
+                );
+              })}
+            </ul>
+
+            <form onSubmit={addCategory} className="mt-6 flex items-center gap-2">
+              <input type="text" value={newCatText} 
+                onChange={e => {
+                  setNewCatText(e.target.value);
+                  if (e.target.value.length === 1 && !newCatText) triggerMascot('alert', 'heureux');
+                }}
+                onFocus={() => triggerMascot('thinking', 'curieux')}
+                placeholder="New List..." className="flex-1 bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 shadow-sm transition-all" />
+              <button type="submit" disabled={!newCatText.trim()} className="bg-gray-900 text-white p-3 rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50"><Plus size={20}/></button>
+            </form>
+          </div>
+        ) : (
+          /* Task List View */
+          <div>
+            {/* Back button and List Title */}
+            {activeTab === 'lists' && !isListView && (
+               <div className="mb-4">
+                 <button onClick={() => setIsListView(true)} className="text-sm font-medium text-gray-400 hover:text-gray-900 mb-2 transition-colors">← Back to Lists</button>
+               </div>
+            )}
+            
+            {/* Add Task FAB */}
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="fixed bottom-24 right-6 w-14 h-14 bg-gray-900 text-white rounded-full shadow-xl shadow-gray-400/30 flex items-center justify-center hover:bg-gray-800 transition-all hover:scale-105 active:scale-95 z-40"
+            >
+              <Plus size={28} />
+            </button>
+
+            <ul className="space-y-3 pb-8">
+              {filteredTodos.length === 0 && (
+                <li className="text-center py-20 text-gray-400 text-sm">
+                  {activeTab === 'lists' ? "No tasks in this list yet." : "Nothing due today!"}
                 </li>
-              );
-            })}
-        </ul>
+              )}
+              {filteredTodos
+                .slice()
+                .sort((a, b) => Number(b.id) - Number(a.id))
+                .map(todo => {
+                  const isExpanded = expandedTask === todo.id;
+                  const isOverdue = !todo.completed && todo.dueDate && new Date(todo.dueDate) < new Date();
+
+                  return (
+                    <li 
+                      key={todo.id}
+                      className={`bg-white/80 backdrop-blur-sm rounded-2xl border transition-all duration-200 overflow-hidden ${
+                        todo.completed
+                          ? 'border-gray-100 opacity-50'
+                          : isOverdue
+                          ? 'border-red-200 shadow-sm shadow-red-50'
+                          : 'border-gray-200/50 shadow-sm hover:shadow-md'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 px-4 py-3.5">
+                        <button onClick={() => toggleTodo(todo.id, todo.completed)} className="flex-shrink-0">
+                          {todo.completed
+                            ? <CheckCircle2 size={22} className="text-gray-800" />
+                            : <Circle size={22} className={`${isOverdue ? 'text-red-400' : 'text-gray-300'}`} />
+                          }
+                        </button>
+
+                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedTask(isExpanded ? null : todo.id)}>
+                          <p className={`text-sm font-medium truncate ${todo.completed ? 'line-through text-gray-400' : isOverdue ? 'text-red-600' : 'text-gray-800'}`}>
+                            {todo.text}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {todo.dueDate && (
+                              <span className={`text-xs ${isOverdue ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
+                                {isOverdue ? '⚠ ' : ''}
+                                {new Date(todo.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {todo.priority && (
+                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: PRIORITY_COLOR[todo.priority] }} />
+                        )}
+
+                        <button onClick={() => setExpandedTask(isExpanded ? null : todo.id)} className="text-gray-300 hover:text-gray-500 transition-colors flex-shrink-0">
+                          {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                        </button>
+
+                        <button onClick={() => deleteTodo(todo.id)} className="text-gray-200 hover:text-red-400 transition-colors flex-shrink-0">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="border-t border-gray-100 px-4 py-3 space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Flag size={14} className="text-gray-400" />
+                            <span className="text-xs text-gray-400 mr-1">Priority:</span>
+                            {(['high', 'medium', 'low'] as const).map(p => (
+                              <button key={p}
+                                onClick={() => mutate({ type: 'SET_PRIORITY', id: todo.id, priority: p }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
+                                className={`px-2 py-0.5 rounded-full text-xs font-medium transition-all border ${
+                                  todo.priority === p ? 'text-white border-transparent' : 'text-gray-500 border-gray-200 hover:border-gray-400'
+                                }`}
+                                style={todo.priority === p ? { backgroundColor: PRIORITY_COLOR[p] } : {}}
+                              >
+                                {PRIORITY_LABEL[p]}
+                              </button>
+                            ))}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-400">Due:</span>
+                            <input type="date"
+                              value={todo.dueDate ? todo.dueDate.split('T')[0] : ''}
+                              onChange={e => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: e.target.value }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
+                              className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-gray-400"
+                            />
+                            {todo.dueDate && (
+                              <button onClick={() => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: null }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
+                                className="text-gray-300 hover:text-gray-500"><X size={12} /></button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+            </ul>
+          </div>
+        )}
       </div>
       
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 pb-safe z-40 px-6 py-2">
         <div className="max-w-md mx-auto flex justify-between items-center text-xs font-medium text-gray-400">
           <button 
-            onClick={() => setActiveTab('lists')}
+            onClick={() => { setActiveTab('lists'); setIsListView(true); }}
             className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'lists' ? 'text-gray-900' : 'hover:text-gray-600'}`}>
             <ListTodo size={22} className={activeTab === 'lists' ? 'text-gray-900' : ''} />
             <span>Lists</span>
