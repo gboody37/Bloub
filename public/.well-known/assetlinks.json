@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "app.vercel.to_do_virid_beta.twa",
+    "sha256_cert_fingerprints": ["47:7A:28:3F:E9:E7:F6:D2:99:74:FF:00:FF:3E:4E:95:EC:6A:D7:18:38:A2:08:9D:C1:2A:C2:56:46:11:9D:4E"]
+  }
+}]
