@@ -39,7 +39,7 @@ export default function BloubMascot({
   const blockIndexRef = useRef<number>(0);
   const nextAtRef = useRef<number>(Infinity);
   const stateRef = useRef(state);
-  const cycleRef = useRef(defaultCycle());
+  const cycleRef = useRef(defaultCycle().blocks);
 
   // One-time init
   useEffect(() => {
@@ -98,7 +98,7 @@ export default function BloubMascot({
         if (block) {
           // Only override if we're not in a user-triggered state
           if (stateRef.current === 'idle') {
-            engineRef.current.setState(block.id, now);
+            engineRef.current.setState(block.state, now);
           }
           nextAtRef.current = now + (block.duration ?? 2);
         }
