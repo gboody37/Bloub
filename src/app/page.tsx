@@ -895,14 +895,14 @@ export default function Home() {
       <div className="px-6 py-6 flex-1 relative">
         
         {/* Large Hero Mascot */}
-        <div className="flex justify-center mb-8 pt-4">
+        <div className={`flex justify-center transition-all duration-300 ${showAddModal ? 'mb-2 pt-1' : 'mb-8 pt-4'}`}>
           <div className="cursor-pointer drop-shadow-xl hover:scale-105 transition-transform duration-300" onClick={() => triggerMascot('orbit', 'heureux')}>
             {(() => {
               const pendingContextCount = showListHero ? todos.filter(t => !t.completed && t.categoryId === activeCategory).length : todos.filter(t => !t.completed).length;
               const dyn = getDynamicMascotProps(heroShape, heroColor, pendingContextCount);
               const isAnim = mascotState !== 'idle';
               return (
-                <BloubMascot size={160} state={mascotState} expression={isAnim ? mascotExpression : dyn.expr} shape={heroShape} color={dyn.color} />
+                <BloubMascot size={showAddModal ? 96 : 160} state={mascotState} expression={isAnim ? mascotExpression : dyn.expr} shape={heroShape} color={dyn.color} />
               );
             })()}
           </div>
