@@ -206,27 +206,28 @@ export default function Home() {
   const totalCount = filteredTodos.length;
 
   return (
-    <main className={`min-h-screen max-w-md mx-auto ${bgTheme} flex flex-col font-sans relative transition-colors duration-500`}>
-      {/* Header */}
-      <header className="pt-12 pb-6 px-6 bg-white/50 backdrop-blur-md sticky top-0 z-30 shadow-sm shadow-gray-100/50 flex justify-between items-end border-b border-gray-100/50">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-            {activeTab === 'lists' ? (isListView ? 'My Lists' : categories.find(c => c.id === activeCategory)?.name) : activeTab === 'today' ? 'Today' : 'Stats'}
-          </h1>
-          {!isListView && activeTab === 'lists' && (
-            <p className="text-gray-400 text-sm mt-1 font-medium">{completedCount} of {totalCount} completed</p>
-          )}
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 drop-shadow-sm pointer-events-auto" onClick={() => triggerMascot('orbit', 'heureux')}>
-            <BloubMascot state={mascotState} expression={mascotExpression} shape={mascotShape} color={mascotColor} />
+    <div className={`min-h-screen w-full ${bgTheme} transition-colors duration-500`}>
+      <main className="max-w-md mx-auto min-h-screen flex flex-col font-sans relative shadow-2xl shadow-gray-200/20 bg-white/30 backdrop-blur-3xl">
+        {/* Header */}
+        <header className="pt-12 pb-6 px-6 sticky top-0 z-30 flex justify-between items-center border-b border-gray-200/30">
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+              {activeTab === 'lists' ? (isListView ? 'My Lists' : categories.find(c => c.id === activeCategory)?.name) : activeTab === 'today' ? 'Today' : 'Stats'}
+            </h1>
+            {!isListView && activeTab === 'lists' && (
+              <p className="text-gray-500 text-sm mt-1 font-medium">{completedCount} of {totalCount} completed</p>
+            )}
           </div>
-          <button onClick={() => setShowSettings(true)} className="p-2 bg-gray-50 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-all active:scale-95">
-            <Settings size={22} />
-          </button>
-        </div>
-      </header>
+
+          <div className="flex items-center gap-2">
+            <div className="w-16 h-16 drop-shadow-sm pointer-events-auto flex items-center justify-center -my-4" onClick={() => triggerMascot('orbit', 'heureux')}>
+              <BloubMascot size={80} state={mascotState} expression={mascotExpression} shape={mascotShape} color={mascotColor} />
+            </div>
+            <button onClick={() => setShowSettings(true)} className="p-2.5 bg-white/60 text-gray-400 hover:text-gray-700 hover:bg-white rounded-full transition-all active:scale-95 shadow-sm backdrop-blur-md">
+              <Settings size={20} />
+            </button>
+          </div>
+        </header>
 
       {/* Settings Modal */}
       {showSettings && (
@@ -377,7 +378,7 @@ export default function Home() {
             {/* Add Task FAB */}
             <button
               onClick={() => setShowAddModal(true)}
-              className="fixed bottom-24 right-6 w-14 h-14 bg-gray-900 text-white rounded-full shadow-xl shadow-gray-400/30 flex items-center justify-center hover:bg-gray-800 transition-all hover:scale-105 active:scale-95 z-40"
+              className="fixed bottom-24 right-6 sm:right-[calc(50%-13rem)] w-14 h-14 bg-gray-900 text-white rounded-full shadow-xl shadow-gray-400/30 flex items-center justify-center hover:bg-gray-800 transition-all hover:scale-105 active:scale-95 z-40"
             >
               <Plus size={28} />
             </button>
@@ -510,5 +511,6 @@ export default function Home() {
       {/* Padding for bottom nav */}
       <div className="h-20" />
     </main>
+    </div>
   );
 }
