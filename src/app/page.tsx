@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BloubMascot from '@/components/BloubMascot';
-import { CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRight, Flag, Calendar, BarChart3, ListTodo, Edit2, MoreVertical } from 'lucide-react';
+import { CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRight, Flag, Calendar, BarChart3, ListTodo, Edit2, MoreVertical, Palette, Shapes, PaintBucket } from 'lucide-react';
 import type { StateId } from '@/lib/bot/states';
 import type { ExpressionId } from '@/lib/bot/expressions';
 import { COLORS } from '@/lib/bot/skins';
@@ -34,7 +34,6 @@ const getDynamicMascotProps = (shape: string, baseColor: string, pendingCount: n
   if (pendingCount === 0) {
     if (shape === 'soleil') return { expr: 'hilare', color: 'ambre' }; // bright happy sun
     if (shape === 'nuage') return { expr: 'heureux', color: 'bleu' }; // clear sky cloud
-    if (shape === 'voiture') return { expr: 'vroum', color: baseColor }; // vrooming
     if (shape === 'goutte') return { expr: 'heureux', color: baseColor }; // happy tear
     return { expr: 'fier', color: baseColor }; // proud by default
   }
@@ -42,14 +41,12 @@ const getDynamicMascotProps = (shape: string, baseColor: string, pendingCount: n
   if (pendingCount > 4) {
     if (shape === 'soleil') return { expr: 'effraye', color: 'rouge' }; // wide-eyed red sun (overheating!)
     if (shape === 'nuage') return { expr: 'colere', color: 'gris' }; // angry grey storm cloud
-    if (shape === 'voiture') return { expr: 'klaxon', color: 'orange' }; // honking in traffic jam
     if (shape === 'goutte') return { expr: 'triste', color: 'bleu' }; // crying
     if (shape === 'oeuf') return { expr: 'surpris', color: 'creme' }; // shocked / cracking egg
     return { expr: 'effraye', color: baseColor }; // stressed out
   }
   
   // Normal workload
-  if (shape === 'voiture') return { expr: 'attentif', color: baseColor };
   return { expr: 'attentif', color: baseColor };
 };
 
@@ -173,7 +170,10 @@ export default function Home() {
     const res = await fetch('/api/data');
     const data = await res.json();
     setTodos(data.todos);
-    setCategories(data.categories);
+    
+    let cats = data.categories || [];
+    if (!cats.find((c: any) => c.id === 'default')) cats = [{ id: 'default', name: 'General' }, ...cats];
+    setCategories(cats);
   };
 
   useEffect(() => {
@@ -188,7 +188,11 @@ export default function Home() {
     });
     const data = await res.json();
     setTodos(data.todos);
-    setCategories(data.categories);
+    
+    let cats = data.categories || [];
+    if (!cats.find((c: any) => c.id === 'default')) cats = [{ id: 'default', name: 'General' }, ...cats];
+    setCategories(cats);
+    
     return data;
   };
 
@@ -316,20 +320,22 @@ export default function Home() {
     { id: 'bg-gray-100', name: 'Minimal', color: '#f3f4f6' },
     { id: 'bg-slate-900', name: 'Midnight', color: '#0f172a' },
     { id: 'bg-zinc-950', name: 'Abyss', color: '#09090b' },
+    { id: 'bg-blue-950', name: 'Dark Blue', color: '#172554' },
     { id: 'bg-gradient-to-br from-stone-200 to-stone-300', name: 'Sand', color: '#d6d3d1' },
     { id: 'bg-gradient-to-br from-rose-100 to-pink-200', name: 'Blush', color: '#fbcfe8' },
     { id: 'bg-gradient-to-br from-blue-100 to-cyan-100', name: 'Ocean', color: '#cffafe' },
     { id: 'bg-gradient-to-br from-emerald-100 to-teal-100', name: 'Mint', color: '#ccfbf1' },
     { id: 'bg-gradient-to-br from-violet-100 to-purple-200', name: 'Lavender', color: '#e9d5ff' },
-    { id: 'bg-gradient-to-br from-amber-100 to-orange-200', name: 'Sunset', color: '#fde68a' }
+    { id: 'bg-gradient-to-br from-amber-100 to-yellow-200', name: 'Sunlight', color: '#fde68a' }
   ];
 
   // Theme Logic
-  const isDark = bgTheme.includes('slate-900') || bgTheme.includes('zinc-950');
+  const isDark = bgTheme.includes('slate-900') || bgTheme.includes('zinc-950') || bgTheme.includes('blue-950');
 
   const getFamily = (t: string) => {
     if (t.includes('slate')) return 'slate';
     if (t.includes('zinc')) return 'zinc';
+    if (t.includes('blue-950')) return 'darkBlue';
     if (t.includes('stone')) return 'stone';
     if (t.includes('rose')) return 'rose';
     if (t.includes('blue')) return 'blue';
@@ -343,6 +349,7 @@ export default function Home() {
   const themeConfig = {
     slate: { card: 'bg-slate-800/80 border-slate-700/50 hover:border-slate-600', cardMuted: 'bg-slate-900/80 border-slate-800/80', nav: 'bg-slate-900/90 border-slate-800', input: 'bg-slate-800/80 border-slate-700 text-white placeholder-slate-500 focus:border-slate-500' },
     zinc: { card: 'bg-zinc-900/80 border-zinc-800/50 hover:border-zinc-700', cardMuted: 'bg-zinc-950/80 border-zinc-900/80', nav: 'bg-zinc-950/90 border-zinc-900', input: 'bg-zinc-900/80 border-zinc-800 text-white placeholder-zinc-500 focus:border-zinc-500' },
+    darkBlue: { card: 'bg-blue-900/80 border-blue-800/50 hover:border-blue-700', cardMuted: 'bg-blue-950/80 border-blue-900/80', nav: 'bg-blue-950/90 border-blue-900', input: 'bg-blue-900/80 border-blue-800 text-white placeholder-blue-500 focus:border-blue-500' },
     stone: { card: 'bg-stone-50/80 border-stone-200/50 hover:border-stone-300', cardMuted: 'bg-stone-100/50 border-stone-100', nav: 'bg-stone-100/90 border-stone-200', input: 'bg-stone-50 border-stone-200 text-stone-900 placeholder-stone-400 focus:border-stone-400' },
     rose: { card: 'bg-rose-50/90 border-rose-200/50 hover:border-rose-300', cardMuted: 'bg-rose-100/50 border-rose-100', nav: 'bg-rose-100/90 border-rose-200', input: 'bg-rose-50 border-rose-200 text-rose-900 placeholder-rose-400 focus:border-rose-400' },
     blue: { card: 'bg-blue-50/90 border-blue-200/50 hover:border-blue-300', cardMuted: 'bg-blue-100/50 border-blue-100', nav: 'bg-blue-100/90 border-blue-200', input: 'bg-blue-50 border-blue-200 text-blue-900 placeholder-blue-400 focus:border-blue-400' },
@@ -425,7 +432,7 @@ export default function Home() {
             <div className="space-y-5">
               <div>
                 <button onClick={() => setShowThemePicker(!showThemePicker)} className={`w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wider mb-2 transition-colors ${t.textMuted} hover:text-gray-700`}>
-                  <span>App Theme ({THEMES.find(th => th.id === bgTheme)?.name || 'Minimal'})</span>
+                  <span className="flex items-center gap-1.5"><Palette size={14} /> App Theme ({THEMES.find(th => th.id === bgTheme)?.name || 'Minimal'})</span>
                   {showThemePicker ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </button>
                 <AnimatePresence>
@@ -447,14 +454,14 @@ export default function Home() {
 
               <div>
                 <button onClick={() => setShowShapePicker(!showShapePicker)} className={`w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wider mb-2 transition-colors ${t.textMuted} hover:text-gray-700`}>
-                  <span>Mascot Shape</span>
+                  <span className="flex items-center gap-1.5"><Shapes size={14} /> Mascot Shape</span>
                   {showShapePicker ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </button>
                 <AnimatePresence>
                   {showShapePicker && (
                     <motion.div initial={{height: 0, opacity: 0}} animate={{height: 'auto', opacity: 1}} exit={{height: 0, opacity: 0}} className="overflow-hidden">
                       <div className="grid grid-cols-5 gap-2 pt-1 pb-2">
-                        {['cercle', 'squircle', 'triangle', 'hexagone', 'nuage', 'goutte', 'galet', 'capsule', 'oeuf', 'soleil', 'voiture'].map(s => (
+                        {['cercle', 'squircle', 'triangle', 'hexagone', 'nuage', 'goutte', 'galet', 'capsule', 'oeuf', 'soleil'].map(s => (
                           <button key={s} onClick={() => updateTargetShape(s)}
                             className={`flex flex-col items-center justify-center py-2 rounded-xl border transition-all ${targetShape === s ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
                             <div className="w-8 h-8 flex items-center justify-center pointer-events-none drop-shadow-sm">
@@ -470,7 +477,7 @@ export default function Home() {
 
               <div>
                 <button onClick={() => setShowColorPicker(!showColorPicker)} className={`w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wider mb-2 transition-colors ${t.textMuted} hover:text-gray-700`}>
-                  <span>Mascot Color</span>
+                  <span className="flex items-center gap-1.5"><PaintBucket size={14} /> Mascot Color</span>
                   {showColorPicker ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </button>
                 <AnimatePresence>
@@ -787,30 +794,38 @@ export default function Home() {
       </div>
       
       {/* Bottom Navigation */}
-      <nav className={`fixed bottom-0 left-0 right-0 border-t pb-safe z-40 px-6 py-2 ${t.nav}`}>
-        <div className="max-w-md mx-auto flex justify-between items-center text-xs font-medium text-gray-400">
-          <button 
-            onClick={() => { setActiveTab('lists'); setIsListView(true); }}
-            className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'lists' ? t.textPrimary : t.textSecondary}`}>
-            <ListTodo size={22} />
-            <span>Lists</span>
-          </button>
-          
-          <button 
-            onClick={() => setActiveTab('today')}
-            className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'today' ? t.textPrimary : t.textSecondary}`}>
-            <Calendar size={22} />
-            <span>Today</span>
-          </button>
+      {(() => {
+        const activeColorHex = COLORS.find(c => c.id === mascotColor)?.hex;
+        return (
+          <nav className={`fixed bottom-0 left-0 right-0 border-t pb-safe z-40 px-6 py-2 ${t.nav}`}>
+            <div className="max-w-md mx-auto flex justify-between items-center text-xs font-medium text-gray-400">
+              <button 
+                onClick={() => { setActiveTab('lists'); setIsListView(true); }}
+                className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'lists' ? 'font-semibold' : t.textSecondary}`}
+                style={{ color: activeTab === 'lists' ? activeColorHex : undefined }}>
+                <ListTodo size={22} />
+                <span>Lists</span>
+              </button>
+              
+              <button 
+                onClick={() => setActiveTab('today')}
+                className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'today' ? 'font-semibold' : t.textSecondary}`}
+                style={{ color: activeTab === 'today' ? activeColorHex : undefined }}>
+                <Calendar size={22} />
+                <span>Today</span>
+              </button>
 
-          <button 
-            onClick={() => setActiveTab('stats')}
-            className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'stats' ? t.textPrimary : t.textSecondary}`}>
-            <BarChart3 size={22} />
-            <span>Stats</span>
-          </button>
-        </div>
-      </nav>
+              <button 
+                onClick={() => setActiveTab('stats')}
+                className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'stats' ? 'font-semibold' : t.textSecondary}`}
+                style={{ color: activeTab === 'stats' ? activeColorHex : undefined }}>
+                <BarChart3 size={22} />
+                <span>Stats</span>
+              </button>
+            </div>
+          </nav>
+        );
+      })()}
       
       {/* Padding for bottom nav */}
       <div className="h-20" />
