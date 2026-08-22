@@ -283,15 +283,41 @@ export default function Home() {
 
   // Theme Logic
   const isDark = bgTheme.includes('slate-900') || bgTheme.includes('zinc-950');
+
+  const getFamily = (t: string) => {
+    if (t.includes('slate')) return 'slate';
+    if (t.includes('zinc')) return 'zinc';
+    if (t.includes('stone')) return 'stone';
+    if (t.includes('rose')) return 'rose';
+    if (t.includes('blue')) return 'blue';
+    if (t.includes('emerald')) return 'emerald';
+    if (t.includes('violet')) return 'violet';
+    if (t.includes('amber')) return 'amber';
+    return 'gray';
+  };
+  const family = getFamily(bgTheme);
+
+  const tc = {
+    slate: { card: 'bg-slate-800/80 border-slate-700/50 hover:border-slate-600', cardMuted: 'bg-slate-900/80 border-slate-800/80', nav: 'bg-slate-900/90 border-slate-800', input: 'bg-slate-800/80 border-slate-700 text-white placeholder-slate-500 focus:border-slate-500' },
+    zinc: { card: 'bg-zinc-900/80 border-zinc-800/50 hover:border-zinc-700', cardMuted: 'bg-zinc-950/80 border-zinc-900/80', nav: 'bg-zinc-950/90 border-zinc-900', input: 'bg-zinc-900/80 border-zinc-800 text-white placeholder-zinc-500 focus:border-zinc-500' },
+    stone: { card: 'bg-stone-50/80 border-stone-200/50 hover:border-stone-300', cardMuted: 'bg-stone-100/50 border-stone-100', nav: 'bg-stone-100/90 border-stone-200', input: 'bg-stone-50 border-stone-200 text-stone-900 placeholder-stone-400 focus:border-stone-400' },
+    rose: { card: 'bg-rose-50/90 border-rose-200/50 hover:border-rose-300', cardMuted: 'bg-rose-100/50 border-rose-100', nav: 'bg-rose-100/90 border-rose-200', input: 'bg-rose-50 border-rose-200 text-rose-900 placeholder-rose-400 focus:border-rose-400' },
+    blue: { card: 'bg-blue-50/90 border-blue-200/50 hover:border-blue-300', cardMuted: 'bg-blue-100/50 border-blue-100', nav: 'bg-blue-100/90 border-blue-200', input: 'bg-blue-50 border-blue-200 text-blue-900 placeholder-blue-400 focus:border-blue-400' },
+    emerald: { card: 'bg-emerald-50/90 border-emerald-200/50 hover:border-emerald-300', cardMuted: 'bg-emerald-100/50 border-emerald-100', nav: 'bg-emerald-100/90 border-emerald-200', input: 'bg-emerald-50 border-emerald-200 text-emerald-900 placeholder-emerald-400 focus:border-emerald-400' },
+    violet: { card: 'bg-violet-50/90 border-violet-200/50 hover:border-violet-300', cardMuted: 'bg-violet-100/50 border-violet-100', nav: 'bg-violet-100/90 border-violet-200', input: 'bg-violet-50 border-violet-200 text-violet-900 placeholder-violet-400 focus:border-violet-400' },
+    amber: { card: 'bg-amber-50/90 border-amber-200/50 hover:border-amber-300', cardMuted: 'bg-amber-100/50 border-amber-100', nav: 'bg-amber-100/90 border-amber-200', input: 'bg-amber-50 border-amber-200 text-amber-900 placeholder-amber-400 focus:border-amber-400' },
+    gray: { card: 'bg-white/80 border-gray-200/50 hover:border-gray-300', cardMuted: 'bg-gray-50 border-gray-100', nav: 'bg-white/90 border-gray-100', input: 'bg-white/80 border-gray-200/50 text-gray-800 placeholder-gray-400 focus:border-gray-400' }
+  }[family as keyof typeof tc] || tc.gray;
+
   const t = {
     textPrimary: isDark ? 'text-white' : 'text-gray-900',
-    textSecondary: isDark ? 'text-slate-300' : 'text-gray-500',
-    textMuted: isDark ? 'text-slate-500' : 'text-gray-400',
-    card: isDark ? 'bg-slate-800/80 border-slate-700/50 hover:border-slate-600 shadow-black/20' : 'bg-white/80 border-gray-200/50 hover:border-gray-300 shadow-sm',
-    cardMuted: isDark ? 'bg-slate-900/80 border-slate-800/80' : 'bg-white/50 border-gray-100',
-    input: isDark ? 'bg-slate-800/80 border-slate-700 text-white placeholder-slate-500 focus:border-slate-500' : 'bg-white/80 border-gray-200/50 text-gray-800 placeholder-gray-400 focus:border-gray-400',
-    nav: isDark ? 'bg-slate-900/90 border-slate-800 backdrop-blur-xl' : 'bg-white/90 border-gray-100 backdrop-blur-xl',
-    iconCircle: isDark ? 'bg-slate-700/50 text-slate-300' : 'bg-gray-100 text-gray-500',
+    textSecondary: isDark ? 'text-slate-300' : 'text-gray-600',
+    textMuted: isDark ? 'text-slate-500' : 'text-gray-500',
+    card: tc.card + ' shadow-sm',
+    cardMuted: tc.cardMuted,
+    input: tc.input,
+    nav: tc.nav + ' backdrop-blur-xl',
+    iconCircle: isDark ? 'bg-slate-700/50 text-slate-300' : 'bg-gray-100 text-gray-600',
     pillActive: isDark ? 'bg-slate-700 border-slate-500 text-white shadow-md scale-105' : 'bg-white border-gray-400 text-gray-900 shadow-md scale-105',
     pillInactive: isDark ? 'bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
   };
