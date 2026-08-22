@@ -19,6 +19,16 @@ interface Category { id: string; name: string; }
 const PRIORITY_COLOR = { high: '#ef4444', medium: '#f59e0b', low: '#3b82f6' };
 const PRIORITY_LABEL = { high: 'High', medium: 'Medium', low: 'Low' };
 
+const getListMascot = (cat: {id: string, name: string}, settings: Record<string, {shape: string, color: string}>) => {
+  const shapes = ['squircle', 'carre', 'rond'];
+  const colors = ['encre', 'lagon', 'prune'];
+  const hash = cat.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return {
+    shape: settings[cat.id]?.shape || shapes[hash % shapes.length],
+    color: settings[cat.id]?.color || colors[hash % colors.length]
+  };
+};
+
 export default function Home() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -30,11 +40,15 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [isListView, setIsListView] = useState(true);
+  
+  // Settings Target
+  const [settingsTarget, setSettingsTarget] = useState<string>('global');
 
   // Settings
   const [bgTheme, setBgTheme] = useState('bg-gray-50');
+  const [catSettings, setCatSettings] = useState<Record<string, {shape: string, color: string}>>({});
 
-  // Mascot
+  // Global Mascot
   const [mascotState, setMascotState] = useState<StateId>('idle');
   const [mascotExpression, setMascotExpression] = useState<ExpressionId>('timide');
   const [mascotShape, setMascotShape] = useState('squircle');
@@ -47,10 +61,13 @@ export default function Home() {
     const savedShape = localStorage.getItem('mascotShape');
     const savedColor = localStorage.getItem('mascotColor');
     const savedTheme = localStorage.getItem('bgTheme');
+    const savedCatSet = localStorage.getItem('catSettings');
+    
     if (savedExpr) setMascotExpression(savedExpr);
     if (savedShape) setMascotShape(savedShape);
     if (savedColor) setMascotColor(savedColor);
     if (savedTheme) setBgTheme(savedTheme);
+    if (savedCatSet) setCatSettings(JSON.parse(savedCatSet));
   }, []);
 
   // Save preferences
@@ -59,7 +76,8 @@ export default function Home() {
     localStorage.setItem('mascotShape', mascotShape);
     localStorage.setItem('mascotColor', mascotColor);
     localStorage.setItem('bgTheme', bgTheme);
-  }, [mascotExpression, mascotShape, mascotColor, bgTheme]);
+    localStorage.setItem('catSettings', JSON.stringify(catSettings));
+  }, [mascotExpression, mascotShape, mascotColor, bgTheme, catSettings]);
 
   // AFK Timer (Sleep)
   useEffect(() => {
@@ -73,7 +91,7 @@ export default function Home() {
       timeout = setTimeout(() => {
         setMascotState('sleep');
         setMascotExpression('somnolent');
-      }, 15000); // Sleep after 15s of inactivity
+      }, 15000);
     };
     window.addEventListener('mousemove', resetAFK);
     window.addEventListener('keydown', resetAFK);
@@ -127,7 +145,6 @@ export default function Home() {
       triggerMascot('idle', 'mefiant');
       return;
     }
-    // "Amazed" state
     triggerMascot('wide', 'surpris');
     await mutate({ type: 'ADD_TODO', text: inputText, categoryId: activeCategory });
     setInputText('');
@@ -154,14 +171,6 @@ export default function Home() {
   const handleCategoryClick = (cat: { id: string, name: string }) => {
     setActiveCategory(cat.id);
     setIsListView(false);
-    
-    // Deterministic shape & color morphing based on category
-    const shapes: ('squircle'|'carre'|'rond')[] = ['squircle', 'carre', 'rond'];
-    const colors: ('encre'|'lagon'|'prune')[] = ['encre', 'lagon', 'prune'];
-    const hash = cat.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    
-    setMascotShape(shapes[hash % shapes.length]);
-    setMascotColor(colors[hash % colors.length]);
     triggerMascot('alert', 'excite');
   };
 
@@ -205,6 +214,29 @@ export default function Home() {
   const completedCount = filteredTodos.filter(t => t.completed).length;
   const totalCount = filteredTodos.length;
 
+  const activeCatObj = categories.find(c => c.id === activeCategory) || { id: 'default', name: 'General' };
+  
+  // Hero Mascot Logic
+  const showListHero = !isListView && activeTab === 'lists';
+  const heroShape = showListHero ? getListMascot(activeCatObj, catSettings).shape : mascotShape;
+  const heroColor = showListHero ? getListMascot(activeCatObj, catSettings).color : mascotColor;
+  
+  // Settings Logic
+  const isGlobalTarget = settingsTarget === 'global';
+  const targetCatObj = categories.find(c => c.id === settingsTarget) || { id: 'default', name: 'General' };
+  const targetShape = isGlobalTarget ? mascotShape : getListMascot(targetCatObj, catSettings).shape;
+  const targetColor = isGlobalTarget ? mascotColor : getListMascot(targetCatObj, catSettings).color;
+
+  const updateTargetShape = (s: string) => {
+    if (isGlobalTarget) setMascotShape(s);
+    else setCatSettings(prev => ({ ...prev, [settingsTarget]: { shape: s, color: targetColor } }));
+  };
+
+  const updateTargetColor = (c: string) => {
+    if (isGlobalTarget) setMascotColor(c);
+    else setCatSettings(prev => ({ ...prev, [settingsTarget]: { shape: targetShape, color: c } }));
+  };
+
   return (
     <div className={`min-h-screen w-full ${bgTheme} transition-colors duration-500`}>
       <main className="max-w-md mx-auto min-h-screen flex flex-col font-sans relative shadow-2xl shadow-gray-200/20 bg-white/30 backdrop-blur-3xl">
@@ -212,7 +244,7 @@ export default function Home() {
         <header className="pt-12 pb-6 px-6 sticky top-0 z-30 flex justify-between items-center border-b border-gray-200/30">
           <div className="flex-1">
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-              {activeTab === 'lists' ? (isListView ? 'My Lists' : categories.find(c => c.id === activeCategory)?.name) : activeTab === 'today' ? 'Today' : 'Stats'}
+              {activeTab === 'lists' ? (isListView ? 'My Lists' : activeCatObj.name) : activeTab === 'today' ? 'Today' : 'Stats'}
             </h1>
             {!isListView && activeTab === 'lists' && (
               <p className="text-gray-500 text-sm mt-1 font-medium">{completedCount} of {totalCount} completed</p>
@@ -237,6 +269,23 @@ export default function Home() {
               <button onClick={() => setShowSettings(false)} className="text-gray-400 hover:text-gray-700 bg-gray-100 p-1.5 rounded-full"><X size={18}/></button>
             </div>
 
+            {/* Mascot Preview inside Settings */}
+            <div className="flex flex-col items-center mb-6 bg-gray-50 rounded-2xl p-4">
+               <div className="w-24 h-24 mb-2">
+                 <BloubMascot size={96} state="idle" expression="heureux" shape={targetShape} color={targetColor} />
+               </div>
+               <select 
+                 value={settingsTarget} 
+                 onChange={e => setSettingsTarget(e.target.value)}
+                 className="bg-white border border-gray-200 text-gray-700 text-sm rounded-lg px-3 py-1.5 outline-none font-medium shadow-sm"
+               >
+                 <option value="global">Global App Mascot</option>
+                 {categories.map(c => (
+                   <option key={c.id} value={c.id}>List: {c.name}</option>
+                 ))}
+               </select>
+            </div>
+
             <div className="space-y-5">
               <div>
                 <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">App Theme</label>
@@ -256,11 +305,11 @@ export default function Home() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Default Shape</label>
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Shape</label>
                 <div className="flex gap-2">
                   {['squircle', 'carre', 'rond'].map(s => (
-                    <button key={s} onClick={() => setMascotShape(s)}
-                      className={`flex-1 py-2 text-sm font-medium rounded-xl border ${mascotShape === s ? 'bg-gray-900 text-white border-transparent' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+                    <button key={s} onClick={() => updateTargetShape(s)}
+                      className={`flex-1 py-2 text-sm font-medium rounded-xl border ${targetShape === s ? 'bg-gray-900 text-white border-transparent' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
                       {s}
                     </button>
                   ))}
@@ -268,11 +317,11 @@ export default function Home() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Default Color</label>
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Color</label>
                 <div className="flex gap-2">
                   {['encre', 'lagon', 'prune'].map(c => (
-                    <button key={c} onClick={() => setMascotColor(c)}
-                      className={`flex-1 py-2 text-sm font-medium rounded-xl border ${mascotColor === c ? 'bg-gray-900 text-white border-transparent' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+                    <button key={c} onClick={() => updateTargetColor(c)}
+                      className={`flex-1 py-2 text-sm font-medium rounded-xl border ${targetColor === c ? 'bg-gray-900 text-white border-transparent' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
                       {c}
                     </button>
                   ))}
@@ -325,7 +374,7 @@ export default function Home() {
         {/* Large Hero Mascot */}
         <div className="flex justify-center mb-8 pt-4">
           <div className="cursor-pointer drop-shadow-xl hover:scale-105 transition-transform duration-300" onClick={() => triggerMascot('orbit', 'heureux')}>
-            <BloubMascot size={160} state={mascotState} expression={mascotExpression} shape={mascotShape} color={mascotColor} />
+            <BloubMascot size={160} state={mascotState} expression={mascotExpression} shape={heroShape} color={heroColor} />
           </div>
         </div>
 
@@ -336,13 +385,7 @@ export default function Home() {
             <ul className="space-y-3">
               {categories.map(cat => {
                 const count = todos.filter(t => t.categoryId === cat.id && !t.completed).length;
-                
-                // Deterministic shape & color for this specific list's icon
-                const shapes: ('squircle'|'carre'|'rond')[] = ['squircle', 'carre', 'rond'];
-                const colors: ('encre'|'lagon'|'prune')[] = ['encre', 'lagon', 'prune'];
-                const hash = cat.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                const catShape = shapes[hash % shapes.length];
-                const catColor = colors[hash % colors.length];
+                const { shape: catShape, color: catColor } = getListMascot(cat, catSettings);
 
                 return (
                   <li key={cat.id} className="group flex items-center justify-between bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-gray-300 cursor-pointer transition-all"
@@ -495,7 +538,7 @@ export default function Home() {
       </div>
       
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 pb-safe z-40 px-6 py-2">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-gray-100 pb-safe z-40 px-6 py-2">
         <div className="max-w-md mx-auto flex justify-between items-center text-xs font-medium text-gray-400">
           <button 
             onClick={() => { setActiveTab('lists'); setIsListView(true); }}
@@ -522,7 +565,7 @@ export default function Home() {
       
       {/* Padding for bottom nav */}
       <div className="h-20" />
-    </main>
+      </main>
     </div>
   );
 }
