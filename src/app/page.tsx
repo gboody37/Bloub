@@ -30,6 +30,29 @@ const getListMascot = (cat: {id: string, name: string}, settings: Record<string,
   };
 };
 
+const getDynamicMascotProps = (shape: string, baseColor: string, pendingCount: number): { expr: ExpressionId, color: string } => {
+  if (pendingCount === 0) {
+    if (shape === 'soleil') return { expr: 'hilare', color: 'ambre' }; // bright happy sun
+    if (shape === 'nuage') return { expr: 'heureux', color: 'bleu' }; // clear sky cloud
+    if (shape === 'voiture') return { expr: 'vroum', color: baseColor }; // vrooming
+    if (shape === 'goutte') return { expr: 'heureux', color: baseColor }; // happy tear
+    return { expr: 'fier', color: baseColor }; // proud by default
+  }
+  
+  if (pendingCount > 4) {
+    if (shape === 'soleil') return { expr: 'effraye', color: 'rouge' }; // wide-eyed red sun (overheating!)
+    if (shape === 'nuage') return { expr: 'colere', color: 'gris' }; // angry grey storm cloud
+    if (shape === 'voiture') return { expr: 'klaxon', color: 'orange' }; // honking in traffic jam
+    if (shape === 'goutte') return { expr: 'triste', color: 'bleu' }; // crying
+    if (shape === 'oeuf') return { expr: 'surpris', color: 'creme' }; // shocked / cracking egg
+    return { expr: 'effraye', color: baseColor }; // stressed out
+  }
+  
+  // Normal workload
+  if (shape === 'voiture') return { expr: 'attentif', color: baseColor };
+  return { expr: 'attentif', color: baseColor };
+};
+
 export default function Home() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -512,7 +535,14 @@ export default function Home() {
         {/* Large Hero Mascot */}
         <div className="flex justify-center mb-8 pt-4">
           <div className="cursor-pointer drop-shadow-xl hover:scale-105 transition-transform duration-300" onClick={() => triggerMascot('orbit', 'heureux')}>
-            <BloubMascot size={160} state={mascotState} expression={mascotExpression} shape={heroShape} color={heroColor} />
+            {(() => {
+              const pendingContextCount = showListHero ? todos.filter(t => !t.completed && t.categoryId === activeCategory).length : todos.filter(t => !t.completed).length;
+              const dyn = getDynamicMascotProps(heroShape, heroColor, pendingContextCount);
+              const isAnim = mascotState !== 'idle';
+              return (
+                <BloubMascot size={160} state={mascotState} expression={isAnim ? mascotExpression : dyn.expr} shape={heroShape} color={dyn.color} />
+              );
+            })()}
           </div>
         </div>
 
@@ -527,6 +557,7 @@ export default function Home() {
                 const { shape: catShape, color: catColor } = getListMascot(cat, catSettings);
                 const isMenuOpen = listMenuId === cat.id;
                 const isEditing = editingListId === cat.id;
+                const dynCat = getDynamicMascotProps(catShape, catColor, count);
 
                 return (
                   <motion.li 
@@ -548,7 +579,7 @@ export default function Home() {
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 drop-shadow-sm flex items-center justify-center">
-                            <BloubMascot size={42} state="idle" expression="heureux" shape={catShape} color={catColor} />
+                            <BloubMascot size={42} state="idle" expression={dynCat.expr} shape={catShape} color={dynCat.color} />
                           </div>
                           {isEditing ? (
                             <form onSubmit={(e) => { e.preventDefault(); saveCategoryName(cat.id); }} onClick={e => e.stopPropagation()}>
@@ -620,7 +651,13 @@ export default function Home() {
             </div>
             
             <div className={`w-full mt-6 p-6 rounded-3xl ${t.card} flex items-center gap-4`}>
-              <div className="w-16 h-16"><BloubMascot size={64} state="idle" expression={todos.filter(t => !t.completed).length === 0 ? "fier" : "attentif"} shape={mascotShape} color={mascotColor} /></div>
+              {(() => {
+                const totalPending = todos.filter(t => !t.completed).length;
+                const dynStats = getDynamicMascotProps(mascotShape, mascotColor, totalPending);
+                return (
+                  <div className="w-16 h-16"><BloubMascot size={64} state="idle" expression={dynStats.expr} shape={mascotShape} color={dynStats.color} /></div>
+                );
+              })()}
               <div>
                 <p className={`font-semibold ${t.textPrimary}`}>
                   {todos.filter(t => !t.completed).length === 0 ? "You're all caught up!" : "Keep it up!"}

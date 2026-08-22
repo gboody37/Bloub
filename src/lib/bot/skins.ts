@@ -4,7 +4,8 @@ import {
   profileFromPolygon,
   regularPolygonProfile,
   superellipseProfile,
-  unionOfCirclesProfile
+  unionOfCirclesProfile,
+  roundedPolygon
 } from './shape'
 
 export type ShapeId =
@@ -63,20 +64,20 @@ const sun = normalize(
 )
 
 const car = normalize(
-  profileFromPolygon([
-    { x: 0.7, y: 0.5 },
-    { x: 0.85, y: 0.4 },
-    { x: 0.85, y: 0.2 },
+  profileFromPolygon(roundedPolygon([
+    { x: 0.7, y: 0.4 },
+    { x: 0.8, y: 0.3 },
+    { x: 0.8, y: 0.2 },
     { x: 0.7, y: 0.1 },
     { x: 0.4, y: 0.1 },
-    { x: 0.2, y: -0.2 },
-    { x: 0.0, y: -0.4 },
-    { x: -0.4, y: -0.4 },
+    { x: 0.2, y: -0.15 },
+    { x: 0.0, y: -0.3 },
+    { x: -0.4, y: -0.3 },
     { x: -0.7, y: 0 },
-    { x: -0.85, y: 0.1 },
-    { x: -0.85, y: 0.4 },
-    { x: -0.7, y: 0.5 }
-  ], 0, 0),
+    { x: -0.8, y: 0.1 },
+    { x: -0.8, y: 0.3 },
+    { x: -0.7, y: 0.4 }
+  ], 0.15), 0, 0),
   1.15
 )
 

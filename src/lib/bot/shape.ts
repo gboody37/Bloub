@@ -238,7 +238,7 @@ export function unionOfCirclesProfile(circles: Array<{ x: number; y: number; r: 
  * rayon `rc`. Les sommets sont donc a poser au rayon voulu MOINS rc.
  * Attend un polygone en sens horaire (repere ecran, y vers le bas).
  */
-function roundedPolygon(verts: Point[], rc: number, arcSteps = 10): Point[] {
+export function roundedPolygon(verts: Point[], rc: number, arcSteps = 10): Point[] {
   const n = verts.length
   const out: Point[] = []
   const normal = (a: Point, b: Point) => {
