@@ -232,15 +232,6 @@ export default function BloubMascot({
           <path data-mask-body="" fill="#fff" />
           {/* Black eye holes — cut through the body */}
           <g data-mask-eyes="" />
-          {/* Cheese holes for fromage shape */}
-          {shape === 'fromage' && (
-            <g fill="#000">
-              <circle cx="-35" cy="-25" r="10" />
-              <circle cx="45" cy="20" r="8" />
-              <circle cx="-15" cy="40" r="7" />
-              <circle cx="30" cy="-35" r="11" />
-            </g>
-          )}
         </mask>
       </defs>
 
@@ -249,6 +240,26 @@ export default function BloubMascot({
 
       {/* Body with eye holes punched via mask */}
       <path data-body="" mask={`url(#${maskId})`} />
+
+      {/* Cheese holes rendered on top of the body so they look indented, not like eyes */}
+      {shape === 'fromage' && (
+        <g fill="#000" opacity="0.14" style={{ pointerEvents: 'none' }}>
+          <circle cx="-35" cy="-25" r="10" />
+          <circle cx="45" cy="20" r="8" />
+          <circle cx="-15" cy="40" r="7" />
+          <circle cx="30" cy="-35" r="11" />
+        </g>
+      )}
+
+      {/* Sprout leaf on top left */}
+      {shape === 'fromage' && (
+        <g style={{ pointerEvents: 'none' }}>
+          {/* Stem */}
+          <path d="M -42,-45 Q -40,-60 -32,-68" stroke="#78350f" strokeWidth="4" fill="none" strokeLinecap="round" />
+          {/* Leaf */}
+          <path d="M -32,-68 C -22,-76 -10,-72 -14,-58 C -22,-58 -26,-63 -30,-68 Z" fill="#22c55e" />
+        </g>
+      )}
 
       {/* Arcs (rings, comet trails, swoosh) */}
       <g data-arcs="" />
