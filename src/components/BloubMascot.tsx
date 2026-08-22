@@ -178,7 +178,7 @@ export default function BloubMascot({
   // Pointer follow (window-wide)
   useEffect(() => {
     const handleMove = (e: PointerEvent) => {
-      if (e.pointerType === 'touch' || !engineRef.current) return;
+      if (!engineRef.current) return;
       const hw = window.innerWidth / 2;
       const hh = window.innerHeight / 2;
       const yaw = ((e.clientX - hw) / hw) * 55;
@@ -195,11 +195,15 @@ export default function BloubMascot({
     };
 
     window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerdown', handleMove);
     window.addEventListener('pointerleave', handleLeave);
+    window.addEventListener('pointercancel', handleLeave);
     
     return () => {
       window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerdown', handleMove);
       window.removeEventListener('pointerleave', handleLeave);
+      window.removeEventListener('pointercancel', handleLeave);
     };
   }, []);
 
