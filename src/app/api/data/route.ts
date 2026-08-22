@@ -63,6 +63,12 @@ export async function POST(request: Request) {
       data.categories = data.categories.filter((c: any) => c.id !== body.id);
       // Move orphaned todos to default
       data.todos = data.todos.map((t: any) => t.categoryId === body.id ? { ...t, categoryId: 'default' } : t);
+    } else if (body.type === 'SET_PRIORITY') {
+      const idx = data.todos.findIndex((t: any) => t.id === body.id);
+      if (idx !== -1) data.todos[idx].priority = body.priority;
+    } else if (body.type === 'SET_DUE_DATE') {
+      const idx = data.todos.findIndex((t: any) => t.id === body.id);
+      if (idx !== -1) data.todos[idx].dueDate = body.dueDate ?? null;
     }
 
     await fs.writeFile(dataFilePath, JSON.stringify(data, null, 2));
