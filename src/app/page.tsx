@@ -32,9 +32,9 @@ const getListMascot = (cat: {id: string, name: string}, settings: Record<string,
 
 const getDynamicMascotProps = (shape: string, baseColor: string, pendingCount: number): { expr: ExpressionId, color: string } => {
   if (pendingCount === 0) {
-    if (shape === 'soleil') return { expr: 'hilare', color: 'ambre' }; // bright happy sun
-    if (shape === 'nuage') return { expr: 'heureux', color: 'bleu' }; // clear sky cloud
-    if (shape === 'goutte') return { expr: 'heureux', color: baseColor }; // happy tear
+    if (shape === 'soleil') return { expr: 'hilare', color: baseColor }; 
+    if (shape === 'nuage') return { expr: 'heureux', color: baseColor }; 
+    if (shape === 'goutte') return { expr: 'heureux', color: baseColor }; 
     return { expr: 'fier', color: baseColor }; // proud by default
   }
   
