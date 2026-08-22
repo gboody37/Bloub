@@ -678,7 +678,7 @@ export default function Home() {
                   {showShapePicker && (
                     <motion.div initial={{height: 0, opacity: 0}} animate={{height: 'auto', opacity: 1}} exit={{height: 0, opacity: 0}} className="overflow-hidden">
                       <div className="grid grid-cols-5 gap-2 pt-1 pb-2">
-                        {['cercle', 'squircle', 'triangle', 'hexagone', 'nuage', 'goutte', 'galet', 'capsule', 'oeuf', 'soleil', 'fromage'].map(s => (
+                        {['cercle', 'squircle', 'triangle', 'hexagone', 'nuage', 'goutte', 'galet', 'capsule', 'oeuf', 'soleil', 'fromage', 'livre'].map(s => (
                           <button key={s} onClick={() => updateTargetShape(s)}
                             className={`flex flex-col items-center justify-center py-2 rounded-xl border transition-all ${targetShape === s ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
                             <div className="w-8 h-8 flex items-center justify-center pointer-events-none drop-shadow-sm">

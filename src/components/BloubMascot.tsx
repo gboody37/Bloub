@@ -262,6 +262,18 @@ export default function BloubMascot({
         </g>
       )}
 
+      {/* Book pages and bookmark */}
+      {shape === 'livre' && isBaseBodyActive && (
+        <g style={{ pointerEvents: 'none' }}>
+          {/* Bookmark Ribbon hanging from bottom center */}
+          <path d="M -5,40 L -8,68 L 4,65 L 2,40 Z" fill="#ef4444" />
+          {/* Open pages background */}
+          <path d="M -42,-42 C -20,-38 0,-42 0,-42 C 0,-42 20,-38 42,-42 L 42,42 C 20,46 0,42 0,42 C 0,42 -20,46 -42,42 Z" fill="#fbfaf3" mask={`url(#${maskId})`} stroke="#000" strokeWidth="1.5" strokeOpacity="0.08" />
+          {/* Book center binding crease */}
+          <path d="M 0,-42 L 0,42" stroke="#000" strokeWidth="2" opacity="0.15" mask={`url(#${maskId})`} />
+        </g>
+      )}
+
       {/* Arcs (rings, comet trails, swoosh) */}
       <g data-arcs="" />
 
