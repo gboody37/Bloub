@@ -220,9 +220,6 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="w-16 h-16 drop-shadow-sm pointer-events-auto flex items-center justify-center -my-4" onClick={() => triggerMascot('orbit', 'heureux')}>
-              <BloubMascot size={80} state={mascotState} expression={mascotExpression} shape={mascotShape} color={mascotColor} />
-            </div>
             <button onClick={() => setShowSettings(true)} className="p-2.5 bg-white/60 text-gray-400 hover:text-gray-700 hover:bg-white rounded-full transition-all active:scale-95 shadow-sm backdrop-blur-md">
               <Settings size={20} />
             </button>
@@ -325,6 +322,13 @@ export default function Home() {
       {/* Main Content Area */}
       <div className="px-6 py-6 flex-1 relative">
         
+        {/* Large Hero Mascot */}
+        <div className="flex justify-center mb-8 pt-4">
+          <div className="cursor-pointer drop-shadow-xl hover:scale-105 transition-transform duration-300" onClick={() => triggerMascot('orbit', 'heureux')}>
+            <BloubMascot size={160} state={mascotState} expression={mascotExpression} shape={mascotShape} color={mascotColor} />
+          </div>
+        </div>
+
         {/* Lists Master View */}
         {activeTab === 'lists' && isListView ? (
           <div className="space-y-4">
