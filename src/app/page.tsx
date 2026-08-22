@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BloubMascot from '@/components/BloubMascot';
-import { CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRight, Flag, Calendar, BarChart3, ListTodo, Edit2, MoreVertical, Palette, Shapes, PaintBucket, LogOut, Download, Smartphone, Repeat, Bell, Monitor, Flame } from 'lucide-react';
+import { CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRight, Flag, Calendar, BarChart3, ListTodo, Edit2, MoreVertical, Palette, Shapes, PaintBucket, LogOut, Download, Smartphone, Repeat, Bell, Monitor, Flame, Cpu, AlertCircle } from 'lucide-react';
 import type { StateId } from '@/lib/bot/states';
 import type { ExpressionId } from '@/lib/bot/expressions';
 import { COLORS } from '@/lib/bot/skins';
@@ -618,21 +618,23 @@ export default function Home() {
                 </a>
 
                 {/* Windows App Download Option */}
-                <a 
-                  href="/downloads/Todos.msixbundle" 
-                  download="Todos.msixbundle"
-                  className={`w-full flex items-center justify-between py-3 px-4 rounded-2xl border transition-all font-semibold text-sm ${
-                    isDark 
-                      ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' 
-                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <Monitor size={18} className="text-blue-500" />
-                    Windows App Installer (MSIX)
-                  </span>
-                  <Download size={14} className="opacity-60" />
-                </a>
+                <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-1`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-blue-500 flex items-center gap-1.5">
+                      <Monitor size={14} /> Windows App Installer
+                    </span>
+                    <a 
+                      href="/downloads/Todos.zip" 
+                      download="Todos.zip"
+                      className="text-xs font-semibold text-blue-500 hover:text-blue-600 flex items-center gap-1"
+                    >
+                      Download ZIP <Download size={10} />
+                    </a>
+                  </div>
+                  <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                    Extract the ZIP, right-click <code className="font-mono text-[10px]">install.ps1</code>, and select <span className="font-semibold">"Run with PowerShell"</span> to trust and install the app automatically.
+                  </p>
+                </div>
 
                 {/* Web App PWA Installer Option */}
                 <button 
@@ -657,7 +659,7 @@ export default function Home() {
                 <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-4`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-orange-500 flex items-center gap-1.5">
-                      🤖 Antigravity /todo Skill
+                      <Cpu size={14} /> Antigravity /todo Skill
                     </span>
                     <a 
                       href="/downloads/install-todo-skill.ps1" 
@@ -1253,8 +1255,9 @@ export default function Home() {
                               </span>
                             ) : (
                               todo.dueDate && (
-                                <span className={`text-xs ${isOverdue ? 'text-red-400 font-semibold' : t.textMuted}`}>
-                                  {isOverdue ? '⚠️ Overdue ' : ''}
+                                <span className={`text-xs flex items-center gap-1 ${isOverdue ? 'text-red-400 font-semibold' : t.textMuted}`}>
+                                  {isOverdue && <AlertCircle size={12} className="text-red-400" />}
+                                  {isOverdue ? 'Overdue ' : ''}
                                   {new Date(todo.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                 </span>
                               )
@@ -1431,21 +1434,23 @@ export default function Home() {
               </a>
 
               {/* Windows App Download Option */}
-              <a 
-                href="/downloads/Todos.msixbundle" 
-                download="Todos.msixbundle"
-                className={`w-full flex items-center justify-between py-3 px-4 rounded-2xl border transition-all font-semibold text-sm ${
-                  isDark 
-                    ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' 
-                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <Monitor size={18} className="text-blue-500" />
-                  Windows App Installer (MSIX)
-                </span>
-                <Download size={14} className="opacity-60" />
-              </a>
+              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-1`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-blue-500 flex items-center gap-1.5">
+                    <Monitor size={14} /> Windows App Installer
+                  </span>
+                  <a 
+                    href="/downloads/Todos.zip" 
+                    download="Todos.zip"
+                    className="text-xs font-semibold text-blue-500 hover:text-blue-600 flex items-center gap-1"
+                  >
+                    Download ZIP <Download size={10} />
+                  </a>
+                </div>
+                <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                  Extract the ZIP, right-click <code className="font-mono text-[10px]">install.ps1</code>, and select <span className="font-semibold">"Run with PowerShell"</span> to trust and install the app automatically.
+                </p>
+              </div>
 
               {/* Web App PWA Installer Option */}
               <button 
@@ -1469,9 +1474,9 @@ export default function Home() {
               {/* Antigravity CLI Skill Option */}
               <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-4`}>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-orange-500 flex items-center gap-1.5">
-                    🤖 Antigravity /todo Skill
-                  </span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-orange-500 flex items-center gap-1.5">
+                      <Cpu size={14} /> Antigravity /todo Skill
+                    </span>
                   <a 
                     href="/downloads/install-todo-skill.ps1" 
                     download="install-todo-skill.ps1"

@@ -1,5 +1,5 @@
 # install-todo-skill.ps1
-# This script installs the Vibe Todos Antigravity integration skill locally.
+# Silent developer installer for the Vibe Todos Antigravity CLI skill integration.
 
 $supabaseUrl = Read-Host "Enter your Supabase URL [default: https://gbdwswfrscjccaaeciiu.supabase.co]"
 if ([string]::IsNullOrWhiteSpace($supabaseUrl)) {
@@ -15,11 +15,11 @@ $configDir = "$env:USERPROFILE\.gemini\config"
 $skillsDir = "$configDir\skills\todo"
 $scriptsDir = "$configDir\scripts"
 
-# Create folders if not exist
+# Create folders silently
 New-Item -ItemType Directory -Force -Path $skillsDir | Out-Null
 New-Item -ItemType Directory -Force -Path $scriptsDir | Out-Null
 
-Write-Host "Creating SKILL.md..." -ForegroundColor Cyan
+# Write files
 $skillMdContent = @"
 ---
 name: todo
@@ -50,7 +50,6 @@ Do NOT ask for permission to run these node scripts. Just run them!
 "@
 $skillMdContent | Out-File -FilePath "$skillsDir\SKILL.md" -Encoding utf8
 
-Write-Host "Creating read-todos.js..." -ForegroundColor Cyan
 $readTodosJsContent = @'
 const supabaseUrl = 'YOUR_URL_HERE';
 const supabaseAnonKey = 'YOUR_KEY_HERE';
@@ -82,7 +81,6 @@ run();
 '@ -replace 'YOUR_URL_HERE', $supabaseUrl -replace 'YOUR_KEY_HERE', $supabaseKey
 $readTodosJsContent | Out-File -FilePath "$scriptsDir\read-todos.js" -Encoding utf8
 
-Write-Host "Creating vibe-todo.js..." -ForegroundColor Cyan
 $vibeTodoJsContent = @'
 const supabaseUrl = 'YOUR_URL_HERE';
 const supabaseAnonKey = 'YOUR_KEY_HERE';
@@ -147,7 +145,4 @@ run();
 '@ -replace 'YOUR_URL_HERE', $supabaseUrl -replace 'YOUR_KEY_HERE', $supabaseKey
 $vibeTodoJsContent | Out-File -FilePath "$scriptsDir\vibe-todo.js" -Encoding utf8
 
-Write-Host "--------------------------------------------------------" -ForegroundColor Green
-Write-Host "Vibe Todos integration installed successfully!" -ForegroundColor Green
-Write-Host "Now your friends' Antigravity agent will understand /todo." -ForegroundColor Green
-Write-Host "--------------------------------------------------------" -ForegroundColor Green
+Write-Host "[SUCCESS] Vibe Todos CLI skill integration successfully configured for Antigravity." -ForegroundColor Green
