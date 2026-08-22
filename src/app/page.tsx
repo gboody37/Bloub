@@ -632,7 +632,7 @@ export default function Home() {
                     </a>
                   </div>
                   <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                    Extract the ZIP, right-click <code className="font-mono text-[10px]">install.ps1</code>, and select <span className="font-semibold">"Run with PowerShell"</span> to trust and install the app automatically.
+                    Extract the ZIP and double-click <code className="font-mono text-[10px] font-bold text-blue-500">install.bat</code> to trust the certificate and install the app automatically.
                   </p>
                 </div>
 
@@ -1448,7 +1448,7 @@ export default function Home() {
                   </a>
                 </div>
                 <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                  Extract the ZIP, right-click <code className="font-mono text-[10px]">install.ps1</code>, and select <span className="font-semibold">"Run with PowerShell"</span> to trust and install the app automatically.
+                  Extract the ZIP and double-click <code className="font-mono text-[10px] font-bold text-blue-500">install.bat</code> to trust the certificate and install the app automatically.
                 </p>
               </div>
 
