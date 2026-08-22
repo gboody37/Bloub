@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BloubMascot from '@/components/BloubMascot';
-import { CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRight, Flag, Calendar, BarChart3, ListTodo, Edit2, MoreVertical, Palette, Shapes, PaintBucket } from 'lucide-react';
+import { CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRight, Flag, Calendar, BarChart3, ListTodo, Edit2, MoreVertical, Palette, Shapes, PaintBucket, LogOut } from 'lucide-react';
 import type { StateId } from '@/lib/bot/states';
 import type { ExpressionId } from '@/lib/bot/expressions';
 import { COLORS } from '@/lib/bot/skins';
@@ -544,6 +544,24 @@ export default function Home() {
                     </motion.div>
                   )}
                 </AnimatePresence>
+              </div>
+              
+              {/* Sign Out Button */}
+              <div className={`mt-6 pt-4 border-t ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
+                <button
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    setShowSettings(false);
+                  }}
+                  className={`w-full py-3 px-4 font-semibold rounded-2xl transition-all active:scale-95 text-sm flex items-center justify-center gap-2 ${
+                    isDark 
+                      ? 'bg-red-950/30 hover:bg-red-950/50 text-red-400 border border-red-900/30' 
+                      : 'bg-red-50 hover:bg-red-100 text-red-600 border border-red-100'
+                  }`}
+                >
+                  <LogOut size={16} />
+                  Sign Out
+                </button>
               </div>
             </div>
           </div>
