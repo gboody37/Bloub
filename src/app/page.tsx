@@ -587,6 +587,142 @@ export default function Home() {
             Download App
           </button>
         </motion.div>
+
+        {/* Download Menu Modal (Login Page) */}
+        {showDownloadMenu && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-6 text-left"
+            onClick={() => setShowDownloadMenu(false)}>
+            <div className={`rounded-3xl p-7 max-w-sm w-full shadow-2xl animate-pop-in ${isDark ? 'bg-slate-900 border border-slate-800 text-slate-100' : 'bg-white text-gray-900'}`}
+              onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold">Download Vibe Todos</h2>
+                <button onClick={() => setShowDownloadMenu(false)} className={`p-1.5 rounded-full ${isDark ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-gray-100 text-gray-400 hover:text-gray-700'}`}><X size={18}/></button>
+              </div>
+              
+              <div className="space-y-3 pt-2">
+                {/* Android APK Download Option */}
+                <a 
+                  href="/downloads/Todos.apk" 
+                  download="Todos.apk"
+                  className={`w-full flex items-center justify-between py-3 px-4 rounded-2xl border transition-all font-semibold text-sm ${
+                    isDark 
+                      ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' 
+                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Smartphone size={18} className="text-green-500" />
+                    Android Installer (APK)
+                  </span>
+                  <Download size={14} className="opacity-60" />
+                </a>
+
+                {/* Windows App Download Option */}
+                <a 
+                  href="/downloads/Todos.msixbundle" 
+                  download="Todos.msixbundle"
+                  className={`w-full flex items-center justify-between py-3 px-4 rounded-2xl border transition-all font-semibold text-sm ${
+                    isDark 
+                      ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' 
+                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Monitor size={18} className="text-blue-500" />
+                    Windows App Installer (MSIX)
+                  </span>
+                  <Download size={14} className="opacity-60" />
+                </a>
+
+                {/* Web App PWA Installer Option */}
+                <button 
+                  onClick={() => {
+                    setShowDownloadMenu(false);
+                    setShowInstallGuide(true);
+                  }}
+                  className={`w-full flex items-center justify-between py-3 px-4 rounded-2xl border transition-all font-semibold text-sm text-left ${
+                    isDark 
+                      ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' 
+                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Smartphone size={18} className="text-indigo-500" />
+                    Install Web App (PWA Guide)
+                  </span>
+                  <ChevronRight size={14} className="opacity-60" />
+                </button>
+
+                {/* Antigravity CLI Skill Option */}
+                <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-4`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-orange-500 flex items-center gap-1.5">
+                      🤖 Antigravity /todo Skill
+                    </span>
+                    <a 
+                      href="/downloads/install-todo-skill.ps1" 
+                      download="install-todo-skill.ps1"
+                      className="text-xs font-semibold text-blue-500 hover:text-blue-600 flex items-center gap-1"
+                    >
+                      Download <Download size={10} />
+                    </a>
+                  </div>
+                  <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                    To control this app using `/todo` inside Antigravity, download this script, open PowerShell, and run:
+                    <code className={`block mt-1.5 p-1.5 rounded font-mono text-[10px] ${isDark ? 'bg-slate-900 text-orange-300' : 'bg-gray-100 text-orange-700'}`}>
+                      .\install-todo-skill.ps1
+                    </code>
+                  </p>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* PWA Install Guide Modal (Login Page) */}
+        {showInstallGuide && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-6 text-left"
+            onClick={() => setShowInstallGuide(false)}>
+            <div className={`rounded-3xl p-7 max-w-sm w-full shadow-2xl animate-pop-in ${isDark ? 'bg-slate-900 border border-slate-800 text-slate-100' : 'bg-white text-gray-900'}`}
+              onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-bold">Install Web App (PWA)</h2>
+                <button onClick={() => setShowInstallGuide(false)} className={`p-1.5 rounded-full ${isDark ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-gray-100 text-gray-400 hover:text-gray-700'}`}><X size={18}/></button>
+              </div>
+
+              <div className="space-y-5">
+                <div className="flex gap-3 items-start">
+                  <Smartphone size={20} className="text-blue-500 mt-1 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-semibold">iPhone & iPad (Safari)</h4>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Tap the share icon <span className="font-semibold">"Share"</span> at the bottom of Safari, and select <span className="font-semibold">"Add to Home Screen"</span>.</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 items-start">
+                  <Smartphone size={20} className="text-green-500 mt-1 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-semibold">Android / Chrome / Brave</h4>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Tap the menu dots in the top-right and select <span className="font-semibold">"Install App"</span> or <span className="font-semibold">"Add to Home Screen"</span>.</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 items-start">
+                  <Monitor size={20} className="text-purple-500 mt-1 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-semibold">Firefox / Other Browsers</h4>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Look for the install or download icon in the URL search bar, or use Chrome/Brave/Edge to install as a desktop shortcut.</p>
+                  </div>
+                </div>
+              </div>
+              
+              <button onClick={() => setShowInstallGuide(false)} className="mt-6 w-full bg-blue-600 text-white font-semibold py-3.5 rounded-2xl shadow-md hover:bg-blue-700 transition-all active:scale-95">
+                Got it
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
