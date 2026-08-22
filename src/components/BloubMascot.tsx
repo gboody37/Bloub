@@ -256,8 +256,9 @@ export default function BloubMascot({
         <g style={{ pointerEvents: 'none' }}>
           {/* Stem - matches body color for seamless integration */}
           <path d="M -44,-45 Q -52,-58 -48,-68" stroke={ink} strokeWidth="5" fill="none" strokeLinecap="round" />
-          {/* Leaf - green leaf sprout */}
-          <path d="M -48,-68 C -58,-76 -54,-85 -42,-76 C -38,-68 -42,-64 -48,-68 Z" fill="#22c55e" />
+          {/* Two-tone leaf sprout */}
+          <path d="M -48,-68 C -58,-76 -54,-85 -42,-76 Z" fill="#15803d" />
+          <path d="M -48,-68 C -42,-64 -38,-68 -42,-76 Z" fill="#4ade80" />
         </g>
       )}
 
