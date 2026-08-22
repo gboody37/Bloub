@@ -22,8 +22,8 @@ const PRIORITY_COLOR = { high: '#ef4444', medium: '#f59e0b', low: '#3b82f6' };
 const PRIORITY_LABEL = { high: 'High', medium: 'Medium', low: 'Low' };
 
 const getListMascot = (cat: {id: string, name: string}, settings: Record<string, {shape: string, color: string}>) => {
-  const shapes = ['squircle', 'carre', 'rond'];
-  const colors = ['encre', 'lagon', 'prune'];
+  const shapes = ['squircle', 'cercle', 'galet', 'hexagone', 'capsule'];
+  const colors = ['vert', 'bleu', 'violet', 'orange', 'rose', 'turquoise', 'ambre'];
   const hash = cat.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return {
     shape: settings[cat.id]?.shape || shapes[hash % shapes.length],
@@ -113,14 +113,14 @@ export default function Home() {
   const [settingsTarget, setSettingsTarget] = useState<string>('global');
 
   // Settings
-  const [bgTheme, setBgTheme] = useState('bg-gray-50');
+  const [bgTheme, setBgTheme] = useState('bg-slate-900');
   const [catSettings, setCatSettings] = useState<Record<string, {shape: string, color: string}>>({});
 
   // Global Mascot
   const [mascotState, setMascotState] = useState<StateId>('idle');
   const [mascotExpression, setMascotExpression] = useState<ExpressionId>('timide');
   const [mascotShape, setMascotShape] = useState('squircle');
-  const [mascotColor, setMascotColor] = useState('encre');
+  const [mascotColor, setMascotColor] = useState('bleu');
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
