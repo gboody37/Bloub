@@ -38,6 +38,7 @@ export default function Home() {
   const [newCatText, setNewCatText] = useState('');
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showThemePicker, setShowThemePicker] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [isListView, setIsListView] = useState(true);
   
@@ -265,10 +266,20 @@ export default function Home() {
     else setCatSettings(prev => ({ ...prev, [settingsTarget]: { shape: targetShape, color: c } }));
   };
 
+  const THEMES = [
+    { id: 'bg-gray-50', name: 'Minimal', color: '#f9fafb' },
+    { id: 'bg-slate-900', name: 'Midnight', color: '#0f172a' },
+    { id: 'bg-zinc-950', name: 'Abyss', color: '#09090b' },
+    { id: 'bg-stone-100', name: 'Sand', color: '#f5f5f4' },
+    { id: 'bg-rose-50', name: 'Blush', color: '#fff1f2' },
+    { id: 'bg-blue-50', name: 'Ocean', color: '#eff6ff' },
+    { id: 'bg-emerald-50', name: 'Mint', color: '#ecfdf5' },
+    { id: 'bg-violet-50', name: 'Lavender', color: '#f5f3ff' }
+  ];
+
   // Theme Logic
-  const isDark = bgTheme === 'bg-slate-900';
+  const isDark = bgTheme === 'bg-slate-900' || bgTheme === 'bg-zinc-950';
   const t = {
-    mainColumn: isDark ? 'bg-slate-900/60 shadow-black/40' : 'bg-white/30 shadow-gray-200/20',
     textPrimary: isDark ? 'text-white' : 'text-gray-900',
     textSecondary: isDark ? 'text-slate-300' : 'text-gray-500',
     textMuted: isDark ? 'text-slate-500' : 'text-gray-400',
@@ -282,8 +293,8 @@ export default function Home() {
   };
 
   return (
-    <div className={`min-h-screen w-full ${bgTheme} transition-colors duration-500`}>
-      <main className={`max-w-md mx-auto min-h-screen flex flex-col font-sans relative shadow-2xl backdrop-blur-3xl transition-colors duration-500 ${t.mainColumn}`}>
+    <div className={`min-h-screen w-full ${bgTheme} transition-colors duration-500 font-sans`}>
+      <main className={`w-full max-w-md mx-auto min-h-screen flex flex-col relative transition-colors duration-500`}>
         {/* Header */}
         <header className={`pt-12 pb-6 px-6 sticky top-0 z-30 flex justify-between items-center border-b transition-colors duration-500 ${isDark ? 'border-slate-800' : 'border-gray-200/30'}`}>
           <div className="flex-1">
@@ -339,20 +350,25 @@ export default function Home() {
 
             <div className="space-y-5">
               <div>
-                <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${t.textMuted}`}>App Theme</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { id: 'bg-gray-50', name: 'Minimal' },
-                    { id: 'bg-slate-900', name: 'Midnight' },
-                    { id: 'bg-stone-100', name: 'Sand' },
-                    { id: 'bg-rose-50', name: 'Blush' }
-                  ].map(theme => (
-                    <button key={theme.id} onClick={() => setBgTheme(theme.id)}
-                      className={`py-2 text-sm font-medium rounded-xl border transition-all ${bgTheme === theme.id ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
-                      {theme.name}
-                    </button>
-                  ))}
-                </div>
+                <button onClick={() => setShowThemePicker(!showThemePicker)} className={`w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wider mb-2 transition-colors ${t.textMuted} hover:text-gray-700`}>
+                  <span>App Theme ({THEMES.find(th => th.id === bgTheme)?.name || 'Minimal'})</span>
+                  {showThemePicker ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </button>
+                <AnimatePresence>
+                  {showThemePicker && (
+                    <motion.div initial={{height: 0, opacity: 0}} animate={{height: 'auto', opacity: 1}} exit={{height: 0, opacity: 0}} className="overflow-hidden">
+                      <div className="grid grid-cols-2 gap-2 pt-1 pb-2">
+                        {THEMES.map(theme => (
+                          <button key={theme.id} onClick={() => setBgTheme(theme.id)}
+                            className={`flex items-center gap-2 py-2 px-3 text-sm font-medium rounded-xl border transition-all ${bgTheme === theme.id ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-400'}`}>
+                            <div className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-inner flex-shrink-0" style={{ backgroundColor: theme.color }} />
+                            {theme.name}
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               <div>
