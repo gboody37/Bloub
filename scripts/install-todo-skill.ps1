@@ -1,15 +1,23 @@
 # install-todo-skill.ps1
-# Silent developer installer for the Vibe Todos Antigravity CLI skill integration.
+# Developer installer for the Vibe Todos Antigravity CLI skill integration with sync key support.
 
-$supabaseUrl = Read-Host "Enter your Supabase URL [default: https://gbdwswfrscjccaaeciiu.supabase.co]"
-if ([string]::IsNullOrWhiteSpace($supabaseUrl)) {
-    $supabaseUrl = "https://gbdwswfrscjccaaeciiu.supabase.co"
+$syncKey = Read-Host "Enter your Antigravity Sync Key (copy from Web App Settings)"
+if ([string]::IsNullOrWhiteSpace($syncKey)) {
+    Write-Host "[ERROR] A Sync Key is required to configure the skill." -ForegroundColor Red
+    exit 1
 }
 
-$supabaseKey = Read-Host "Enter your Supabase Anon Key [default: sb_publishable_WCo_qddtShwOHZQGhsPwdg_nwgydoqr]"
-if ([string]::IsNullOrWhiteSpace($supabaseKey)) {
-    $supabaseKey = "sb_publishable_WCo_qddtShwOHZQGhsPwdg_nwgydoqr"
+# Parse the user_id from the Sync Key
+if ($syncKey -like "AGY-TODO-*") {
+    $encoded = $syncKey.Substring(9)
+    $decodedBytes = [System.Convert]::FromBase64String($encoded)
+    $userId = [System.Text.Encoding]::UTF8.GetString($decodedBytes)
+} else {
+    $userId = $syncKey # Fallback if raw UUID is pasted
 }
+
+$supabaseUrl = "https://gbdwswfrscjccaaeciiu.supabase.co"
+$supabaseKey = "sb_publishable_WCo_qddtShwOHZQGhsPwdg_nwgydoqr"
 
 $configDir = "$env:USERPROFILE\.gemini\config"
 $skillsDir = "$configDir\skills\todo"
@@ -19,7 +27,17 @@ $scriptsDir = "$configDir\scripts"
 New-Item -ItemType Directory -Force -Path $skillsDir | Out-Null
 New-Item -ItemType Directory -Force -Path $scriptsDir | Out-Null
 
-# Write files
+# Write config JSON
+$configJson = @"
+{
+  "supabaseUrl": "$supabaseUrl",
+  "supabaseAnonKey": "$supabaseKey",
+  "userId": "$userId"
+}
+"@
+$configJson | Out-File -FilePath "$scriptsDir\vibe-todo-config.json" -Encoding utf8
+
+# Write SKILL.md
 $skillMdContent = @"
 ---
 name: todo
@@ -50,9 +68,21 @@ Do NOT ask for permission to run these node scripts. Just run them!
 "@
 $skillMdContent | Out-File -FilePath "$skillsDir\SKILL.md" -Encoding utf8
 
+# Write read-todos.js
 $readTodosJsContent = @'
-const supabaseUrl = 'YOUR_URL_HERE';
-const supabaseAnonKey = 'YOUR_KEY_HERE';
+const fs = require('fs');
+const path = require('path');
+
+let config;
+try {
+  const configPath = path.join(__dirname, 'vibe-todo-config.json');
+  config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+} catch (err) {
+  console.error('Error reading config file:', err.message);
+  process.exit(1);
+}
+
+const { supabaseUrl, supabaseAnonKey, userId } = config;
 
 const headers = {
   'apikey': supabaseAnonKey,
@@ -64,8 +94,8 @@ const headers = {
 async function run() {
   try {
     const [resCat, resTodo] = await Promise.all([
-      fetch(`${supabaseUrl}/rest/v1/categories`, { headers }),
-      fetch(`${supabaseUrl}/rest/v1/todos?completed=eq.false`, { headers })
+      fetch(`${supabaseUrl}/rest/v1/categories?or=(user_id.eq.${userId},id.eq.default)`, { headers }),
+      fetch(`${supabaseUrl}/rest/v1/todos?completed=eq.false&user_id=eq.${userId}`, { headers })
     ]);
     
     const categories = await resCat.json();
@@ -78,12 +108,24 @@ async function run() {
 }
 
 run();
-'@ -replace 'YOUR_URL_HERE', $supabaseUrl -replace 'YOUR_KEY_HERE', $supabaseKey
+'@
 $readTodosJsContent | Out-File -FilePath "$scriptsDir\read-todos.js" -Encoding utf8
 
+# Write vibe-todo.js
 $vibeTodoJsContent = @'
-const supabaseUrl = 'YOUR_URL_HERE';
-const supabaseAnonKey = 'YOUR_KEY_HERE';
+const fs = require('fs');
+const path = require('path');
+
+let config;
+try {
+  const configPath = path.join(__dirname, 'vibe-todo-config.json');
+  config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+} catch (err) {
+  console.error('Error reading config file:', err.message);
+  process.exit(1);
+}
+
+const { supabaseUrl, supabaseAnonKey, userId } = config;
 
 const headers = {
   'apikey': supabaseAnonKey,
@@ -103,8 +145,8 @@ async function run() {
   const text = args.slice(1).join(' ');
 
   try {
-    // Find category
-    const resCat = await fetch(`${supabaseUrl}/rest/v1/categories?name=ilike.${encodeURIComponent(categoryName)}`, { headers });
+    // Find category for user
+    const resCat = await fetch(`${supabaseUrl}/rest/v1/categories?user_id=eq.${userId}&name=ilike.${encodeURIComponent(categoryName)}`, { headers });
     const categories = await resCat.json();
     let categoryId = categories && categories.length > 0 ? categories[0].id : null;
 
@@ -113,7 +155,7 @@ async function run() {
       await fetch(`${supabaseUrl}/rest/v1/categories`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ id: categoryId, name: categoryName })
+        body: JSON.stringify({ id: categoryId, name: categoryName, user_id: userId })
       });
     }
 
@@ -125,7 +167,8 @@ async function run() {
         id: Date.now().toString(),
         text,
         completed: false,
-        categoryid: categoryId
+        categoryid: categoryId,
+        user_id: userId
       })
     });
 
@@ -142,7 +185,7 @@ async function run() {
 }
 
 run();
-'@ -replace 'YOUR_URL_HERE', $supabaseUrl -replace 'YOUR_KEY_HERE', $supabaseKey
+'@
 $vibeTodoJsContent | Out-File -FilePath "$scriptsDir\vibe-todo.js" -Encoding utf8
 
 Write-Host "[SUCCESS] Vibe Todos CLI skill integration successfully configured for Antigravity." -ForegroundColor Green

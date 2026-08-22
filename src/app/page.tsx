@@ -83,6 +83,8 @@ export default function Home() {
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [copiedApiKey, setCopiedApiKey] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   
   // List Context Menu (Long press)
@@ -881,6 +883,43 @@ export default function Home() {
                   </button>
                 )}
               </div>
+
+              {/* Antigravity CLI Key Section */}
+              {session && (
+                <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-4`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-orange-500 flex items-center gap-1.5">
+                      <Cpu size={14} /> Antigravity Sync Key
+                    </span>
+                    <button
+                      onClick={() => {
+                        const key = 'AGY-TODO-' + btoa(session.user.id);
+                        navigator.clipboard.writeText(key);
+                        setCopiedApiKey(true);
+                        setTimeout(() => setCopiedApiKey(false), 2000);
+                      }}
+                      className="text-xs font-semibold text-blue-500 hover:text-blue-600 transition-colors"
+                    >
+                      {copiedApiKey ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 mt-1">
+                    <code className={`flex-1 font-mono text-xs p-2 rounded truncate select-all ${isDark ? 'bg-slate-900 text-orange-300/80' : 'bg-gray-100 text-orange-700/80'}`}>
+                      {showApiKey ? 'AGY-TODO-' + btoa(session.user.id) : '••••••••••••••••••••••••'}
+                    </code>
+                    <button
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border ${
+                        isDark 
+                          ? 'border-slate-700 text-slate-300 hover:bg-slate-800' 
+                          : 'border-gray-200 text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {showApiKey ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                </div>
+              )}
               
               {/* Sign Out Button */}
               <div className={`mt-6 pt-4 border-t ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
