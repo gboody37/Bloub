@@ -32,10 +32,10 @@ export default function Home() {
   const [mascotExpression, setMascotExpression] = useState<ExpressionId>('timide');
   const [mascotShape, setMascotShape] = useState('squircle');
   const [mascotColor, setMascotColor] = useState('encre');
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetToIdle = useCallback(() => {
-    clearTimeout(idleTimerRef.current);
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     idleTimerRef.current = setTimeout(() => {
       setMascotState('idle');
       setMascotExpression('neutre');
