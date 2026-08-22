@@ -1,79 +1,50 @@
 import { NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
-
-const dataFilePath = path.join(process.cwd(), 'data.json');
-const legacyFilePath = path.join(process.cwd(), 'todos.json');
-
-async function getStore() {
-  try {
-    const fileContents = await fs.readFile(dataFilePath, 'utf8');
-    return JSON.parse(fileContents);
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
-      // Check legacy
-      try {
-        const legacy = await fs.readFile(legacyFilePath, 'utf8');
-        const legacyTodos = JSON.parse(legacy);
-        return {
-          categories: [{ id: 'default', name: 'General' }],
-          todos: legacyTodos.map((t: any) => ({ ...t, categoryId: 'default' }))
-        };
-      } catch (e) {
-        return { categories: [{ id: 'default', name: 'General' }], todos: [] };
-      }
-    }
-    throw error;
-  }
-}
+import { supabase } from '@/lib/supabase';
 
 export async function GET() {
-  try {
-    const data = await getStore();
-    return NextResponse.json(data);
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to read data' }, { status: 500 });
-  }
+  const { data: todos } = await supabase.from('todos').select('*');
+  const { data: categories } = await supabase.from('categories').select('*');
+  
+  return NextResponse.json({
+    todos: todos ?? [],
+    categories: categories?.length ? categories : [{ id: 'default', name: 'General' }]
+  });
 }
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const data = await getStore();
+export async function POST(req: Request) {
+  const body = await req.json();
 
-    if (body.type === 'ADD_TODO') {
-      data.todos.push({
-        id: Date.now().toString(),
-        text: body.text,
-        completed: false,
-        categoryId: body.categoryId || 'default',
-        createdAt: new Date().toISOString()
-      });
-    } else if (body.type === 'TOGGLE_TODO') {
-      const index = data.todos.findIndex((t: any) => t.id === body.id);
-      if (index !== -1) data.todos[index].completed = body.completed;
-    } else if (body.type === 'DELETE_TODO') {
-      data.todos = data.todos.filter((t: any) => t.id !== body.id);
-    } else if (body.type === 'ADD_CATEGORY') {
-      data.categories.push({
-        id: Date.now().toString(),
-        name: body.name
-      });
-    } else if (body.type === 'DELETE_CATEGORY') {
-      data.categories = data.categories.filter((c: any) => c.id !== body.id);
-      // Move orphaned todos to default
-      data.todos = data.todos.map((t: any) => t.categoryId === body.id ? { ...t, categoryId: 'default' } : t);
-    } else if (body.type === 'SET_PRIORITY') {
-      const idx = data.todos.findIndex((t: any) => t.id === body.id);
-      if (idx !== -1) data.todos[idx].priority = body.priority;
-    } else if (body.type === 'SET_DUE_DATE') {
-      const idx = data.todos.findIndex((t: any) => t.id === body.id);
-      if (idx !== -1) data.todos[idx].dueDate = body.dueDate ?? null;
-    }
-
-    await fs.writeFile(dataFilePath, JSON.stringify(data, null, 2));
-    return NextResponse.json(data);
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to mutate data' }, { status: 500 });
+  if (body.type === 'ADD_TODO') {
+    await supabase.from('todos').insert([{
+      id: Date.now().toString(),
+      text: body.text,
+      completed: false,
+      categoryId: body.categoryId || 'default'
+    }]);
+  } else if (body.type === 'TOGGLE_TODO') {
+    await supabase.from('todos').update({ completed: body.completed }).match({ id: body.id });
+  } else if (body.type === 'DELETE_TODO') {
+    await supabase.from('todos').delete().match({ id: body.id });
+  } else if (body.type === 'ADD_CATEGORY') {
+    await supabase.from('categories').insert([{
+      id: Date.now().toString(),
+      name: body.name
+    }]);
+  } else if (body.type === 'DELETE_CATEGORY') {
+    await supabase.from('categories').delete().match({ id: body.id });
+    await supabase.from('todos').update({ categoryId: 'default' }).match({ categoryId: body.id });
+  } else if (body.type === 'SET_PRIORITY') {
+    await supabase.from('todos').update({ priority: body.priority }).match({ id: body.id });
+  } else if (body.type === 'SET_DUE_DATE') {
+    await supabase.from('todos').update({ dueDate: body.dueDate }).match({ id: body.id });
   }
+
+  // Fetch updated data to return
+  const { data: todos } = await supabase.from('todos').select('*');
+  const { data: categories } = await supabase.from('categories').select('*');
+
+  return NextResponse.json({
+    todos: todos ?? [],
+    categories: categories?.length ? categories : [{ id: 'default', name: 'General' }]
+  });
 }
