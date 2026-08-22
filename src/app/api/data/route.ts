@@ -40,6 +40,8 @@ export async function POST(req: Request) {
   } else if (body.type === 'DELETE_CATEGORY') {
     await supabase.from('categories').delete().match({ id: body.id });
     await supabase.from('todos').update({ categoryid: 'default' }).match({ categoryid: body.id });
+  } else if (body.type === 'UPDATE_CATEGORY') {
+    await supabase.from('categories').update({ name: body.name }).match({ id: body.id });
   } else if (body.type === 'SET_PRIORITY') {
     await supabase.from('todos').update({ priority: body.priority }).match({ id: body.id });
   } else if (body.type === 'SET_DUE_DATE') {
