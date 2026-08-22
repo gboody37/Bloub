@@ -30,6 +30,7 @@ export default function BloubMascot({
   const maskId = `bot-mask-${uid}`;
   const VB = DEMI_VIEWBOX;
   const R = RAYON;
+  const ink = COLOR_BY_ID.get(color)?.hex ?? '#0a0a0c';
 
   const svgRef = useRef<SVGSVGElement>(null);
   const engineRef = useRef<BotEngine | null>(null);
@@ -71,8 +72,6 @@ export default function BloubMascot({
 
   // Animation loop
   useEffect(() => {
-    const ink = COLOR_BY_ID.get(color)?.hex ?? '#0a0a0c';
-
     const tick = (ts: number) => {
       if (lastRef.current === 0) lastRef.current = ts;
       const dt = Math.min((ts - lastRef.current) / 1000, 0.1);
@@ -255,9 +254,9 @@ export default function BloubMascot({
       {shape === 'fromage' && (
         <g style={{ pointerEvents: 'none' }}>
           {/* Stem */}
-          <path d="M -44,-45 Q -52,-58 -48,-68" stroke="#78350f" strokeWidth="4" fill="none" strokeLinecap="round" />
+          <path d="M -44,-45 Q -52,-58 -48,-68" stroke={ink} strokeWidth="5" fill="none" strokeLinecap="round" />
           {/* Leaf */}
-          <path d="M -48,-68 C -58,-76 -54,-85 -42,-76 C -38,-68 -42,-64 -48,-68 Z" fill="#22c55e" />
+          <path d="M -48,-68 C -58,-76 -54,-85 -42,-76 C -38,-68 -42,-64 -48,-68 Z" fill={ink} />
         </g>
       )}
 
