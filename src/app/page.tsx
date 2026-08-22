@@ -66,7 +66,7 @@ export default function Home() {
       }
       timeout = setTimeout(() => {
         setMascotState('sleep');
-        setMascotExpression('sleep');
+        setMascotExpression('somnolent');
       }, 15000); // Sleep after 15s of inactivity
     };
     window.addEventListener('mousemove', resetAFK);
