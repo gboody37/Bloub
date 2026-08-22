@@ -65,13 +65,10 @@ const sun = normalize(
 
 const car = normalize(
   unionOfCirclesProfile([
-    { x: -0.1, y: -0.15, r: 0.45 }, // Main cabin / roof
-    { x: 0.4, y: 0.05, r: 0.28 },   // Front hood
-    { x: -0.45, y: 0.05, r: 0.28 }, // Rear trunk
-    { x: -0.15, y: 0.2, r: 0.25 },  // Chassis left
-    { x: 0.15, y: 0.2, r: 0.25 },   // Chassis right
-    { x: -0.4, y: 0.45, r: 0.18 },  // Rear wheel
-    { x: 0.4, y: 0.45, r: 0.18 }    // Front wheel
+    { x: -0.05, y: -0.15, r: 0.45 }, // Main dome
+    { x: 0.45, y: 0.1, r: 0.3 },     // Front nose
+    { x: -0.45, y: 0.1, r: 0.3 },    // Rear tail
+    { x: 0, y: 0.15, r: 0.25 }       // Bottom fill
   ]),
   1.15
 )
