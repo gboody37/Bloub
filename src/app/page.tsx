@@ -51,6 +51,26 @@ export default function Home() {
   const [editingListName, setEditingListName] = useState('');
   const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Gesture / Back Button Trap for PWAs
+  const viewStateRef = useRef({ isListView, showSettings, showAddModal, activeTab });
+  viewStateRef.current = { isListView, showSettings, showAddModal, activeTab };
+
+  useEffect(() => {
+    window.history.pushState('home', '');
+    const handlePopState = () => {
+      const s = viewStateRef.current;
+      if (!s.isListView || s.showSettings || s.showAddModal || s.activeTab !== 'lists') {
+        setIsListView(true);
+        setShowSettings(false);
+        setShowAddModal(false);
+        setActiveTab('lists');
+        window.history.pushState('home', '');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   // Settings Target
   const [settingsTarget, setSettingsTarget] = useState<string>('global');
 

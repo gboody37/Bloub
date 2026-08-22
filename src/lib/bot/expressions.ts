@@ -39,6 +39,8 @@ export type ExpressionId =
   | 'timide'
   | 'blase'
   | 'somnolent'
+  | 'vroum'
+  | 'klaxon'
 
 export interface BotExpression {
   id: ExpressionId
@@ -164,6 +166,18 @@ export const EXPRESSIONS: BotExpression[] = [
     gaze: { yaw: 6, pitch: -9, roll: -3 },
     split: 16,
     eyes: pair(0.2, 0.42, 0, 0.42)
+  },
+  {
+    id: 'vroum',
+    gaze: { yaw: 0, pitch: -12, roll: 0 },
+    split: 23,
+    eyes: pair(0.55, 0.55)
+  },
+  {
+    id: 'klaxon',
+    gaze: { yaw: 15, pitch: -5, roll: 12 },
+    split: 15,
+    eyes: [eye(0.6, 0.25, 25), eye(0.6, 0.25, -25)]
   }
 ]
 

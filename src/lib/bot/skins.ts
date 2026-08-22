@@ -18,6 +18,7 @@ export type ShapeId =
   | 'goutte'
   | 'oeuf'
   | 'soleil'
+  | 'voiture'
 
 export interface BotShape {
   id: ShapeId
@@ -61,6 +62,17 @@ const sun = normalize(
   1.15
 )
 
+const car = normalize(
+  unionOfCirclesProfile([
+    { x: -0.5, y: 0.2, r: 0.35 }, 
+    { x: 0.5, y: 0.2, r: 0.3 }, 
+    { x: 0, y: 0.2, r: 0.4 }, 
+    { x: -0.1, y: -0.3, r: 0.45 },
+    { x: 0.2, y: -0.2, r: 0.35 }
+  ]),
+  1.15
+)
+
 export const SHAPES: BotShape[] = [
   { id: 'cercle', radii: new Array(PROFILE_SAMPLES).fill(1) },
   { id: 'galet', radii: pebble },
@@ -71,7 +83,8 @@ export const SHAPES: BotShape[] = [
   { id: 'nuage', radii: cloud },
   { id: 'goutte', radii: droplet },
   { id: 'oeuf', radii: normalize([...PROFILES.egg], 1.05) },
-  { id: 'soleil', radii: sun }
+  { id: 'soleil', radii: sun },
+  { id: 'voiture', radii: car }
 ]
 
 // Map indexee par `string` et non par `ShapeId` : les appelants interrogent avec
