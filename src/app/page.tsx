@@ -631,7 +631,27 @@ export default function Home() {
                   <Download size={14} className="opacity-60" />
                 </a>
 
-                {/* Windows Portable EXE Option */}
+                {/* Windows Setup Installer Option */}
+                <a 
+                  href="/downloads/VibeTodosSetup.exe" 
+                  download="VibeTodosSetup.exe"
+                  className={`w-full flex items-center justify-between py-3 px-4 rounded-2xl border transition-all font-semibold text-sm ${
+                    isDark 
+                      ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' 
+                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Monitor size={18} className="text-blue-500" />
+                    <span className="text-left">
+                      Windows Setup Installer (EXE)
+                      <span className="block text-[10px] font-normal opacity-60">Installs app, creates desktop & start menu shortcuts</span>
+                    </span>
+                  </span>
+                  <Download size={14} className="opacity-60" />
+                </a>
+
+                {/* Windows Portable ZIP Option */}
                 <a 
                   href="/downloads/Todos-Windows-Portable.zip" 
                   download="Todos-Windows-Portable.zip"
@@ -644,31 +664,12 @@ export default function Home() {
                   <span className="flex items-center gap-2">
                     <Monitor size={18} className="text-orange-500" />
                     <span className="text-left">
-                      Windows Portable (EXE)
+                      Windows Portable Version (ZIP)
                       <span className="block text-[10px] font-normal opacity-60">Works instantly, no installation required</span>
                     </span>
                   </span>
                   <Download size={14} className="opacity-60" />
                 </a>
-
-                {/* Windows App Installer */}
-                <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-1`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-blue-500 flex items-center gap-1.5">
-                      <Monitor size={14} /> Windows App Installer
-                    </span>
-                    <a 
-                      href="/downloads/Todos.zip" 
-                      download="Todos.zip"
-                      className="text-xs font-semibold text-blue-500 hover:text-blue-600 flex items-center gap-1"
-                    >
-                      Download ZIP <Download size={10} />
-                    </a>
-                  </div>
-                  <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                    Extract the ZIP and double-click <code className="font-mono text-[10px] font-bold text-blue-500">install.bat</code> to trust the certificate and install the app automatically.
-                  </p>
-                </div>
 
                 {/* Web App PWA Installer Option */}
                 <button 
@@ -1504,7 +1505,27 @@ export default function Home() {
                 <Download size={14} className="opacity-60" />
               </a>
 
-              {/* Windows Portable EXE Option */}
+              {/* Windows Setup Installer Option */}
+              <a 
+                href="/downloads/VibeTodosSetup.exe" 
+                download="VibeTodosSetup.exe"
+                className={`w-full flex items-center justify-between py-3 px-4 rounded-2xl border transition-all font-semibold text-sm ${
+                  isDark 
+                    ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' 
+                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <Monitor size={18} className="text-blue-500" />
+                  <span className="text-left">
+                    Windows Setup Installer (EXE)
+                    <span className="block text-[10px] font-normal opacity-60">Installs app, creates desktop & start menu shortcuts</span>
+                  </span>
+                </span>
+                <Download size={14} className="opacity-60" />
+              </a>
+
+              {/* Windows Portable ZIP Option */}
               <a 
                 href="/downloads/Todos-Windows-Portable.zip" 
                 download="Todos-Windows-Portable.zip"
@@ -1517,31 +1538,12 @@ export default function Home() {
                 <span className="flex items-center gap-2">
                   <Monitor size={18} className="text-orange-500" />
                   <span className="text-left">
-                    Windows Portable (EXE)
+                    Windows Portable Version (ZIP)
                     <span className="block text-[10px] font-normal opacity-60">Works instantly, no installation required</span>
                   </span>
                 </span>
                 <Download size={14} className="opacity-60" />
               </a>
-
-              {/* Windows App Installer */}
-              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-1`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-blue-500 flex items-center gap-1.5">
-                    <Monitor size={14} /> Windows App Installer
-                  </span>
-                  <a 
-                    href="/downloads/Todos.zip" 
-                    download="Todos.zip"
-                    className="text-xs font-semibold text-blue-500 hover:text-blue-600 flex items-center gap-1"
-                  >
-                    Download ZIP <Download size={10} />
-                  </a>
-                </div>
-                <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                  Extract the ZIP and double-click <code className="font-mono text-[10px] font-bold text-blue-500">install.bat</code> to trust the certificate and install the app automatically.
-                </p>
-              </div>
 
               {/* Web App PWA Installer Option */}
               <button 
