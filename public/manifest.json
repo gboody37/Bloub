@@ -1,0 +1,21 @@
+{
+  "name": "Vibe Todos",
+  "short_name": "Todos",
+  "description": "The shared to-do list for vibe coders",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#030712",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/globe.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/globe.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
