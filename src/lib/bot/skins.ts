@@ -70,7 +70,7 @@ export const SHAPES: BotShape[] = [
   { id: 'hexagone', radii: regularPolygonProfile(6, 1.04, 0.26, 0) },
   { id: 'nuage', radii: cloud },
   { id: 'goutte', radii: droplet },
-  { id: 'oeuf', radii: normalize(PROFILES.egg, 1.05) },
+  { id: 'oeuf', radii: normalize([...PROFILES.egg], 1.05) },
   { id: 'soleil', radii: sun }
 ]
 
