@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BloubMascot from '@/components/BloubMascot';
-import { CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRight, Flag, Calendar, BarChart3, ListTodo, Edit2, MoreVertical, Palette, Shapes, PaintBucket, LogOut } from 'lucide-react';
+import { CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRight, Flag, Calendar, BarChart3, ListTodo, Edit2, MoreVertical, Palette, Shapes, PaintBucket, LogOut, Download, Smartphone, Repeat, Bell, Monitor, Flame } from 'lucide-react';
 import type { StateId } from '@/lib/bot/states';
 import type { ExpressionId } from '@/lib/bot/expressions';
 import { COLORS } from '@/lib/bot/skins';
@@ -231,7 +231,7 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: 'Vibe Todos 🌟',
+          title: 'Vibe Todos',
           body: 'Your mobile push notifications are fully configured!'
         })
       });
@@ -582,7 +582,8 @@ export default function Home() {
               ? 'bg-slate-800 border-slate-700/60 text-slate-200 hover:bg-slate-700' 
               : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
           }`}>
-            📲 Download Web App
+            <Download size={16} />
+            Download Web App
           </button>
         </motion.div>
       </div>
@@ -726,16 +727,18 @@ export default function Home() {
                   }`}
                 >
                   <span className="flex items-center gap-2">
-                    🔔 {isSubscribed ? 'Notifications Enabled' : 'Enable Mobile Notifications'}
+                    <Bell size={16} />
+                    {isSubscribed ? 'Notifications Enabled' : 'Enable Mobile Notifications'}
                   </span>
                 </button>
                 {isSubscribed && (
                   <button
                     type="button"
                     onClick={sendTestPush}
-                    className="w-full mt-2 py-2 text-xs font-semibold text-blue-500 hover:text-blue-600 transition-colors"
+                    className="w-full mt-2 py-2 text-xs font-semibold text-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-1.5"
                   >
-                    Send Test Push Notification 📲
+                    <Smartphone size={12} />
+                    Send Test Push Notification
                   </button>
                 )}
               </div>
@@ -1100,14 +1103,16 @@ export default function Home() {
                             </p>
                             {todo.isHabit && (todo.habitStreak || 0) > 0 && (
                               <span className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400">
-                                🔥 {todo.habitStreak}d
+                                <Flame size={10} className="fill-current text-orange-500" />
+                                {todo.habitStreak}d
                               </span>
                             )}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">
                             {todo.isHabit ? (
-                              <span className={`text-xs ${t.textMuted}`}>
-                                🔁 {todo.habitDays && todo.habitDays.length > 0 ? todo.habitDays.join(', ') : 'Every day'}
+                              <span className={`text-[10px] flex items-center gap-1 ${t.textMuted}`}>
+                                <Repeat size={10} />
+                                {todo.habitDays && todo.habitDays.length > 0 ? todo.habitDays.join(', ') : 'Every day'}
                               </span>
                             ) : (
                               todo.dueDate && (
@@ -1226,24 +1231,24 @@ export default function Home() {
               <p className={isDark ? 'text-slate-300' : 'text-gray-600'}>To add this app to your home screen so it behaves like a native app:</p>
               
               <div className="space-y-3 pt-2">
-                <div className="flex gap-3">
-                  <span className="text-xl">📱</span>
+                <div className="flex gap-3 items-start">
+                  <Smartphone size={20} className="text-blue-500 mt-1 flex-shrink-0" />
                   <div>
                     <h4 className="font-semibold">Safari on iPhone / iPad</h4>
-                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Tap the share button <span className="font-semibold text-blue-500">📤</span> at the bottom, then scroll down and select <span className="font-semibold">"Add to Home Screen" ➕</span>.</p>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Tap the share button in the browser menu, then scroll down and select <span className="font-semibold">"Add to Home Screen"</span>.</p>
                   </div>
                 </div>
                 
-                <div className="flex gap-3">
-                  <span className="text-xl">🤖</span>
+                <div className="flex gap-3 items-start">
+                  <Smartphone size={20} className="text-green-500 mt-1 flex-shrink-0" />
                   <div>
                     <h4 className="font-semibold">Android / Chrome / Brave</h4>
-                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Tap the menu dots (⋮) in the top-right and select <span className="font-semibold">"Install App"</span> or <span className="font-semibold">"Add to Home Screen"</span>.</p>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Tap the menu dots in the top-right and select <span className="font-semibold">"Install App"</span> or <span className="font-semibold">"Add to Home Screen"</span>.</p>
                   </div>
                 </div>
 
-                <div className="flex gap-3">
-                  <span className="text-xl">💻</span>
+                <div className="flex gap-3 items-start">
+                  <Monitor size={20} className="text-purple-500 mt-1 flex-shrink-0" />
                   <div>
                     <h4 className="font-semibold">Firefox / Other Browsers</h4>
                     <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Look for the install or download icon in the URL search bar, or use Chrome/Brave/Edge to install as a desktop shortcut.</p>
