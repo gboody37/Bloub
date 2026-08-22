@@ -6,7 +6,7 @@ import { DEMI_VIEWBOX, RAYON } from '@/lib/bot/repere';
 import { SHAPE_BY_ID, COLOR_BY_ID } from '@/lib/bot/skins';
 import { EXPRESSION_BY_ID } from '@/lib/bot/expressions';
 import { defaultCycle } from '@/lib/bot/cycles';
-import type { StateId } from '@/lib/bot/states';
+import { STATE_BY_ID, type StateId } from '@/lib/bot/states';
 import type { ExpressionId } from '@/lib/bot/expressions';
 
 interface Props {
@@ -31,6 +31,7 @@ export default function BloubMascot({
   const VB = DEMI_VIEWBOX;
   const R = RAYON;
   const ink = COLOR_BY_ID.get(color)?.hex ?? '#0a0a0c';
+  const isBaseBodyActive = STATE_BY_ID.get(state)?.baseBody ?? true;
 
   const svgRef = useRef<SVGSVGElement>(null);
   const engineRef = useRef<BotEngine | null>(null);
@@ -241,7 +242,7 @@ export default function BloubMascot({
       <path data-body="" mask={`url(#${maskId})`} />
 
       {/* Cheese holes rendered on top of the body so they look indented, not like eyes */}
-      {shape === 'fromage' && (
+      {shape === 'fromage' && isBaseBodyActive && (
         <g fill="#000" opacity="0.14" style={{ pointerEvents: 'none' }}>
           <circle cx="-35" cy="-25" r="10" />
           <circle cx="45" cy="20" r="8" />
@@ -251,12 +252,12 @@ export default function BloubMascot({
       )}
 
       {/* Sprout leaf on top left */}
-      {shape === 'fromage' && (
+      {shape === 'fromage' && isBaseBodyActive && (
         <g style={{ pointerEvents: 'none' }}>
-          {/* Stem */}
+          {/* Stem - matches body color for seamless integration */}
           <path d="M -44,-45 Q -52,-58 -48,-68" stroke={ink} strokeWidth="5" fill="none" strokeLinecap="round" />
-          {/* Leaf */}
-          <path d="M -48,-68 C -58,-76 -54,-85 -42,-76 C -38,-68 -42,-64 -48,-68 Z" fill={ink} />
+          {/* Leaf - green leaf sprout */}
+          <path d="M -48,-68 C -58,-76 -54,-85 -42,-76 C -38,-68 -42,-64 -48,-68 Z" fill="#22c55e" />
         </g>
       )}
 
