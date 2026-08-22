@@ -7,6 +7,7 @@ import { CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRi
 import type { StateId } from '@/lib/bot/states';
 import type { ExpressionId } from '@/lib/bot/expressions';
 import { COLORS } from '@/lib/bot/skins';
+import { createClient } from '@/lib/supabase/client';
 
 interface Subtask { id: string; text: string; completed: boolean; }
 interface Todo {
@@ -51,6 +52,10 @@ const getDynamicMascotProps = (shape: string, baseColor: string, pendingCount: n
 };
 
 export default function Home() {
+  const supabase = createClient();
+  const [session, setSession] = useState<any>(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+
   const [todos, setTodos] = useState<Todo[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategory, setActiveCategory] = useState('default');
@@ -63,6 +68,7 @@ export default function Home() {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showShapePicker, setShowShapePicker] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isListView, setIsListView] = useState(true);
   
   // List Context Menu (Long press)
@@ -70,6 +76,18 @@ export default function Home() {
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editingListName, setEditingListName] = useState('');
   const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Auth Effect
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoadingAuth(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, [supabase.auth]);
 
   // Gesture / Back Button Trap for PWAs
   const viewStateRef = useRef({ isListView, showSettings, showAddModal, activeTab });
@@ -167,7 +185,9 @@ export default function Home() {
   }, [resetToIdle]);
 
   const fetchTodos = async () => {
+    if (!session) return;
     const res = await fetch('/api/data');
+    if (res.status === 401) return;
     const data = await res.json();
     setTodos(data.todos);
     
@@ -177,15 +197,19 @@ export default function Home() {
   };
 
   useEffect(() => {
-    fetchTodos();
-  }, []);
+    if (session) {
+      fetchTodos();
+    }
+  }, [session]);
 
   const mutate = async (body: any) => {
+    if (!session) return;
     const res = await fetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
+    if (res.status === 401) return;
     const data = await res.json();
     setTodos(data.todos);
     
@@ -198,22 +222,26 @@ export default function Home() {
 
   const addTodo = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) {
+    if (!inputText.trim() || isSubmitting) {
       triggerMascot('idle', 'mefiant');
       return;
     }
+    setIsSubmitting(true);
     triggerMascot('wide', 'surpris');
     await mutate({ type: 'ADD_TODO', text: inputText, categoryId: activeCategory });
     setInputText('');
     setShowAddModal(false);
+    setIsSubmitting(false);
   };
 
   const addCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCatText.trim()) return;
+    if (!newCatText.trim() || isSubmitting) return;
+    setIsSubmitting(true);
     triggerMascot('orbit', 'heureux');
     await mutate({ type: 'ADD_CATEGORY', name: newCatText });
     setNewCatText('');
+    setIsSubmitting(false);
   };
 
   const deleteCategory = async (id: string) => {
@@ -227,10 +255,12 @@ export default function Home() {
   };
   
   const saveCategoryName = async (id: string) => {
-    if (!editingListName.trim()) return;
+    if (!editingListName.trim() || isSubmitting) return;
+    setIsSubmitting(true);
     await mutate({ type: 'UPDATE_CATEGORY', id, name: editingListName });
     setEditingListId(null);
     setListMenuId(null);
+    setIsSubmitting(false);
   };
 
   const handleCategoryPressIn = (cat: Category) => {
@@ -373,6 +403,26 @@ export default function Home() {
     pillInactive: isDark ? 'bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
   };
 
+  if (loadingAuth) {
+    return <div className={`min-h-screen ${bgTheme} flex flex-col items-center justify-center`}><BloubMascot size={96} state="idle" expression="heureux" shape={mascotShape} color={mascotColor} /><p className="mt-4 text-gray-500 text-sm font-medium animate-pulse">Loading...</p></div>;
+  }
+
+  if (!session) {
+    return (
+      <div className={`min-h-screen ${bgTheme} flex flex-col items-center justify-center p-6 relative overflow-hidden transition-colors duration-500`}>
+        <motion.div initial={{y: 20, opacity: 0}} animate={{y: 0, opacity: 1}} className={`max-w-sm w-full p-8 rounded-3xl shadow-xl ${t.card} relative z-10 text-center flex flex-col items-center`}>
+          <div className="mb-8 drop-shadow-xl"><BloubMascot size={120} state="idle" expression="hilare" shape="soleil" color="ambre" /></div>
+          <h1 className={`text-2xl font-bold mb-2 tracking-tight ${t.textPrimary}`}>Vibe Todos</h1>
+          <p className={`text-sm mb-8 leading-relaxed ${t.textSecondary}`}>Sign in to sync your tasks and personal vibes across all your devices.</p>
+          <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })} className="w-full py-3.5 px-4 bg-white border border-gray-200 rounded-2xl flex items-center justify-center gap-3 font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition-all active:scale-95">
+            <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/><path fill="none" d="M1 1h22v22H1z"/></svg>
+            Continue with Google
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen w-full ${bgTheme} transition-colors duration-500 font-sans`}>
       <main className={`w-full max-w-md mx-auto min-h-screen flex flex-col relative transition-colors duration-500`}>
@@ -502,7 +552,7 @@ export default function Home() {
 
       {/* Add Task Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end justify-center sm:items-center sm:p-6"
+        <div className="fixed inset-0 bg-black/15 z-50 flex items-end pb-36 justify-center sm:items-center sm:pb-6 p-4"
           onClick={() => setShowAddModal(false)}>
           <div className={`rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-md shadow-2xl animate-pop-in ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'}`}
             onClick={e => e.stopPropagation()}>
@@ -520,16 +570,19 @@ export default function Home() {
                   setInputText(e.target.value);
                   if (e.target.value.length === 1 && !inputText) triggerMascot('alert', 'heureux');
                 }}
-                onFocus={() => triggerMascot('thinking', 'curieux')}
+                onFocus={(e) => {
+                  triggerMascot('thinking', 'curieux');
+                  e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }}
                 placeholder="What needs to be done?"
                 className={`w-full rounded-2xl py-4 px-4 text-base font-medium transition-all mb-4 outline-none ${t.input}`}
               />
               <button
                 type="submit"
-                disabled={!inputText.trim()}
+                disabled={!inputText.trim() || isSubmitting}
                 className="w-full bg-blue-600 text-white font-semibold py-4 rounded-2xl shadow-md hover:bg-blue-700 disabled:opacity-50 transition-all active:scale-95"
               >
-                Save Task
+                {isSubmitting ? 'Saving...' : 'Save Task'}
               </button>
             </form>
           </div>
@@ -590,7 +643,7 @@ export default function Home() {
                           </div>
                           {isEditing ? (
                             <form onSubmit={(e) => { e.preventDefault(); saveCategoryName(cat.id); }} onClick={e => e.stopPropagation()}>
-                               <input type="text" autoFocus value={editingListName} onChange={e => setEditingListName(e.target.value)} onBlur={() => saveCategoryName(cat.id)} className={`bg-transparent outline-none font-semibold text-lg ${t.textPrimary} border-b ${isDark ? 'border-slate-500' : 'border-gray-300'}`} />
+                               <input type="text" autoFocus value={editingListName} onChange={e => setEditingListName(e.target.value)} onBlur={() => saveCategoryName(cat.id)} onFocus={e => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })} className={`bg-transparent outline-none font-semibold text-lg ${t.textPrimary} border-b ${isDark ? 'border-slate-500' : 'border-gray-300'}`} />
                             </form>
                           ) : (
                             <span className={`font-semibold text-lg ${t.textPrimary}`}>{cat.name}</span>
@@ -636,9 +689,12 @@ export default function Home() {
                   setNewCatText(e.target.value);
                   if (e.target.value.length === 1 && !newCatText) triggerMascot('alert', 'heureux');
                 }}
-                onFocus={() => triggerMascot('thinking', 'curieux')}
+                onFocus={(e) => {
+                  triggerMascot('thinking', 'curieux');
+                  e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }}
                 placeholder="New List..." className={`flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none transition-all ${t.input}`} />
-              <button type="submit" disabled={!newCatText.trim()} className="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"><Plus size={20}/></button>
+              <button type="submit" disabled={!newCatText.trim() || isSubmitting} className="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"><Plus size={20}/></button>
             </form>
           </div>
         ) : activeTab === 'stats' ? (
