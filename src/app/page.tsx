@@ -98,7 +98,6 @@ export default function Home() {
     triggerMascot('alert', 'excite');
     await mutate({ type: 'ADD_TODO', text: inputText, categoryId: activeCategory });
     setInputText('');
-    setTimeout(() => triggerMascot('idle', 'heureux'), 800);
   };
 
   const addCategory = async (e: React.FormEvent) => {
