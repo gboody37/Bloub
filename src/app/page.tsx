@@ -58,6 +58,19 @@ const getDynamicMascotProps = (shape: string, baseColor: string, pendingCount: n
   return { expr: 'attentif', color: baseColor };
 };
 
+const THEMES = [
+  { id: 'bg-gray-100', name: 'Minimal', color: '#f3f4f6' },
+  { id: 'bg-slate-900', name: 'Midnight', color: '#0f172a' },
+  { id: 'bg-zinc-950', name: 'Abyss', color: '#09090b' },
+  { id: 'bg-blue-950', name: 'Dark Blue', color: '#172554' },
+  { id: 'bg-gradient-to-br from-stone-200 to-stone-300', name: 'Sand', color: '#d6d3d1' },
+  { id: 'bg-gradient-to-br from-rose-100 to-pink-200', name: 'Blush', color: '#fbcfe8' },
+  { id: 'bg-gradient-to-br from-blue-100 to-cyan-100', name: 'Ocean', color: '#cffafe' },
+  { id: 'bg-gradient-to-br from-emerald-100 to-teal-100', name: 'Mint', color: '#ccfbf1' },
+  { id: 'bg-gradient-to-br from-violet-100 to-purple-200', name: 'Lavender', color: '#e9d5ff' },
+  { id: 'bg-gradient-to-br from-amber-100 to-yellow-200', name: 'Sunlight', color: '#fde68a' }
+];
+
 export default function Home() {
   const supabase = createClient();
   const [session, setSession] = useState<any>(null);
@@ -269,6 +282,18 @@ export default function Home() {
     localStorage.setItem('bgTheme', bgTheme);
     localStorage.setItem('catSettings', JSON.stringify(catSettings));
   }, [mascotExpression, mascotShape, mascotColor, bgTheme, catSettings]);
+
+  useEffect(() => {
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'theme-color');
+      document.head.appendChild(meta);
+    }
+    const activeTheme = THEMES.find(t => t.id === bgTheme);
+    const themeColor = activeTheme ? activeTheme.color : '#0f172a';
+    meta.setAttribute('content', themeColor);
+  }, [bgTheme]);
 
   useEffect(() => {
     let timeout: NodeJS.Timeout;
@@ -507,19 +532,6 @@ export default function Home() {
     else setCatSettings(prev => ({ ...prev, [settingsTarget]: { shape: targetShape, color: c } }));
   };
 
-  const THEMES = [
-    { id: 'bg-gray-100', name: 'Minimal', color: '#f3f4f6' },
-    { id: 'bg-slate-900', name: 'Midnight', color: '#0f172a' },
-    { id: 'bg-zinc-950', name: 'Abyss', color: '#09090b' },
-    { id: 'bg-blue-950', name: 'Dark Blue', color: '#172554' },
-    { id: 'bg-gradient-to-br from-stone-200 to-stone-300', name: 'Sand', color: '#d6d3d1' },
-    { id: 'bg-gradient-to-br from-rose-100 to-pink-200', name: 'Blush', color: '#fbcfe8' },
-    { id: 'bg-gradient-to-br from-blue-100 to-cyan-100', name: 'Ocean', color: '#cffafe' },
-    { id: 'bg-gradient-to-br from-emerald-100 to-teal-100', name: 'Mint', color: '#ccfbf1' },
-    { id: 'bg-gradient-to-br from-violet-100 to-purple-200', name: 'Lavender', color: '#e9d5ff' },
-    { id: 'bg-gradient-to-br from-amber-100 to-yellow-200', name: 'Sunlight', color: '#fde68a' }
-  ];
-
   // Theme Logic
   const isDark = bgTheme.includes('slate-900') || bgTheme.includes('zinc-950') || bgTheme.includes('blue-950');
 
@@ -619,7 +631,27 @@ export default function Home() {
                   <Download size={14} className="opacity-60" />
                 </a>
 
-                {/* Windows App Download Option */}
+                {/* Windows Portable EXE Option */}
+                <a 
+                  href="/downloads/Todos-Windows-Portable.zip" 
+                  download="Todos-Windows-Portable.zip"
+                  className={`w-full flex items-center justify-between py-3 px-4 rounded-2xl border transition-all font-semibold text-sm ${
+                    isDark 
+                      ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' 
+                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Monitor size={18} className="text-orange-500" />
+                    <span className="text-left">
+                      Windows Portable (EXE)
+                      <span className="block text-[10px] font-normal opacity-60">Works instantly, no installation required</span>
+                    </span>
+                  </span>
+                  <Download size={14} className="opacity-60" />
+                </a>
+
+                {/* Windows App Installer */}
                 <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-1`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-blue-500 flex items-center gap-1.5">
@@ -1472,7 +1504,27 @@ export default function Home() {
                 <Download size={14} className="opacity-60" />
               </a>
 
-              {/* Windows App Download Option */}
+              {/* Windows Portable EXE Option */}
+              <a 
+                href="/downloads/Todos-Windows-Portable.zip" 
+                download="Todos-Windows-Portable.zip"
+                className={`w-full flex items-center justify-between py-3 px-4 rounded-2xl border transition-all font-semibold text-sm ${
+                  isDark 
+                    ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' 
+                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <Monitor size={18} className="text-orange-500" />
+                  <span className="text-left">
+                    Windows Portable (EXE)
+                    <span className="block text-[10px] font-normal opacity-60">Works instantly, no installation required</span>
+                  </span>
+                </span>
+                <Download size={14} className="opacity-60" />
+              </a>
+
+              {/* Windows App Installer */}
               <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-1`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-blue-500 flex items-center gap-1.5">
