@@ -254,11 +254,11 @@ export default function BloubMascot({
       {/* Sprout leaf on top left */}
       {shape === 'fromage' && isBaseBodyActive && (
         <g style={{ pointerEvents: 'none' }}>
-          {/* Stem - matches body color for seamless integration */}
-          <path d="M -44,-45 Q -52,-58 -48,-68" stroke={ink} strokeWidth="5" fill="none" strokeLinecap="round" />
-          {/* Two-tone leaf sprout */}
-          <path d="M -48,-68 C -58,-76 -54,-85 -42,-76 Z" fill="#15803d" />
-          <path d="M -48,-68 C -42,-64 -38,-68 -42,-76 Z" fill="#4ade80" />
+          {/* Stem - matches body color for seamless integration, placed as a topper */}
+          <path d="M -10,-53 Q -15,-72 -5,-82" stroke={ink} strokeWidth="6" fill="none" strokeLinecap="round" />
+          {/* Two-tone leaf sprout (larger topper) */}
+          <path d="M -5,-82 C -20,-92 -15,-107 5,-97 Z" fill="#15803d" />
+          <path d="M -5,-82 C 5,-72 15,-82 5,-97 Z" fill="#4ade80" />
         </g>
       )}
 
