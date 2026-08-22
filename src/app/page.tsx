@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BloubMascot from '@/components/BloubMascot';
-import { CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRight, Flag, Calendar, BarChart3, ListTodo } from 'lucide-react';
+import { CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRight, Flag, Calendar, BarChart3, ListTodo, Edit2, MoreVertical } from 'lucide-react';
 import type { StateId } from '@/lib/bot/states';
 import type { ExpressionId } from '@/lib/bot/expressions';
 
@@ -41,6 +41,12 @@ export default function Home() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [isListView, setIsListView] = useState(true);
   
+  // List Context Menu (Long press)
+  const [listMenuId, setListMenuId] = useState<string | null>(null);
+  const [editingListId, setEditingListId] = useState<string | null>(null);
+  const [editingListName, setEditingListName] = useState('');
+  const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Settings Target
   const [settingsTarget, setSettingsTarget] = useState<string>('global');
 
@@ -55,7 +61,6 @@ export default function Home() {
   const [mascotColor, setMascotColor] = useState('encre');
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load preferences
   useEffect(() => {
     const savedExpr = localStorage.getItem('mascotExpression') as ExpressionId;
     const savedShape = localStorage.getItem('mascotShape');
@@ -70,7 +75,6 @@ export default function Home() {
     if (savedCatSet) setCatSettings(JSON.parse(savedCatSet));
   }, []);
 
-  // Save preferences
   useEffect(() => {
     localStorage.setItem('mascotExpression', mascotExpression);
     localStorage.setItem('mascotShape', mascotShape);
@@ -79,7 +83,6 @@ export default function Home() {
     localStorage.setItem('catSettings', JSON.stringify(catSettings));
   }, [mascotExpression, mascotShape, mascotColor, bgTheme, catSettings]);
 
-  // AFK Timer (Sleep)
   useEffect(() => {
     let timeout: NodeJS.Timeout;
     const resetAFK = () => {
@@ -136,7 +139,10 @@ export default function Home() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-    return res.json();
+    const data = await res.json();
+    setTodos(data.todos);
+    setCategories(data.categories);
+    return data;
   };
 
   const addTodo = async (e: React.FormEvent) => {
@@ -166,9 +172,33 @@ export default function Home() {
       await mutate({ type: 'DELETE_CATEGORY', id });
       if (activeCategory === id) setActiveCategory('default');
     }
+    setListMenuId(null);
+  };
+  
+  const saveCategoryName = async (id: string) => {
+    if (!editingListName.trim()) return;
+    await mutate({ type: 'UPDATE_CATEGORY', id, name: editingListName });
+    setEditingListId(null);
+    setListMenuId(null);
   };
 
-  const handleCategoryClick = (cat: { id: string, name: string }) => {
+  const handleCategoryPressIn = (cat: Category) => {
+    if (pressTimerRef.current) clearTimeout(pressTimerRef.current);
+    pressTimerRef.current = setTimeout(() => {
+      setListMenuId(cat.id);
+      triggerMascot('alert', 'curieux');
+    }, 500); // 500ms long press
+  };
+
+  const handleCategoryPressOut = () => {
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+  };
+
+  const handleCategoryClick = (cat: Category) => {
+    if (listMenuId === cat.id || editingListId === cat.id) return;
     setActiveCategory(cat.id);
     setIsListView(false);
     triggerMascot('alert', 'excite');
@@ -216,12 +246,10 @@ export default function Home() {
 
   const activeCatObj = categories.find(c => c.id === activeCategory) || { id: 'default', name: 'General' };
   
-  // Hero Mascot Logic
   const showListHero = !isListView && activeTab === 'lists';
   const heroShape = showListHero ? getListMascot(activeCatObj, catSettings).shape : mascotShape;
   const heroColor = showListHero ? getListMascot(activeCatObj, catSettings).color : mascotColor;
   
-  // Settings Logic
   const isGlobalTarget = settingsTarget === 'global';
   const targetCatObj = categories.find(c => c.id === settingsTarget) || { id: 'default', name: 'General' };
   const targetShape = isGlobalTarget ? mascotShape : getListMascot(targetCatObj, catSettings).shape;
@@ -237,22 +265,38 @@ export default function Home() {
     else setCatSettings(prev => ({ ...prev, [settingsTarget]: { shape: targetShape, color: c } }));
   };
 
+  // Theme Logic
+  const isDark = bgTheme === 'bg-slate-900';
+  const t = {
+    mainColumn: isDark ? 'bg-slate-900/60 shadow-black/40' : 'bg-white/30 shadow-gray-200/20',
+    textPrimary: isDark ? 'text-white' : 'text-gray-900',
+    textSecondary: isDark ? 'text-slate-300' : 'text-gray-500',
+    textMuted: isDark ? 'text-slate-500' : 'text-gray-400',
+    card: isDark ? 'bg-slate-800/80 border-slate-700/50 hover:border-slate-600 shadow-black/20' : 'bg-white/80 border-gray-200/50 hover:border-gray-300 shadow-sm',
+    cardMuted: isDark ? 'bg-slate-900/80 border-slate-800/80' : 'bg-white/50 border-gray-100',
+    input: isDark ? 'bg-slate-800/80 border-slate-700 text-white placeholder-slate-500 focus:border-slate-500' : 'bg-white/80 border-gray-200/50 text-gray-800 placeholder-gray-400 focus:border-gray-400',
+    nav: isDark ? 'bg-slate-900/90 border-slate-800 backdrop-blur-xl' : 'bg-white/90 border-gray-100 backdrop-blur-xl',
+    iconCircle: isDark ? 'bg-slate-700/50 text-slate-300' : 'bg-gray-100 text-gray-500',
+    pillActive: isDark ? 'bg-slate-700 border-slate-500 text-white shadow-md scale-105' : 'bg-white border-gray-400 text-gray-900 shadow-md scale-105',
+    pillInactive: isDark ? 'bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
+  };
+
   return (
     <div className={`min-h-screen w-full ${bgTheme} transition-colors duration-500`}>
-      <main className="max-w-md mx-auto min-h-screen flex flex-col font-sans relative shadow-2xl shadow-gray-200/20 bg-white/30 backdrop-blur-3xl">
+      <main className={`max-w-md mx-auto min-h-screen flex flex-col font-sans relative shadow-2xl backdrop-blur-3xl transition-colors duration-500 ${t.mainColumn}`}>
         {/* Header */}
-        <header className="pt-12 pb-6 px-6 sticky top-0 z-30 flex justify-between items-center border-b border-gray-200/30">
+        <header className={`pt-12 pb-6 px-6 sticky top-0 z-30 flex justify-between items-center border-b transition-colors duration-500 ${isDark ? 'border-slate-800' : 'border-gray-200/30'}`}>
           <div className="flex-1">
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+            <h1 className={`text-3xl font-bold tracking-tight transition-colors ${t.textPrimary}`}>
               {activeTab === 'lists' ? (isListView ? 'My Lists' : activeCatObj.name) : activeTab === 'today' ? 'Today' : 'Stats'}
             </h1>
             {!isListView && activeTab === 'lists' && (
-              <p className="text-gray-500 text-sm mt-1 font-medium">{completedCount} of {totalCount} completed</p>
+              <p className={`text-sm mt-1 font-medium transition-colors ${t.textSecondary}`}>{completedCount} of {totalCount} completed</p>
             )}
           </div>
 
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowSettings(true)} className="p-2.5 bg-white/60 text-gray-400 hover:text-gray-700 hover:bg-white rounded-full transition-all active:scale-95 shadow-sm backdrop-blur-md">
+            <button onClick={() => setShowSettings(true)} className={`p-2.5 rounded-full transition-all active:scale-95 shadow-sm backdrop-blur-md ${isDark ? 'bg-slate-800/60 text-slate-300 hover:bg-slate-700 hover:text-white' : 'bg-white/60 text-gray-400 hover:text-gray-700 hover:bg-white'}`}>
               <Settings size={20} />
             </button>
           </div>
@@ -260,56 +304,63 @@ export default function Home() {
 
       {/* Settings Modal */}
       {showSettings && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-md z-50 flex items-center justify-center p-6"
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-50 flex items-center justify-center p-6"
           onClick={() => setShowSettings(false)}>
-          <div className="bg-white rounded-3xl p-7 max-w-sm w-full shadow-2xl animate-pop-in"
+          <div className={`rounded-3xl p-7 max-w-sm w-full shadow-2xl animate-pop-in ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'}`}
             onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">Customize</h2>
-              <button onClick={() => setShowSettings(false)} className="text-gray-400 hover:text-gray-700 bg-gray-100 p-1.5 rounded-full"><X size={18}/></button>
+              <h2 className={`text-lg font-semibold ${t.textPrimary}`}>Customize</h2>
+              <button onClick={() => setShowSettings(false)} className={`p-1.5 rounded-full ${isDark ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-gray-100 text-gray-400 hover:text-gray-700'}`}><X size={18}/></button>
             </div>
 
             {/* Mascot Preview inside Settings */}
-            <div className="flex flex-col items-center mb-6 bg-gray-50 rounded-2xl p-4">
-               <div className="w-24 h-24 mb-2">
+            <div className={`flex flex-col items-center mb-6 rounded-2xl p-4 ${isDark ? 'bg-slate-800/50' : 'bg-gray-50'}`}>
+               <div className="w-24 h-24 mb-4">
                  <BloubMascot size={96} state="idle" expression="heureux" shape={targetShape} color={targetColor} />
                </div>
-               <select 
-                 value={settingsTarget} 
-                 onChange={e => setSettingsTarget(e.target.value)}
-                 className="bg-white border border-gray-200 text-gray-700 text-sm rounded-lg px-3 py-1.5 outline-none font-medium shadow-sm"
-               >
-                 <option value="global">Global App Mascot</option>
-                 {categories.map(c => (
-                   <option key={c.id} value={c.id}>List: {c.name}</option>
-                 ))}
-               </select>
+               
+               {/* Horizontal Category Scroller */}
+               <div className="w-full flex gap-3 overflow-x-auto pb-2 scrollbar-hide px-1">
+                 <button onClick={() => setSettingsTarget('global')} className={`flex-shrink-0 flex flex-col items-center p-2 rounded-2xl border transition-all ${settingsTarget === 'global' ? t.pillActive : t.pillInactive}`}>
+                   <div className="w-8 h-8 flex items-center justify-center"><BloubMascot size={32} state="idle" expression="neutre" shape={mascotShape} color={mascotColor} /></div>
+                   <span className="text-[10px] font-semibold mt-1">Global</span>
+                 </button>
+                 {categories.map(c => {
+                   const { shape, color } = getListMascot(c, catSettings);
+                   return (
+                     <button key={c.id} onClick={() => setSettingsTarget(c.id)} className={`flex-shrink-0 flex flex-col items-center p-2 rounded-2xl border transition-all ${settingsTarget === c.id ? t.pillActive : t.pillInactive}`}>
+                       <div className="w-8 h-8 flex items-center justify-center"><BloubMascot size={32} state="idle" expression="neutre" shape={shape} color={color} /></div>
+                       <span className="text-[10px] font-semibold mt-1 truncate w-12 text-center">{c.name}</span>
+                     </button>
+                   );
+                 })}
+               </div>
             </div>
 
             <div className="space-y-5">
               <div>
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">App Theme</label>
+                <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${t.textMuted}`}>App Theme</label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { id: 'bg-gray-50', name: 'Minimal' },
                     { id: 'bg-slate-900', name: 'Midnight' },
                     { id: 'bg-stone-100', name: 'Sand' },
                     { id: 'bg-rose-50', name: 'Blush' }
-                  ].map(t => (
-                    <button key={t.id} onClick={() => setBgTheme(t.id)}
-                      className={`py-2 text-sm font-medium rounded-xl border ${bgTheme === t.id ? 'bg-gray-900 text-white border-transparent' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
-                      {t.name}
+                  ].map(theme => (
+                    <button key={theme.id} onClick={() => setBgTheme(theme.id)}
+                      className={`py-2 text-sm font-medium rounded-xl border transition-all ${bgTheme === theme.id ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+                      {theme.name}
                     </button>
                   ))}
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Shape</label>
+                <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${t.textMuted}`}>Shape</label>
                 <div className="flex gap-2">
                   {['squircle', 'carre', 'rond'].map(s => (
                     <button key={s} onClick={() => updateTargetShape(s)}
-                      className={`flex-1 py-2 text-sm font-medium rounded-xl border ${targetShape === s ? 'bg-gray-900 text-white border-transparent' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+                      className={`flex-1 py-2 text-sm font-medium rounded-xl border transition-all ${targetShape === s ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
                       {s}
                     </button>
                   ))}
@@ -317,11 +368,11 @@ export default function Home() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Color</label>
+                <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${t.textMuted}`}>Color</label>
                 <div className="flex gap-2">
                   {['encre', 'lagon', 'prune'].map(c => (
                     <button key={c} onClick={() => updateTargetColor(c)}
-                      className={`flex-1 py-2 text-sm font-medium rounded-xl border ${targetColor === c ? 'bg-gray-900 text-white border-transparent' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+                      className={`flex-1 py-2 text-sm font-medium rounded-xl border transition-all ${targetColor === c ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
                       {c}
                     </button>
                   ))}
@@ -334,13 +385,13 @@ export default function Home() {
 
       {/* Add Task Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-end justify-center sm:items-center sm:p-6"
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end justify-center sm:items-center sm:p-6"
           onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-md shadow-2xl animate-pop-in"
+          <div className={`rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-md shadow-2xl animate-pop-in ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'}`}
             onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">New Task</h2>
-              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-700 bg-gray-100 p-1.5 rounded-full"><X size={18}/></button>
+              <h2 className={`text-lg font-semibold ${t.textPrimary}`}>New Task</h2>
+              <button onClick={() => setShowAddModal(false)} className={`p-1.5 rounded-full ${isDark ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-gray-100 text-gray-400 hover:text-gray-700'}`}><X size={18}/></button>
             </div>
             
             <form onSubmit={addTodo}>
@@ -354,12 +405,12 @@ export default function Home() {
                 }}
                 onFocus={() => triggerMascot('thinking', 'curieux')}
                 placeholder="What needs to be done?"
-                className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 px-4 text-base font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:border-gray-400 focus:bg-white transition-all mb-4"
+                className={`w-full rounded-2xl py-4 px-4 text-base font-medium transition-all mb-4 outline-none ${t.input}`}
               />
               <button
                 type="submit"
                 disabled={!inputText.trim()}
-                className="w-full bg-gray-900 text-white font-semibold py-4 rounded-2xl shadow-md hover:bg-gray-800 disabled:opacity-50 transition-all active:scale-95"
+                className="w-full bg-blue-600 text-white font-semibold py-4 rounded-2xl shadow-md hover:bg-blue-700 disabled:opacity-50 transition-all active:scale-95"
               >
                 Save Task
               </button>
@@ -381,32 +432,77 @@ export default function Home() {
         {/* Lists Master View */}
         {activeTab === 'lists' && isListView ? (
           <div className="space-y-4">
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">My Lists</h2>
-            <ul className="space-y-3">
+            <h2 className={`text-xs font-semibold uppercase tracking-wider mb-2 ${t.textMuted}`}>My Lists</h2>
+            <ul className="space-y-3 relative">
+              <AnimatePresence mode="popLayout">
               {categories.map(cat => {
                 const count = todos.filter(t => t.categoryId === cat.id && !t.completed).length;
                 const { shape: catShape, color: catColor } = getListMascot(cat, catSettings);
+                const isMenuOpen = listMenuId === cat.id;
+                const isEditing = editingListId === cat.id;
 
                 return (
-                  <li key={cat.id} className="group flex items-center justify-between bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-gray-300 cursor-pointer transition-all"
-                      onClick={() => handleCategoryClick(cat)}>
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 drop-shadow-sm flex items-center justify-center">
-                        <BloubMascot size={42} state="idle" expression="heureux" shape={catShape} color={catColor} />
+                  <motion.li 
+                    layout
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
+                    transition={{ duration: 0.2 }}
+                    key={cat.id} 
+                    className="relative"
+                  >
+                    <div 
+                      className={`group flex flex-col justify-between rounded-2xl p-4 cursor-pointer transition-all ${t.card}`}
+                      onPointerDown={() => handleCategoryPressIn(cat)}
+                      onPointerUp={handleCategoryPressOut}
+                      onPointerLeave={handleCategoryPressOut}
+                      onClick={() => handleCategoryClick(cat)}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 drop-shadow-sm flex items-center justify-center">
+                            <BloubMascot size={42} state="idle" expression="heureux" shape={catShape} color={catColor} />
+                          </div>
+                          {isEditing ? (
+                            <form onSubmit={(e) => { e.preventDefault(); saveCategoryName(cat.id); }} onClick={e => e.stopPropagation()}>
+                               <input type="text" autoFocus value={editingListName} onChange={e => setEditingListName(e.target.value)} onBlur={() => saveCategoryName(cat.id)} className={`bg-transparent outline-none font-semibold text-lg ${t.textPrimary} border-b ${isDark ? 'border-slate-500' : 'border-gray-300'}`} />
+                            </form>
+                          ) : (
+                            <span className={`font-semibold text-lg ${t.textPrimary}`}>{cat.name}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-sm font-medium px-3 py-1 rounded-full ${isDark ? 'bg-slate-700/50 text-slate-300' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
+                        </div>
                       </div>
-                      <span className="font-semibold text-gray-800 text-lg">{cat.name}</span>
+
+                      {/* Context Menu (Revealed on long press or swipe) */}
+                      <AnimatePresence>
+                        {isMenuOpen && (
+                          <motion.div 
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1, marginTop: 12 }}
+                            exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className={`flex gap-2 pt-3 border-t ${isDark ? 'border-slate-700' : 'border-gray-100'}`} onClick={e => e.stopPropagation()}>
+                              <button onClick={() => { setEditingListId(cat.id); setEditingListName(cat.name); setListMenuId(null); }} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium transition-colors ${isDark ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                                <Edit2 size={16}/> Rename
+                              </button>
+                              {cat.id !== 'default' && (
+                                <button onClick={() => deleteCategory(cat.id)} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium bg-red-100 text-red-600 hover:bg-red-200 transition-colors">
+                                  <Trash2 size={16}/> Delete
+                                </button>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-gray-400 bg-gray-100 px-3 py-1 rounded-full">{count}</span>
-                      {cat.id !== 'default' && (
-                        <button onClick={(e) => { e.stopPropagation(); deleteCategory(cat.id); }} className="text-gray-200 hover:text-red-400 transition-colors p-1 opacity-0 group-hover:opacity-100">
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </div>
-                  </li>
+                  </motion.li>
                 );
               })}
+              </AnimatePresence>
             </ul>
 
             <form onSubmit={addCategory} className="mt-6 flex items-center gap-2">
@@ -416,33 +512,61 @@ export default function Home() {
                   if (e.target.value.length === 1 && !newCatText) triggerMascot('alert', 'heureux');
                 }}
                 onFocus={() => triggerMascot('thinking', 'curieux')}
-                placeholder="New List..." className="flex-1 bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 shadow-sm transition-all" />
-              <button type="submit" disabled={!newCatText.trim()} className="bg-gray-900 text-white p-3 rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50"><Plus size={20}/></button>
+                placeholder="New List..." className={`flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none transition-all ${t.input}`} />
+              <button type="submit" disabled={!newCatText.trim()} className="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"><Plus size={20}/></button>
             </form>
+          </div>
+        ) : activeTab === 'stats' ? (
+          /* Stats View */
+          <div className="flex flex-col items-center justify-center py-8">
+            <h2 className={`text-2xl font-bold mb-8 ${t.textPrimary}`}>Your Progress</h2>
+            
+            <div className="w-full grid grid-cols-2 gap-4">
+              <div className={`p-6 rounded-3xl ${t.card} flex flex-col items-center justify-center`}>
+                <span className={`text-4xl font-bold mb-2 ${t.textPrimary}`}>{todos.filter(t => t.completed).length}</span>
+                <span className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>Completed</span>
+              </div>
+              <div className={`p-6 rounded-3xl ${t.card} flex flex-col items-center justify-center`}>
+                <span className={`text-4xl font-bold mb-2 ${t.textPrimary}`}>{todos.filter(t => !t.completed).length}</span>
+                <span className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>Pending</span>
+              </div>
+            </div>
+            
+            <div className={`w-full mt-6 p-6 rounded-3xl ${t.card} flex items-center gap-4`}>
+              <div className="w-16 h-16"><BloubMascot size={64} state="idle" expression={todos.filter(t => !t.completed).length === 0 ? "fier" : "attentif"} shape={mascotShape} color={mascotColor} /></div>
+              <div>
+                <p className={`font-semibold ${t.textPrimary}`}>
+                  {todos.filter(t => !t.completed).length === 0 ? "You're all caught up!" : "Keep it up!"}
+                </p>
+                <p className={`text-sm ${t.textSecondary}`}>
+                  {todos.filter(t => !t.completed).length === 0 ? "Enjoy your day." : "You have tasks waiting."}
+                </p>
+              </div>
+            </div>
           </div>
         ) : (
           /* Task List View */
           <div>
-            {/* Back button and List Title */}
             {activeTab === 'lists' && !isListView && (
                <div className="mb-4">
-                 <button onClick={() => setIsListView(true)} className="text-sm font-medium text-gray-400 hover:text-gray-900 mb-2 transition-colors">← Back to Lists</button>
+                 <button onClick={() => setIsListView(true)} className={`text-sm font-medium transition-colors ${isDark ? 'text-slate-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}>← Back to Lists</button>
                </div>
             )}
             
             {/* Add Task FAB */}
             <button
               onClick={() => setShowAddModal(true)}
-              className="fixed bottom-24 right-6 sm:right-[calc(50%-13rem)] w-14 h-14 bg-gray-900 text-white rounded-full shadow-xl shadow-gray-400/30 flex items-center justify-center hover:bg-gray-800 transition-all hover:scale-105 active:scale-95 z-40"
+              className="fixed bottom-24 right-6 sm:right-[calc(50%-13rem)] w-14 h-14 bg-blue-600 text-white rounded-full shadow-xl shadow-blue-600/30 flex items-center justify-center hover:bg-blue-700 transition-all hover:scale-105 active:scale-95 z-40"
             >
               <Plus size={28} />
             </button>
 
-            <ul className="space-y-3 pb-8">
+            <ul className="space-y-3 pb-8 relative">
+              <AnimatePresence mode="popLayout">
               {filteredTodos.length === 0 && (
-                <li className="text-center py-20 text-gray-400 text-sm">
+                <motion.li layout initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className={`text-center py-20 text-sm ${t.textMuted}`}>
                   {activeTab === 'lists' ? "No tasks in this list yet." : "Nothing due today!"}
-                </li>
+                </motion.li>
               )}
               {filteredTodos
                 .slice()
@@ -452,31 +576,30 @@ export default function Home() {
                   const isOverdue = !todo.completed && todo.dueDate && new Date(todo.dueDate) < new Date();
 
                   return (
-                    <li 
+                    <motion.li 
+                      layout
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
+                      transition={{ duration: 0.2 }}
                       key={todo.id}
-                      className={`bg-white/80 backdrop-blur-sm rounded-2xl border transition-all duration-200 overflow-hidden ${
-                        todo.completed
-                          ? 'border-gray-100 opacity-50'
-                          : isOverdue
-                          ? 'border-red-200 shadow-sm shadow-red-50'
-                          : 'border-gray-200/50 shadow-sm hover:shadow-md'
-                      }`}
+                      className={`rounded-2xl border transition-all duration-200 overflow-hidden ${todo.completed ? t.cardMuted + ' opacity-60' : isOverdue ? (isDark ? 'bg-red-950/30 border-red-900 shadow-red-900/20' : 'bg-red-50 border-red-200 shadow-red-100') : t.card}`}
                     >
                       <div className="flex items-center gap-3 px-4 py-3.5">
                         <button onClick={() => toggleTodo(todo.id, todo.completed)} className="flex-shrink-0">
                           {todo.completed
-                            ? <CheckCircle2 size={22} className="text-gray-800" />
-                            : <Circle size={22} className={`${isOverdue ? 'text-red-400' : 'text-gray-300'}`} />
+                            ? <CheckCircle2 size={22} className={isDark ? "text-slate-500" : "text-gray-800"} />
+                            : <Circle size={22} className={isOverdue ? 'text-red-400' : isDark ? 'text-slate-600' : 'text-gray-300'} />
                           }
                         </button>
 
                         <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedTask(isExpanded ? null : todo.id)}>
-                          <p className={`text-sm font-medium truncate ${todo.completed ? 'line-through text-gray-400' : isOverdue ? 'text-red-600' : 'text-gray-800'}`}>
+                          <p className={`text-sm font-medium truncate ${todo.completed ? 'line-through ' + t.textMuted : isOverdue ? 'text-red-500' : t.textPrimary}`}>
                             {todo.text}
                           </p>
                           <div className="flex items-center gap-2 mt-0.5">
                             {todo.dueDate && (
-                              <span className={`text-xs ${isOverdue ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
+                              <span className={`text-xs ${isOverdue ? 'text-red-400 font-semibold' : t.textMuted}`}>
                                 {isOverdue ? '⚠ ' : ''}
                                 {new Date(todo.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                               </span>
@@ -488,25 +611,25 @@ export default function Home() {
                           <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: PRIORITY_COLOR[todo.priority] }} />
                         )}
 
-                        <button onClick={() => setExpandedTask(isExpanded ? null : todo.id)} className="text-gray-300 hover:text-gray-500 transition-colors flex-shrink-0">
+                        <button onClick={() => setExpandedTask(isExpanded ? null : todo.id)} className={`transition-colors flex-shrink-0 ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-gray-300 hover:text-gray-500'}`}>
                           {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                         </button>
 
-                        <button onClick={() => deleteTodo(todo.id)} className="text-gray-200 hover:text-red-400 transition-colors flex-shrink-0">
+                        <button onClick={() => deleteTodo(todo.id)} className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0">
                           <Trash2 size={16} />
                         </button>
                       </div>
 
                       {isExpanded && (
-                        <div className="border-t border-gray-100 px-4 py-3 space-y-3">
+                        <div className={`border-t px-4 py-3 space-y-3 ${isDark ? 'border-slate-700/50' : 'border-gray-100'}`}>
                           <div className="flex items-center gap-2">
-                            <Flag size={14} className="text-gray-400" />
-                            <span className="text-xs text-gray-400 mr-1">Priority:</span>
+                            <Flag size={14} className={t.textMuted} />
+                            <span className={`text-xs mr-1 ${t.textMuted}`}>Priority:</span>
                             {(['high', 'medium', 'low'] as const).map(p => (
                               <button key={p}
                                 onClick={() => mutate({ type: 'SET_PRIORITY', id: todo.id, priority: p }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
                                 className={`px-2 py-0.5 rounded-full text-xs font-medium transition-all border ${
-                                  todo.priority === p ? 'text-white border-transparent' : 'text-gray-500 border-gray-200 hover:border-gray-400'
+                                  todo.priority === p ? 'text-white border-transparent' : isDark ? 'text-slate-400 border-slate-700' : 'text-gray-500 border-gray-200'
                                 }`}
                                 style={todo.priority === p ? { backgroundColor: PRIORITY_COLOR[p] } : {}}
                               >
@@ -516,48 +639,50 @@ export default function Home() {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400">Due:</span>
+                            <Calendar size={14} className={t.textMuted} />
+                            <span className={`text-xs ${t.textMuted}`}>Due:</span>
                             <input type="date"
                               value={todo.dueDate ? todo.dueDate.split('T')[0] : ''}
                               onChange={e => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: e.target.value }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
-                              className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-gray-400"
+                              className={`text-xs rounded-lg px-2 py-1 outline-none ${t.input}`}
                             />
                             {todo.dueDate && (
                               <button onClick={() => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: null }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
-                                className="text-gray-300 hover:text-gray-500"><X size={12} /></button>
+                                className={`hover:text-red-400 ${t.textMuted}`}><X size={12} /></button>
                             )}
                           </div>
                         </div>
                       )}
-                    </li>
+                    </motion.li>
                   );
                 })}
+              </AnimatePresence>
             </ul>
           </div>
         )}
       </div>
       
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-gray-100 pb-safe z-40 px-6 py-2">
+      <nav className={`fixed bottom-0 left-0 right-0 border-t pb-safe z-40 px-6 py-2 ${t.nav}`}>
         <div className="max-w-md mx-auto flex justify-between items-center text-xs font-medium text-gray-400">
           <button 
             onClick={() => { setActiveTab('lists'); setIsListView(true); }}
-            className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'lists' ? 'text-gray-900' : 'hover:text-gray-600'}`}>
-            <ListTodo size={22} className={activeTab === 'lists' ? 'text-gray-900' : ''} />
+            className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'lists' ? t.textPrimary : t.textSecondary}`}>
+            <ListTodo size={22} />
             <span>Lists</span>
           </button>
           
           <button 
             onClick={() => setActiveTab('today')}
-            className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'today' ? 'text-gray-900' : 'hover:text-gray-600'}`}>
-            <Calendar size={22} className={activeTab === 'today' ? 'text-gray-900' : ''} />
+            className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'today' ? t.textPrimary : t.textSecondary}`}>
+            <Calendar size={22} />
             <span>Today</span>
           </button>
 
           <button 
             onClick={() => setActiveTab('stats')}
-            className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'stats' ? 'text-gray-900' : 'hover:text-gray-600'}`}>
-            <BarChart3 size={22} className={activeTab === 'stats' ? 'text-gray-900' : ''} />
+            className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'stats' ? t.textPrimary : t.textSecondary}`}>
+            <BarChart3 size={22} />
             <span>Stats</span>
           </button>
         </div>
