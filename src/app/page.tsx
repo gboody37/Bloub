@@ -336,14 +336,22 @@ export default function Home() {
             <ul className="space-y-3">
               {categories.map(cat => {
                 const count = todos.filter(t => t.categoryId === cat.id && !t.completed).length;
+                
+                // Deterministic shape & color for this specific list's icon
+                const shapes: ('squircle'|'carre'|'rond')[] = ['squircle', 'carre', 'rond'];
+                const colors: ('encre'|'lagon'|'prune')[] = ['encre', 'lagon', 'prune'];
+                const hash = cat.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                const catShape = shapes[hash % shapes.length];
+                const catColor = colors[hash % colors.length];
+
                 return (
                   <li key={cat.id} className="group flex items-center justify-between bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-gray-300 cursor-pointer transition-all"
                       onClick={() => handleCategoryClick(cat)}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
-                        <ListTodo size={20} />
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 drop-shadow-sm flex items-center justify-center">
+                        <BloubMascot size={42} state="idle" expression="heureux" shape={catShape} color={catColor} />
                       </div>
-                      <span className="font-semibold text-gray-800">{cat.name}</span>
+                      <span className="font-semibold text-gray-800 text-lg">{cat.name}</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-medium text-gray-400 bg-gray-100 px-3 py-1 rounded-full">{count}</span>
