@@ -6,6 +6,7 @@ import BloubMascot from '@/components/BloubMascot';
 import { CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRight, Flag, Calendar, BarChart3, ListTodo, Edit2, MoreVertical } from 'lucide-react';
 import type { StateId } from '@/lib/bot/states';
 import type { ExpressionId } from '@/lib/bot/expressions';
+import { COLORS } from '@/lib/bot/skins';
 
 interface Subtask { id: string; text: string; completed: boolean; }
 interface Todo {
@@ -272,15 +273,16 @@ export default function Home() {
     { id: 'bg-gray-100', name: 'Minimal', color: '#f3f4f6' },
     { id: 'bg-slate-900', name: 'Midnight', color: '#0f172a' },
     { id: 'bg-zinc-950', name: 'Abyss', color: '#09090b' },
-    { id: 'bg-stone-200', name: 'Sand', color: '#e7e5e4' },
-    { id: 'bg-rose-100', name: 'Blush', color: '#ffe4e6' },
-    { id: 'bg-blue-100', name: 'Ocean', color: '#dbeafe' },
-    { id: 'bg-emerald-100', name: 'Mint', color: '#d1fae5' },
-    { id: 'bg-violet-100', name: 'Lavender', color: '#ede9fe' }
+    { id: 'bg-gradient-to-br from-stone-200 to-stone-300', name: 'Sand', color: '#d6d3d1' },
+    { id: 'bg-gradient-to-br from-rose-100 to-pink-200', name: 'Blush', color: '#fbcfe8' },
+    { id: 'bg-gradient-to-br from-blue-100 to-cyan-100', name: 'Ocean', color: '#cffafe' },
+    { id: 'bg-gradient-to-br from-emerald-100 to-teal-100', name: 'Mint', color: '#ccfbf1' },
+    { id: 'bg-gradient-to-br from-violet-100 to-purple-200', name: 'Lavender', color: '#e9d5ff' },
+    { id: 'bg-gradient-to-br from-amber-100 to-orange-200', name: 'Sunset', color: '#fde68a' }
   ];
 
   // Theme Logic
-  const isDark = bgTheme === 'bg-slate-900' || bgTheme === 'bg-zinc-950';
+  const isDark = bgTheme.includes('slate-900') || bgTheme.includes('zinc-950');
   const t = {
     textPrimary: isDark ? 'text-white' : 'text-gray-900',
     textSecondary: isDark ? 'text-slate-300' : 'text-gray-500',
@@ -404,16 +406,13 @@ export default function Home() {
                 <AnimatePresence>
                   {showColorPicker && (
                     <motion.div initial={{height: 0, opacity: 0}} animate={{height: 'auto', opacity: 1}} exit={{height: 0, opacity: 0}} className="overflow-hidden">
-                      <div className="grid grid-cols-3 gap-2 pt-1 pb-2">
-                        {['encre', 'lagon', 'prune'].map(c => {
-                          const colorHex = c === 'encre' ? '#1e293b' : c === 'lagon' ? '#0ea5e9' : '#9333ea';
-                          return (
-                            <button key={c} onClick={() => updateTargetColor(c)}
-                              className={`flex flex-col items-center justify-center py-2 rounded-xl border transition-all ${targetColor === c ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-400'}`}>
-                              <div className="w-5 h-5 rounded-full shadow-inner border border-black/10" style={{ backgroundColor: colorHex }} />
-                            </button>
-                          );
-                        })}
+                      <div className="grid grid-cols-4 gap-2 pt-1 pb-2">
+                        {COLORS.map(c => (
+                          <button key={c.id} onClick={() => updateTargetColor(c.id)}
+                            className={`flex flex-col items-center justify-center py-2 rounded-xl border transition-all ${targetColor === c.id ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-400'}`}>
+                            <div className="w-5 h-5 rounded-full shadow-inner border border-black/10" style={{ backgroundColor: c.hex }} />
+                          </button>
+                        ))}
                       </div>
                     </motion.div>
                   )}
