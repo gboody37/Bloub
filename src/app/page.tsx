@@ -799,7 +799,7 @@ export default function Home() {
                         </button>
 
                         <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedTask(isExpanded ? null : todo.id)}>
-                          <p className={`text-sm font-medium truncate ${todo.completed ? 'line-through ' + t.textMuted : isOverdue ? 'text-red-500' : t.textPrimary}`}>
+                          <p className={`text-sm font-medium ${isExpanded ? 'break-words whitespace-normal' : 'truncate'} ${todo.completed ? 'line-through ' + t.textMuted : isOverdue ? 'text-red-500' : t.textPrimary}`}>
                             {todo.text}
                           </p>
                           <div className="flex items-center gap-2 mt-0.5">
