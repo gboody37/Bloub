@@ -40,6 +40,7 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showShapePicker, setShowShapePicker] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [isListView, setIsListView] = useState(true);
   
@@ -373,15 +374,26 @@ export default function Home() {
               </div>
 
               <div>
-                <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${t.textMuted}`}>Shape</label>
-                <div className="flex gap-2">
-                  {['squircle', 'carre', 'rond'].map(s => (
-                    <button key={s} onClick={() => updateTargetShape(s)}
-                      className={`flex-1 py-3 flex justify-center items-center rounded-xl border transition-all ${targetShape === s ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
-                      <div className={`w-5 h-5 border-2 ${targetShape === s ? 'border-white bg-blue-400' : isDark ? 'border-slate-500 bg-slate-700' : 'border-gray-400 bg-gray-200'} ${s === 'rond' ? 'rounded-full' : s === 'carre' ? 'rounded-md' : 'rounded-[40%]'}`} />
-                    </button>
-                  ))}
-                </div>
+                <button onClick={() => setShowShapePicker(!showShapePicker)} className={`w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wider mb-2 transition-colors ${t.textMuted} hover:text-gray-700`}>
+                  <span>Mascot Shape</span>
+                  {showShapePicker ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </button>
+                <AnimatePresence>
+                  {showShapePicker && (
+                    <motion.div initial={{height: 0, opacity: 0}} animate={{height: 'auto', opacity: 1}} exit={{height: 0, opacity: 0}} className="overflow-hidden">
+                      <div className="grid grid-cols-5 gap-2 pt-1 pb-2">
+                        {['cercle', 'squircle', 'triangle', 'hexagone', 'nuage', 'goutte', 'galet', 'capsule', 'oeuf', 'soleil'].map(s => (
+                          <button key={s} onClick={() => updateTargetShape(s)}
+                            className={`flex flex-col items-center justify-center py-2 rounded-xl border transition-all ${targetShape === s ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+                            <div className="w-8 h-8 flex items-center justify-center pointer-events-none drop-shadow-sm">
+                              <BloubMascot size={32} state="idle" expression="neutre" shape={s} color={targetColor} />
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               <div>
