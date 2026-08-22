@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import BloubMascot from '@/components/BloubMascot';
-import { CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRight, Flag } from 'lucide-react';
+import { CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRight, Flag, Calendar, BarChart3, ListTodo } from 'lucide-react';
 import type { StateId } from '@/lib/bot/states';
 import type { ExpressionId } from '@/lib/bot/expressions';
 
@@ -22,6 +23,7 @@ export default function Home() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategory, setActiveCategory] = useState('default');
+  const [activeTab, setActiveTab] = useState<'lists' | 'today' | 'stats'>('lists');
   const [inputText, setInputText] = useState('');
   const [newCatText, setNewCatText] = useState('');
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
@@ -95,7 +97,8 @@ export default function Home() {
       triggerMascot('idle', 'mefiant');
       return;
     }
-    triggerMascot('alert', 'excite');
+    // "Amazed" state
+    triggerMascot('wide', 'surpris');
     await mutate({ type: 'ADD_TODO', text: inputText, categoryId: activeCategory });
     setInputText('');
   };
@@ -144,7 +147,16 @@ export default function Home() {
     setTimeout(() => triggerMascot('idle', 'neutre'), 2500);
   };
 
-  const filteredTodos = todos.filter(t => t.categoryId === activeCategory);
+  const filteredTodos = todos.filter(t => {
+    if (activeTab === 'lists') return t.categoryId === activeCategory;
+    if (activeTab === 'today') {
+      if (!t.dueDate) return false;
+      const due = new Date(t.dueDate);
+      const today = new Date();
+      return due.toDateString() === today.toDateString() || due < today;
+    }
+    return false;
+  });
   const completedCount = filteredTodos.filter(t => t.completed).length;
   const totalCount = filteredTodos.length;
 
@@ -162,7 +174,7 @@ export default function Home() {
       {showSettings && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-md z-50 flex items-center justify-center p-6"
           onClick={() => setShowSettings(false)}>
-          <div className="bg-white rounded-3xl p-7 max-w-sm w-full shadow-2xl"
+          <div className="bg-white rounded-3xl p-7 max-w-sm w-full shadow-2xl animate-pop-in"
             onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-semibold text-gray-900">Customize</h2>
@@ -286,114 +298,163 @@ export default function Home() {
         </form>
 
         {/* Task list */}
-        <ul className="space-y-2">
-          {filteredTodos.length === 0 && (
-            <li className="text-center py-12 text-gray-400 text-sm">
-              Nothing here yet.
-            </li>
-          )}
-          {filteredTodos.map(todo => {
-            const isExpanded = expandedTask === todo.id;
-            const subtasksDone = (todo.subtasks ?? []).filter(s => s.completed).length;
-            const subtasksTotal = (todo.subtasks ?? []).length;
-            const isOverdue = !todo.completed && todo.dueDate && new Date(todo.dueDate) < new Date();
+        <motion.ul layout className="space-y-2">
+          <AnimatePresence>
+            {filteredTodos.length === 0 && (
+              <motion.li 
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="text-center py-12 text-gray-400 text-sm">
+                Nothing here yet.
+              </motion.li>
+            )}
+            {filteredTodos
+              .slice()
+              .sort((a, b) => Number(b.id) - Number(a.id))
+              .map(todo => {
+              const isExpanded = expandedTask === todo.id;
+              const subtasksDone = (todo.subtasks ?? []).filter(s => s.completed).length;
+              const subtasksTotal = (todo.subtasks ?? []).length;
+              const isOverdue = !todo.completed && todo.dueDate && new Date(todo.dueDate) < new Date();
 
-            return (
-              <li key={todo.id}
-                className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden ${
-                  todo.completed
-                    ? 'border-gray-100 opacity-50'
-                    : isOverdue
-                    ? 'border-red-200 shadow-sm shadow-red-50'
-                    : 'border-gray-200 shadow-sm hover:border-gray-300 hover:shadow-md'
-                }`}
-              >
-                <div className="flex items-center gap-3 px-4 py-3.5">
-                  {/* Checkbox */}
-                  <button onClick={() => toggleTodo(todo.id, todo.completed)} className="flex-shrink-0">
-                    {todo.completed
-                      ? <CheckCircle2 size={22} className="text-gray-800" />
-                      : <Circle size={22} className={`${isOverdue ? 'text-red-300' : 'text-gray-200'} hover:text-gray-400 transition-colors`} />
-                    }
-                  </button>
+              return (
+                <motion.li 
+                  layout
+                  initial={{ opacity: 0, y: -40, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                  transition={{ type: 'spring', bounce: 0.4, duration: 0.6 }}
+                  key={todo.id}
+                  className={`bg-white rounded-2xl border overflow-hidden ${
+                    todo.completed
+                      ? 'border-gray-100 opacity-50'
+                      : isOverdue
+                      ? 'border-red-200 shadow-sm shadow-red-50'
+                      : 'border-gray-200 shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 px-4 py-3.5">
+                    {/* Checkbox */}
+                    <button onClick={() => toggleTodo(todo.id, todo.completed)} className="flex-shrink-0">
+                      {todo.completed
+                        ? <CheckCircle2 size={22} className="text-gray-800" />
+                        : <Circle size={22} className={`${isOverdue ? 'text-red-300' : 'text-gray-200'} hover:text-gray-400 transition-colors`} />
+                      }
+                    </button>
 
-                  {/* Text */}
-                  <div className="flex-1 min-w-0" onClick={() => setExpandedTask(isExpanded ? null : todo.id)}>
-                    <p className={`text-sm font-medium truncate ${todo.completed ? 'line-through text-gray-400' : isOverdue ? 'text-red-600' : 'text-gray-800'}`}>
-                      {todo.text}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {todo.dueDate && (
-                        <span className={`text-xs ${isOverdue ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
-                          {isOverdue ? '⚠ ' : ''}
-                          {new Date(todo.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </span>
-                      )}
-                      {subtasksTotal > 0 && (
-                        <span className="text-xs text-gray-400">{subtasksDone}/{subtasksTotal} subtasks</span>
-                      )}
+                    {/* Text */}
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedTask(isExpanded ? null : todo.id)}>
+                      <p className={`text-sm font-medium truncate ${todo.completed ? 'line-through text-gray-400' : isOverdue ? 'text-red-600' : 'text-gray-800'}`}>
+                        {todo.text}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {todo.dueDate && (
+                          <span className={`text-xs ${isOverdue ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
+                            {isOverdue ? '⚠ ' : ''}
+                            {new Date(todo.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                        )}
+                        {subtasksTotal > 0 && (
+                          <span className="text-xs text-gray-400">{subtasksDone}/{subtasksTotal} subtasks</span>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Priority dot */}
+                    {todo.priority && (
+                      <div className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: PRIORITY_COLOR[todo.priority] }} />
+                    )}
+
+                    {/* Expand toggle */}
+                    <button onClick={() => setExpandedTask(isExpanded ? null : todo.id)}
+                      className="text-gray-300 hover:text-gray-500 transition-colors flex-shrink-0">
+                      {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </button>
+
+                    {/* Delete */}
+                    <button onClick={() => deleteTodo(todo.id)}
+                      className="text-gray-200 hover:text-red-400 transition-colors flex-shrink-0">
+                      <Trash2 size={16} />
+                    </button>
                   </div>
 
-                  {/* Priority dot */}
-                  {todo.priority && (
-                    <div className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: PRIORITY_COLOR[todo.priority] }} />
-                  )}
+                  {/* Expanded panel */}
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div 
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="border-t border-gray-100 px-4 py-3 space-y-3 overflow-hidden"
+                      >
+                        {/* Priority picker */}
+                        <div className="flex items-center gap-2">
+                          <Flag size={14} className="text-gray-400" />
+                          <span className="text-xs text-gray-400 mr-1">Priority:</span>
+                          {(['high', 'medium', 'low'] as const).map(p => (
+                            <button key={p}
+                              onClick={() => mutate({ type: 'SET_PRIORITY', id: todo.id, priority: p }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
+                              className={`px-2 py-0.5 rounded-full text-xs font-medium transition-all border ${
+                                todo.priority === p ? 'text-white border-transparent' : 'text-gray-500 border-gray-200 hover:border-gray-400'
+                              }`}
+                              style={todo.priority === p ? { backgroundColor: PRIORITY_COLOR[p] } : {}}
+                            >
+                              {PRIORITY_LABEL[p]}
+                            </button>
+                          ))}
+                        </div>
 
-                  {/* Expand toggle */}
-                  <button onClick={() => setExpandedTask(isExpanded ? null : todo.id)}
-                    className="text-gray-300 hover:text-gray-500 transition-colors flex-shrink-0">
-                    {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                  </button>
-
-                  {/* Delete */}
-                  <button onClick={() => deleteTodo(todo.id)}
-                    className="text-gray-200 hover:text-red-400 transition-colors flex-shrink-0">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-
-                {/* Expanded panel */}
-                {isExpanded && (
-                  <div className="border-t border-gray-100 px-4 py-3 space-y-3">
-                    {/* Priority picker */}
-                    <div className="flex items-center gap-2">
-                      <Flag size={14} className="text-gray-400" />
-                      <span className="text-xs text-gray-400 mr-1">Priority:</span>
-                      {(['high', 'medium', 'low'] as const).map(p => (
-                        <button key={p}
-                          onClick={() => mutate({ type: 'SET_PRIORITY', id: todo.id, priority: p }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
-                          className={`px-2 py-0.5 rounded-full text-xs font-medium transition-all border ${
-                            todo.priority === p ? 'text-white border-transparent' : 'text-gray-500 border-gray-200 hover:border-gray-400'
-                          }`}
-                          style={todo.priority === p ? { backgroundColor: PRIORITY_COLOR[p] } : {}}
-                        >
-                          {PRIORITY_LABEL[p]}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Due date */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400">Due:</span>
-                      <input type="date"
-                        value={todo.dueDate ?? ''}
-                        onChange={e => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: e.target.value }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
-                        className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-gray-400"
-                      />
-                      {todo.dueDate && (
-                        <button onClick={() => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: null }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
-                          className="text-gray-300 hover:text-gray-500"><X size={12} /></button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                        {/* Due date */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400">Due:</span>
+                          <input type="date"
+                            value={todo.dueDate ? todo.dueDate.split('T')[0] : ''}
+                            onChange={e => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: e.target.value }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
+                            className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-gray-400"
+                          />
+                          {todo.dueDate && (
+                            <button onClick={() => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: null }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
+                              className="text-gray-300 hover:text-gray-500"><X size={12} /></button>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.li>
+              );
+            })}
+          </AnimatePresence>
+        </motion.ul>
       </div>
+      
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 pb-safe z-40 px-6 py-2">
+        <div className="max-w-md mx-auto flex justify-between items-center text-xs font-medium text-gray-400">
+          <button 
+            onClick={() => setActiveTab('lists')}
+            className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'lists' ? 'text-gray-900' : 'hover:text-gray-600'}`}>
+            <ListTodo size={22} className={activeTab === 'lists' ? 'text-gray-900' : ''} />
+            <span>Lists</span>
+          </button>
+          
+          <button 
+            onClick={() => setActiveTab('today')}
+            className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'today' ? 'text-gray-900' : 'hover:text-gray-600'}`}>
+            <Calendar size={22} className={activeTab === 'today' ? 'text-gray-900' : ''} />
+            <span>Today</span>
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('stats')}
+            className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'stats' ? 'text-gray-900' : 'hover:text-gray-600'}`}>
+            <BarChart3 size={22} className={activeTab === 'stats' ? 'text-gray-900' : ''} />
+            <span>Stats</span>
+          </button>
+        </div>
+      </nav>
+      
+      {/* Padding for bottom nav */}
+      <div className="h-20" />
     </main>
   );
 }

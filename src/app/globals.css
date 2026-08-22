@@ -24,3 +24,12 @@ body {
   color: #111827; /* gray-900 */
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@keyframes popIn {
+  0% { opacity: 0; transform: scale(0.95) translateY(10px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.animate-pop-in {
+  animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

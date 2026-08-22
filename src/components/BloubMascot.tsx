@@ -36,19 +36,13 @@ export default function BloubMascot({
   const rafRef = useRef<number>(0);
   const clockRef = useRef<number>(0);
   const lastRef = useRef<number>(0);
-  const blockIndexRef = useRef<number>(0);
-  const nextAtRef = useRef<number>(Infinity);
   const stateRef = useRef(state);
-  const cycleRef = useRef(defaultCycle().blocks);
 
   // One-time init
   useEffect(() => {
     const shapeRadii = SHAPE_BY_ID.get(shape)?.radii ?? null;
     const expr = EXPRESSION_BY_ID.get(expression) ?? null;
     engineRef.current = new BotEngine(R, 'idle', shapeRadii, expr);
-    const cycle = cycleRef.current;
-    nextAtRef.current = cycle[0]?.duration ?? 2;
-    blockIndexRef.current = 0;
   }, []); // eslint-disable-line
 
   // React to `state` prop
@@ -56,10 +50,6 @@ export default function BloubMascot({
     stateRef.current = state;
     if (engineRef.current) {
       engineRef.current.setState(state, clockRef.current);
-      // After a state, return to idle after state's duration
-      const dur = 2.5;
-      const returnAt = clockRef.current + dur;
-      nextAtRef.current = returnAt;
     }
   }, [state]);
 
@@ -82,7 +72,6 @@ export default function BloubMascot({
   // Animation loop
   useEffect(() => {
     const ink = COLOR_BY_ID.get(color)?.hex ?? '#0a0a0c';
-    const cycle = cycleRef.current;
 
     const tick = (ts: number) => {
       if (lastRef.current === 0) lastRef.current = ts;
@@ -90,19 +79,6 @@ export default function BloubMascot({
       lastRef.current = ts;
       clockRef.current += dt;
       const now = clockRef.current;
-
-      // Return to idle cycle after a triggered state finishes
-      if (now >= nextAtRef.current && engineRef.current) {
-        blockIndexRef.current = (blockIndexRef.current + 1) % cycle.length;
-        const block = cycle[blockIndexRef.current];
-        if (block) {
-          // Only override if we're not in a user-triggered state
-          if (stateRef.current === 'idle') {
-            engineRef.current.setState(block.state, now);
-          }
-          nextAtRef.current = now + (block.duration ?? 2);
-        }
-      }
 
       if (!engineRef.current || !svgRef.current) {
         rafRef.current = requestAnimationFrame(tick);
@@ -231,7 +207,6 @@ export default function BloubMascot({
     onInteract?.();
     if (engineRef.current) {
       engineRef.current.setState('orbit', clockRef.current);
-      nextAtRef.current = clockRef.current + 3.4;
       stateRef.current = 'idle';
     }
   }, [onInteract]);
