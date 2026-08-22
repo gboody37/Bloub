@@ -629,7 +629,7 @@ export default function Home() {
                </div>
                
                {/* Horizontal Category Scroller */}
-               <div className="w-full flex gap-3 overflow-x-auto pb-2 scrollbar-hide px-1">
+               <div className="w-full flex gap-3 overflow-x-auto pb-2 custom-scrollbar px-1">
                  <button onClick={() => setSettingsTarget('global')} className={`flex-shrink-0 flex flex-col items-center p-2 rounded-2xl border transition-all ${settingsTarget === 'global' ? t.pillActive : t.pillInactive}`}>
                    <div className="w-8 h-8 flex items-center justify-center"><BloubMascot size={32} state="idle" expression="neutre" shape={mascotShape} color={mascotColor} /></div>
                    <span className="text-[10px] font-semibold mt-1">Global</span>
