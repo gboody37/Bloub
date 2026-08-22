@@ -1,12 +1,19 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
+// Helper to map Postgres lowercase columns to frontend camelCase
+const mapTodos = (todos: any[]) => todos.map(t => ({
+  ...t,
+  categoryId: t.categoryid,
+  dueDate: t.duedate
+}));
+
 export async function GET() {
   const { data: todos } = await supabase.from('todos').select('*');
   const { data: categories } = await supabase.from('categories').select('*');
   
   return NextResponse.json({
-    todos: todos ?? [],
+    todos: todos ? mapTodos(todos) : [],
     categories: categories?.length ? categories : [{ id: 'default', name: 'General' }]
   });
 }
@@ -19,7 +26,7 @@ export async function POST(req: Request) {
       id: Date.now().toString(),
       text: body.text,
       completed: false,
-      categoryId: body.categoryId || 'default'
+      categoryid: body.categoryId || 'default'
     }]);
   } else if (body.type === 'TOGGLE_TODO') {
     await supabase.from('todos').update({ completed: body.completed }).match({ id: body.id });
@@ -32,11 +39,11 @@ export async function POST(req: Request) {
     }]);
   } else if (body.type === 'DELETE_CATEGORY') {
     await supabase.from('categories').delete().match({ id: body.id });
-    await supabase.from('todos').update({ categoryId: 'default' }).match({ categoryId: body.id });
+    await supabase.from('todos').update({ categoryid: 'default' }).match({ categoryid: body.id });
   } else if (body.type === 'SET_PRIORITY') {
     await supabase.from('todos').update({ priority: body.priority }).match({ id: body.id });
   } else if (body.type === 'SET_DUE_DATE') {
-    await supabase.from('todos').update({ dueDate: body.dueDate }).match({ id: body.id });
+    await supabase.from('todos').update({ duedate: body.dueDate }).match({ id: body.id });
   }
 
   // Fetch updated data to return
@@ -44,7 +51,7 @@ export async function POST(req: Request) {
   const { data: categories } = await supabase.from('categories').select('*');
 
   return NextResponse.json({
-    todos: todos ?? [],
+    todos: todos ? mapTodos(todos) : [],
     categories: categories?.length ? categories : [{ id: 'default', name: 'General' }]
   });
 }
