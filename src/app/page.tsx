@@ -8,6 +8,7 @@ import type { StateId } from '@/lib/bot/states';
 import type { ExpressionId } from '@/lib/bot/expressions';
 import { COLORS } from '@/lib/bot/skins';
 import { createClient } from '@/lib/supabase/client';
+import { VAPID_PUBLIC_KEY } from '@/lib/push-config';
 
 interface Subtask { id: string; text: string; completed: boolean; }
 interface Todo {
@@ -15,6 +16,12 @@ interface Todo {
   priority?: 'high' | 'medium' | 'low';
   dueDate?: string;
   subtasks?: Subtask[];
+  isHabit?: boolean;
+  habitFrequency?: number;
+  habitDays?: string[];
+  habitCompletedCount?: number;
+  habitStreak?: number;
+  habitLastCompleted?: string;
 }
 interface Category { id: string; name: string; }
 
@@ -70,6 +77,12 @@ export default function Home() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isListView, setIsListView] = useState(true);
+  const [isHabit, setIsHabit] = useState(false);
+  const [habitDays, setHabitDays] = useState<string[]>([]);
+  const [habitFrequency, setHabitFrequency] = useState(1);
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
   
   // List Context Menu (Long press)
   const [listMenuId, setListMenuId] = useState<string | null>(null);
@@ -122,6 +135,115 @@ export default function Home() {
   const [mascotShape, setMascotShape] = useState('squircle');
   const [mascotColor, setMascotColor] = useState('bleu');
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (installPrompt) {
+      installPrompt.prompt();
+      const { outcome } = await installPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setInstallPrompt(null);
+      }
+    } else {
+      setShowInstallGuide(true);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && session) {
+      navigator.serviceWorker.ready.then(async (registration) => {
+        const subscription = await registration.pushManager.getSubscription();
+        setIsSubscribed(!!subscription);
+      }).catch(err => console.warn('SW Ready Error:', err));
+    }
+  }, [session]);
+
+  const handlePushToggle = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      alert('Push notifications are not supported on this browser.');
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      
+      if (isSubscribed) {
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription) {
+          await subscription.unsubscribe();
+          setIsSubscribed(false);
+        }
+      } else {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          alert('Notification permission denied.');
+          return;
+        }
+
+        const urlBase64ToUint8Array = (base64String: string) => {
+          const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+          const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+          const rawData = window.atob(base64);
+          const outputArray = new Uint8Array(rawData.length);
+          for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+          }
+          return outputArray;
+        };
+
+        const subscribeOptions = {
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        };
+
+        const subscription = await registration.pushManager.subscribe(subscribeOptions);
+        
+        const res = await fetch('/api/push-subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscription })
+        });
+
+        if (res.ok) {
+          setIsSubscribed(true);
+          triggerMascot('wink', 'heureux');
+        } else {
+          alert('Failed to save subscription to server.');
+        }
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert('Error setting up push notifications: ' + err.message);
+    }
+  };
+
+  const sendTestPush = async () => {
+    try {
+      const res = await fetch('/api/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Vibe Todos 🌟',
+          body: 'Your mobile push notifications are fully configured!'
+        })
+      });
+      if (res.ok) {
+        triggerMascot('wink', 'heureux');
+      } else {
+        alert('Failed to send test push.');
+      }
+    } catch (err: any) {
+      alert('Error sending test push: ' + err.message);
+    }
+  };
 
   useEffect(() => {
     const savedExpr = localStorage.getItem('mascotExpression') as ExpressionId;
@@ -228,8 +350,18 @@ export default function Home() {
     }
     setIsSubmitting(true);
     triggerMascot('wide', 'surpris');
-    await mutate({ type: 'ADD_TODO', text: inputText, categoryId: activeCategory });
+    await mutate({ 
+      type: 'ADD_TODO', 
+      text: inputText, 
+      categoryId: activeCategory,
+      isHabit,
+      habitFrequency,
+      habitDays
+    });
     setInputText('');
+    setIsHabit(false);
+    setHabitDays([]);
+    setHabitFrequency(1);
     setShowAddModal(false);
     setIsSubmitting(false);
   };
@@ -283,6 +415,32 @@ export default function Home() {
     setActiveCategory(cat.id);
     setIsListView(false);
     triggerMascot('alert', 'excite');
+  };
+
+  const incrementHabit = async (todo: Todo) => {
+    const currentCount = todo.habitCompletedCount || 0;
+    const freq = todo.habitFrequency || 1;
+    const isNextCompleted = currentCount + 1 >= freq;
+    
+    // Optimistic UI updates
+    const updatedTodos = todos.map(t => t.id === todo.id ? { 
+      ...t, 
+      habitCompletedCount: todo.completed ? 0 : currentCount + 1,
+      completed: todo.completed ? false : isNextCompleted
+    } : t);
+    setTodos(updatedTodos);
+
+    if (todo.completed) {
+      triggerMascot('idle', 'neutre');
+    } else if (isNextCompleted) {
+      triggerMascot('orbit', 'fier');
+      setTimeout(() => triggerMascot('idle', 'blase'), 3500);
+    } else {
+      triggerMascot('wink', 'heureux');
+      resetToIdle();
+    }
+
+    await mutate({ type: 'INCREMENT_HABIT', id: todo.id });
   };
 
   const toggleTodo = async (id: string, completed: boolean) => {
@@ -418,6 +576,14 @@ export default function Home() {
             <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/><path fill="none" d="M1 1h22v22H1z"/></svg>
             Continue with Google
           </button>
+
+          <button onClick={handleInstallClick} className={`mt-3 w-full py-3 px-4 rounded-2xl flex items-center justify-center gap-2 font-semibold text-sm transition-all active:scale-95 border ${
+            isDark 
+              ? 'bg-slate-800 border-slate-700/60 text-slate-200 hover:bg-slate-700' 
+              : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+          }`}>
+            📲 Download Web App
+          </button>
         </motion.div>
       </div>
     );
@@ -545,6 +711,34 @@ export default function Home() {
                   )}
                 </AnimatePresence>
               </div>
+
+              {/* Push Notifications Section */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handlePushToggle}
+                  className={`w-full flex items-center justify-between py-3.5 px-4 rounded-2xl border transition-all font-semibold text-sm active:scale-95 ${
+                    isSubscribed 
+                      ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400' 
+                      : isDark
+                        ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    🔔 {isSubscribed ? 'Notifications Enabled' : 'Enable Mobile Notifications'}
+                  </span>
+                </button>
+                {isSubscribed && (
+                  <button
+                    type="button"
+                    onClick={sendTestPush}
+                    className="w-full mt-2 py-2 text-xs font-semibold text-blue-500 hover:text-blue-600 transition-colors"
+                  >
+                    Send Test Push Notification 📲
+                  </button>
+                )}
+              </div>
               
               {/* Sign Out Button */}
               <div className={`mt-6 pt-4 border-t ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
@@ -595,6 +789,93 @@ export default function Home() {
                 placeholder="What needs to be done?"
                 className={`w-full rounded-2xl py-4 px-4 text-base font-medium transition-all mb-4 outline-none ${t.input}`}
               />
+
+              {/* Habit Toggle */}
+              <div className="flex items-center justify-between mb-4 px-1">
+                <span className={`text-sm font-semibold ${t.textPrimary}`}>Make it a Habit</span>
+                <button
+                  type="button"
+                  onClick={() => setIsHabit(!isHabit)}
+                  className={`w-11 h-6 rounded-full transition-all relative outline-none ${
+                    isHabit ? 'bg-blue-600' : isDark ? 'bg-slate-800' : 'bg-gray-200'
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-all shadow-md ${
+                    isHabit ? 'left-5.5' : 'left-0.5'
+                  }`} />
+                </button>
+              </div>
+
+              {/* Habit Details (Days & Frequency) */}
+              <AnimatePresence>
+                {isHabit && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }} 
+                    animate={{ opacity: 1, height: 'auto' }} 
+                    exit={{ opacity: 0, height: 0 }} 
+                    className="space-y-4 mb-5 overflow-hidden"
+                  >
+                    {/* Days Selector */}
+                    <div>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider block mb-2 ${t.textMuted}`}>Repeat Days (Leave empty for every day)</span>
+                      <div className="flex justify-between gap-1">
+                        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => {
+                          const isSelected = habitDays.includes(day);
+                          return (
+                            <button
+                              key={day}
+                              type="button"
+                              onClick={() => {
+                                if (isSelected) {
+                                  setHabitDays(habitDays.filter(d => d !== day));
+                                } else {
+                                  setHabitDays([...habitDays, day]);
+                                }
+                              }}
+                              className={`flex-1 py-2 text-xs font-semibold rounded-xl border transition-all ${
+                                isSelected 
+                                  ? 'bg-blue-600 text-white border-transparent' 
+                                  : isDark 
+                                    ? 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700' 
+                                    : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
+                              }`}
+                            >
+                              {day[0]}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Frequency Selector */}
+                    <div className="flex items-center justify-between border-t border-dashed border-gray-100 dark:border-slate-800 pt-3">
+                      <span className={`text-xs font-bold uppercase tracking-wider ${t.textMuted}`}>Times per day</span>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setHabitFrequency(Math.max(1, habitFrequency - 1))}
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold border transition-all ${
+                            isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-gray-50 border-gray-200 text-gray-700'
+                          }`}
+                        >
+                          -
+                        </button>
+                        <span className={`font-bold text-sm w-4 text-center ${t.textPrimary}`}>{habitFrequency}</span>
+                        <button
+                          type="button"
+                          onClick={() => setHabitFrequency(Math.min(10, habitFrequency + 1))}
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold border transition-all ${
+                            isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-gray-50 border-gray-200 text-gray-700'
+                          }`}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <button
                 type="submit"
                 disabled={!inputText.trim() || isSubmitting}
@@ -791,23 +1072,50 @@ export default function Home() {
                       className={`rounded-2xl border transition-all duration-200 overflow-hidden ${todo.completed ? t.cardMuted + ' opacity-60' : isOverdue ? (isDark ? 'bg-red-950/30 border-red-900 shadow-red-900/20' : 'bg-red-50 border-red-200 shadow-red-100') : t.card}`}
                     >
                       <div className="flex items-center gap-3 px-4 py-3.5">
-                        <button onClick={() => toggleTodo(todo.id, todo.completed)} className="flex-shrink-0">
-                          {todo.completed
-                            ? <CheckCircle2 size={22} className={isDark ? "text-slate-500" : "text-gray-800"} />
-                            : <Circle size={22} className={isOverdue ? 'text-red-400' : isDark ? 'text-slate-600' : 'text-gray-300'} />
-                          }
-                        </button>
+                        {todo.isHabit ? (
+                          <button onClick={() => incrementHabit(todo)} className="flex-shrink-0">
+                            {todo.completed ? (
+                              <CheckCircle2 size={22} className={isDark ? "text-slate-500" : "text-gray-800"} />
+                            ) : (
+                              <div className={`w-8 h-8 rounded-full border flex items-center justify-center text-[10px] font-black transition-all active:scale-90 ${
+                                isDark ? 'border-slate-700 bg-slate-800 text-slate-300' : 'border-gray-200 bg-gray-50 text-gray-700'
+                              }`}>
+                                {(todo.habitCompletedCount || 0)}/{(todo.habitFrequency || 1)}
+                              </div>
+                            )}
+                          </button>
+                        ) : (
+                          <button onClick={() => toggleTodo(todo.id, todo.completed)} className="flex-shrink-0">
+                            {todo.completed
+                              ? <CheckCircle2 size={22} className={isDark ? "text-slate-500" : "text-gray-800"} />
+                              : <Circle size={22} className={isOverdue ? 'text-red-400' : isDark ? 'text-slate-600' : 'text-gray-300'} />
+                            }
+                          </button>
+                        )}
 
                         <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedTask(isExpanded ? null : todo.id)}>
-                          <p className={`text-sm font-medium ${isExpanded ? 'break-words whitespace-normal' : 'truncate'} ${todo.completed ? 'line-through ' + t.textMuted : isOverdue ? 'text-red-500' : t.textPrimary}`}>
-                            {todo.text}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            {todo.dueDate && (
-                              <span className={`text-xs ${isOverdue ? 'text-red-400 font-semibold' : t.textMuted}`}>
-                                {isOverdue ? '⚠ ' : ''}
-                                {new Date(todo.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className={`text-sm font-medium ${isExpanded ? 'break-words whitespace-normal' : 'truncate'} ${todo.completed ? 'line-through ' + t.textMuted : isOverdue ? 'text-red-500' : t.textPrimary}`}>
+                              {todo.text}
+                            </p>
+                            {todo.isHabit && (todo.habitStreak || 0) > 0 && (
+                              <span className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400">
+                                🔥 {todo.habitStreak}d
                               </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {todo.isHabit ? (
+                              <span className={`text-xs ${t.textMuted}`}>
+                                🔁 {todo.habitDays && todo.habitDays.length > 0 ? todo.habitDays.join(', ') : 'Every day'}
+                              </span>
+                            ) : (
+                              todo.dueDate && (
+                                <span className={`text-xs ${isOverdue ? 'text-red-400 font-semibold' : t.textMuted}`}>
+                                  {isOverdue ? '⚠️ Overdue ' : ''}
+                                  {new Date(todo.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </span>
+                              )
                             )}
                           </div>
                         </div>
@@ -903,6 +1211,53 @@ export default function Home() {
       
       {/* Padding for bottom nav */}
       <div className="h-20" />
+
+      {/* Install Guide Modal */}
+      {showInstallGuide && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+          onClick={() => setShowInstallGuide(false)}>
+          <div className={`rounded-3xl p-7 max-w-sm w-full shadow-2xl animate-pop-in ${isDark ? 'bg-slate-900 border border-slate-800 text-slate-100' : 'bg-white text-gray-900'}`}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">Install Guide</h2>
+              <button onClick={() => setShowInstallGuide(false)} className={`p-1.5 rounded-full ${isDark ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-gray-100 text-gray-400 hover:text-gray-700'}`}><X size={18}/></button>
+            </div>
+            <div className="space-y-4 text-sm">
+              <p className={isDark ? 'text-slate-300' : 'text-gray-600'}>To add this app to your home screen so it behaves like a native app:</p>
+              
+              <div className="space-y-3 pt-2">
+                <div className="flex gap-3">
+                  <span className="text-xl">📱</span>
+                  <div>
+                    <h4 className="font-semibold">Safari on iPhone / iPad</h4>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Tap the share button <span className="font-semibold text-blue-500">📤</span> at the bottom, then scroll down and select <span className="font-semibold">"Add to Home Screen" ➕</span>.</p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3">
+                  <span className="text-xl">🤖</span>
+                  <div>
+                    <h4 className="font-semibold">Android / Chrome / Brave</h4>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Tap the menu dots (⋮) in the top-right and select <span className="font-semibold">"Install App"</span> or <span className="font-semibold">"Add to Home Screen"</span>.</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <span className="text-xl">💻</span>
+                  <div>
+                    <h4 className="font-semibold">Firefox / Other Browsers</h4>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Look for the install or download icon in the URL search bar, or use Chrome/Brave/Edge to install as a desktop shortcut.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <button onClick={() => setShowInstallGuide(false)} className="mt-6 w-full bg-blue-600 text-white font-semibold py-3.5 rounded-2xl shadow-md hover:bg-blue-700 transition-all active:scale-95">
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
       </main>
     </div>
   );

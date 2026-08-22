@@ -255,9 +255,9 @@ export default function BloubMascot({
       {shape === 'fromage' && (
         <g style={{ pointerEvents: 'none' }}>
           {/* Stem */}
-          <path d="M -42,-45 Q -40,-60 -32,-68" stroke="#78350f" strokeWidth="4" fill="none" strokeLinecap="round" />
+          <path d="M -44,-45 Q -52,-58 -48,-68" stroke="#78350f" strokeWidth="4" fill="none" strokeLinecap="round" />
           {/* Leaf */}
-          <path d="M -32,-68 C -22,-76 -10,-72 -14,-58 C -22,-58 -26,-63 -30,-68 Z" fill="#22c55e" />
+          <path d="M -48,-68 C -58,-76 -54,-85 -42,-76 C -38,-68 -42,-64 -48,-68 Z" fill="#22c55e" />
         </g>
       )}
 
