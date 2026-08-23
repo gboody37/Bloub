@@ -336,10 +336,10 @@ export default function Home() {
     }, 2000);
   }, [session]);
 
-  const triggerMascot = useCallback((state: StateId, expr: ExpressionId) => {
+  const triggerMascot = useCallback((state: StateId, expr: ExpressionId, persist?: boolean) => {
     setMascotState(state);
     setMascotExpression(expr);
-    resetToIdle();
+    if (!persist) resetToIdle();
   }, [resetToIdle]);
 
   const fetchTodos = async () => {
@@ -1065,7 +1065,7 @@ export default function Home() {
                   setInputText(e.target.value);
                 }}
                 onFocus={(e) => {
-                  triggerMascot('thinking', 'curieux');
+                  triggerMascot('thinking', 'curieux', true);
                   e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }}
                 placeholder="What needs to be done?"
@@ -1400,7 +1400,7 @@ export default function Home() {
                   value={newCatText} 
                   onChange={e => setNewCatText(e.target.value)}
                   onFocus={(e) => {
-                    triggerMascot('thinking', 'curieux');
+                    triggerMascot('thinking', 'curieux', true);
                     e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
                   }}
                   placeholder={newCatType === 'study' ? 'New Study List (e.g. AI Concepts, Exam Prep)...' : 'New ToDo List (e.g. Work, Gym)...'} 
