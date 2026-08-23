@@ -76,14 +76,14 @@ export default function NoteExplorer({
   useEffect(() => { fetchVault(); }, [fetchVault]);
 
   const handleConnectVault = async () => {
-    if (!window.showDirectoryPicker) {
+    if (!(window as any).showDirectoryPicker) {
       fileInputRef.current?.click();
       return;
     }
     try {
       setIsSyncing(true);
       setError(null);
-      await pickAndSyncObsidianVault(setSyncProgress);
+      await pickAndSyncObsidianVault(userId, setSyncProgress);
       await fetchVault();
       onRefresh?.();
     } catch (err: any) {
@@ -99,7 +99,7 @@ export default function NoteExplorer({
     try {
       setIsSyncing(true);
       setError(null);
-      await syncNotesFromFileList(e.target.files, setSyncProgress);
+      await syncNotesFromFileList(e.target.files, userId, setSyncProgress);
       await fetchVault();
       onRefresh?.();
     } catch (err: any) {
@@ -137,7 +137,7 @@ export default function NoteExplorer({
   return (
     <div className="flex flex-col h-full w-full font-sans" data-spatial-container="study-explorer">
       {/* Hidden file input */}
-      <input ref={fileInputRef} type="file" webkitdirectory="" directory="" multiple className="hidden" onChange={handleFallbackFileSelect} />
+      <input ref={fileInputRef} type="file" {...{webkitdirectory: "", directory: ""}} multiple className="hidden" onChange={handleFallbackFileSelect} />
 
       {/* Header Bar */}
       <div className={`flex items-center justify-between pb-3 mb-3 border-b ${isDark ? 'border-slate-800' : 'border-gray-200'}`}>
@@ -165,7 +165,7 @@ export default function NoteExplorer({
           <div className="truncate">
             {syncProgress.status === 'picking' ? 'Selecting folder...' :
              syncProgress.status === 'scanning' ? `Scanning local vault (${syncProgress.scannedCount} files)...` :
-             `Uploading to Cloud: ${syncProgress.syncedCount} / ${syncProgress.totalCount} notes...`}
+             `Uploading to Cloud: ${syncProgress.uploadedCount} / ${syncProgress.totalCount} notes...`}
           </div>
         </div>
       )}
