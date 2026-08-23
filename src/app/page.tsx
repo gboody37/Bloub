@@ -261,27 +261,33 @@ export default function Home() {
     }
   };
 
+  // Load settings when session changes
   useEffect(() => {
-    const savedExpr = localStorage.getItem('mascotExpression') as ExpressionId;
-    const savedShape = localStorage.getItem('mascotShape');
-    const savedColor = localStorage.getItem('mascotColor');
-    const savedTheme = localStorage.getItem('bgTheme');
-    const savedCatSet = localStorage.getItem('catSettings');
+    if (!session) return;
+    const uid = session.user.id;
+    const savedExpr = localStorage.getItem(`${uid}_mascotExpression`) as ExpressionId;
+    const savedShape = localStorage.getItem(`${uid}_mascotShape`) as MascotShape;
+    const savedColor = localStorage.getItem(`${uid}_mascotColor`);
+    const savedTheme = localStorage.getItem(`${uid}_bgTheme`);
+    const savedCatSet = localStorage.getItem(`${uid}_catSettings`);
     
     if (savedExpr) setMascotExpression(savedExpr);
     if (savedShape) setMascotShape(savedShape);
     if (savedColor) setMascotColor(savedColor);
     if (savedTheme) setBgTheme(savedTheme);
     if (savedCatSet) setCatSettings(JSON.parse(savedCatSet));
-  }, []);
+  }, [session]);
 
+  // Save settings when they change
   useEffect(() => {
-    localStorage.setItem('mascotExpression', mascotExpression);
-    localStorage.setItem('mascotShape', mascotShape);
-    localStorage.setItem('mascotColor', mascotColor);
-    localStorage.setItem('bgTheme', bgTheme);
-    localStorage.setItem('catSettings', JSON.stringify(catSettings));
-  }, [mascotExpression, mascotShape, mascotColor, bgTheme, catSettings]);
+    if (!session) return;
+    const uid = session.user.id;
+    localStorage.setItem(`${uid}_mascotExpression`, mascotExpression);
+    localStorage.setItem(`${uid}_mascotShape`, mascotShape);
+    localStorage.setItem(`${uid}_mascotColor`, mascotColor);
+    localStorage.setItem(`${uid}_bgTheme`, bgTheme);
+    localStorage.setItem(`${uid}_catSettings`, JSON.stringify(catSettings));
+  }, [session, mascotExpression, mascotShape, mascotColor, bgTheme, catSettings]);
 
   useEffect(() => {
     let meta = document.querySelector('meta[name="theme-color"]');
@@ -301,7 +307,7 @@ export default function Home() {
       clearTimeout(timeout);
       if (mascotState === 'sleep') {
         setMascotState('idle');
-        setMascotExpression(localStorage.getItem('mascotExpression') as ExpressionId || 'timide');
+        setMascotExpression(localStorage.getItem(session?.user?.id + '_mascotExpression') as ExpressionId || 'timide');
       }
       timeout = setTimeout(() => {
         setMascotState('sleep');
@@ -324,7 +330,7 @@ export default function Home() {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     idleTimerRef.current = setTimeout(() => {
       setMascotState('idle');
-      setMascotExpression(localStorage.getItem('mascotExpression') as ExpressionId || 'timide');
+      setMascotExpression(localStorage.getItem(session?.user?.id + '_mascotExpression') as ExpressionId || 'timide');
     }, 2000);
   }, []);
 
@@ -902,6 +908,8 @@ export default function Home() {
                 <button
                   onClick={async () => {
                     await supabase.auth.signOut();
+                    setTodos([]);
+                    setCategories([]);
                     setShowSettings(false);
                   }}
                   className={`w-full py-3 px-4 font-semibold rounded-2xl transition-all active:scale-95 text-sm flex items-center justify-center gap-2 ${

@@ -54,8 +54,8 @@ export async function GET() {
     }
   }
 
-  const { data: todos } = await supabase.from('todos').select('*');
-  const { data: categories } = await supabase.from('categories').select('*');
+  const { data: todos } = await supabase.from('todos').select('*').eq('user_id', user.id);
+  const { data: categories } = await supabase.from('categories').select('*').eq('user_id', user.id);
   
   return NextResponse.json({
     todos: todos ? mapTodos(todos) : [],
@@ -147,8 +147,8 @@ export async function POST(req: Request) {
   }
 
   // Fetch updated data to return
-  const { data: todos } = await supabase.from('todos').select('*');
-  const { data: categories } = await supabase.from('categories').select('*');
+  const { data: todos } = await supabase.from('todos').select('*').eq('user_id', user.id);
+  const { data: categories } = await supabase.from('categories').select('*').eq('user_id', user.id);
 
   return NextResponse.json({
     todos: todos ? mapTodos(todos) : [],
