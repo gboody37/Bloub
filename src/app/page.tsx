@@ -375,7 +375,13 @@ export default function Home() {
     if (!cats.find((c: any) => c.id === 'default')) {
       cats = [{ id: 'default', name: 'General', type: 'todo' as ListType }, ...cats];
     }
-    cats = cats.map((c: any) => ({ ...c, type: (c.type === 'study' ? 'study' : 'todo') as ListType }));
+    // Merge localStorage fallback types (for when DB column doesn't exist yet)
+    const storedTypes = JSON.parse(localStorage.getItem(session?.user?.id + '_listTypes') || '{}');
+    cats = cats.map((c: any) => {
+      const dbType = c.type === 'study' ? 'study' : undefined;
+      const localType = storedTypes[c.id];
+      return { ...c, type: (dbType || localType || 'todo') as ListType };
+    });
     setCategories(cats);
   };
 
@@ -400,7 +406,12 @@ export default function Home() {
     if (!cats.find((c: any) => c.id === 'default')) {
       cats = [{ id: 'default', name: 'General', type: 'todo' as ListType }, ...cats];
     }
-    cats = cats.map((c: any) => ({ ...c, type: (c.type === 'study' ? 'study' : 'todo') as ListType }));
+    const storedTypes2 = JSON.parse(localStorage.getItem(session?.user?.id + '_listTypes') || '{}');
+    cats = cats.map((c: any) => {
+      const dbType = c.type === 'study' ? 'study' : undefined;
+      const localType = storedTypes2[c.id];
+      return { ...c, type: (dbType || localType || 'todo') as ListType };
+    });
     setCategories(cats);
     
     return data;
@@ -496,6 +507,13 @@ export default function Home() {
     if (!newCatText.trim() || isSubmitting) return;
     setIsSubmitting(true);
     triggerMascot('orbit', 'heureux');
+    const newId = Date.now().toString();
+    // Optimistically add to local state with the correct type
+    setCategories(prev => [...prev, { id: newId, name: newCatText.trim(), type: newCatType }]);
+    // Persist type to localStorage as fallback
+    const storedTypes = JSON.parse(localStorage.getItem(session?.user?.id + '_listTypes') || '{}');
+    storedTypes[newId] = newCatType;
+    localStorage.setItem(session?.user?.id + '_listTypes', JSON.stringify(storedTypes));
     await mutate({ 
       type: 'ADD_CATEGORY', 
       name: newCatText.trim(),
@@ -1323,6 +1341,12 @@ export default function Home() {
                               <button 
                                 onClick={async () => {
                                   const nextType: ListType = cat.type === 'study' ? 'todo' : 'study';
+                                  // Optimistically update local state
+                                  setCategories(prev => prev.map(c => c.id === cat.id ? { ...c, type: nextType } : c));
+                                  // Persist to localStorage as fallback
+                                  const storedTypes = JSON.parse(localStorage.getItem(session?.user?.id + '_listTypes') || '{}');
+                                  storedTypes[cat.id] = nextType;
+                                  localStorage.setItem(session?.user?.id + '_listTypes', JSON.stringify(storedTypes));
                                   await mutate({ 
                                     type: 'UPDATE_CATEGORY', 
                                     id: cat.id, 
