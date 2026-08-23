@@ -18,6 +18,7 @@ import { VAPID_PUBLIC_KEY } from '@/lib/push-config';
 import type { Todo, Category, ListType, Subtask, Attachment } from '@/types/todo';
 import NoteExplorer from '@/components/study/NoteExplorer';
 import NoteViewer from '@/components/study/NoteViewer';
+import NoteGraph from '@/components/study/NoteGraph';
 import type { ObsidianNoteSummary, ParsedObsidianNote } from '@/types/obsidian';
 
 const PRIORITY_COLOR = { high: '#ef4444', medium: '#f59e0b', low: '#3b82f6' };
@@ -113,6 +114,7 @@ export default function Home() {
 
   // Study Workflow State
   const [showStudyExplorer, setShowStudyExplorer] = useState(false);
+    const [showGraphView, setShowGraphView] = useState(false);
   const [selectedNote, setSelectedNote] = useState<ParsedObsidianNote | null>(null);
   const [isFetchingNote, setIsFetchingNote] = useState(false);
 
@@ -275,29 +277,46 @@ export default function Home() {
   useEffect(() => {
     if (!session) return;
     const uid = session.user.id;
+    const meta = session.user.user_metadata || {};
+    
     const savedExpr = localStorage.getItem(`${uid}_mascotExpression`) as ExpressionId;
-    const savedShape = localStorage.getItem(`${uid}_mascotShape`);
-    const savedColor = localStorage.getItem(`${uid}_mascotColor`);
-    const savedTheme = localStorage.getItem(`${uid}_bgTheme`);
-    const savedCatSet = localStorage.getItem(`${uid}_catSettings`);
+    const savedShape = meta.mascotShape || localStorage.getItem(`${uid}_mascotShape`);
+    const savedColor = meta.mascotColor || localStorage.getItem(`${uid}_mascotColor`);
+    const savedTheme = meta.bgTheme || localStorage.getItem(`${uid}_bgTheme`);
+    const savedCatSet = meta.catSettings || JSON.parse(localStorage.getItem(`${uid}_catSettings`) || 'null');
     
     if (savedExpr) setMascotExpression(savedExpr);
     if (savedShape) setMascotShape(savedShape);
     if (savedColor) setMascotColor(savedColor);
     if (savedTheme) setBgTheme(savedTheme);
-    if (savedCatSet) setCatSettings(JSON.parse(savedCatSet));
+    if (savedCatSet) setCatSettings(savedCatSet);
   }, [session]);
 
-  // Save settings when they change
+  // Save transient settings
   useEffect(() => {
     if (!session) return;
     const uid = session.user.id;
     localStorage.setItem(`${uid}_mascotExpression`, mascotExpression);
+  }, [session, mascotExpression]);
+
+  // Save persistent settings (Local + Cloud Sync)
+  useEffect(() => {
+    if (!session) return;
+    const uid = session.user.id;
     localStorage.setItem(`${uid}_mascotShape`, mascotShape);
     localStorage.setItem(`${uid}_mascotColor`, mascotColor);
     localStorage.setItem(`${uid}_bgTheme`, bgTheme);
     localStorage.setItem(`${uid}_catSettings`, JSON.stringify(catSettings));
-  }, [session, mascotExpression, mascotShape, mascotColor, bgTheme, catSettings]);
+    
+    supabase.auth.updateUser({
+      data: {
+        mascotShape,
+        mascotColor,
+        bgTheme,
+        catSettings
+      }
+    }).catch(console.error);
+  }, [session, mascotShape, mascotColor, bgTheme, catSettings]);
 
   useEffect(() => {
     let meta = document.querySelector('meta[name="theme-color"]');
@@ -416,7 +435,7 @@ export default function Home() {
       cats = [{ id: 'default', name: 'General', type: 'todo' as ListType }, ...cats];
     }
     // Merge localStorage fallback types (for when DB column doesn't exist yet)
-    const storedTypes = JSON.parse(localStorage.getItem(session?.user?.id + '_listTypes') || '{}');
+    const storedTypes = session?.user?.user_metadata?.listTypes || JSON.parse(localStorage.getItem(session?.user?.id + '_listTypes') || '{}');
     cats = cats.map((c: any) => {
       const dbType = c.type === 'study' ? 'study' : undefined;
       const localType = storedTypes[c.id];
@@ -446,7 +465,7 @@ export default function Home() {
     if (!cats.find((c: any) => c.id === 'default')) {
       cats = [{ id: 'default', name: 'General', type: 'todo' as ListType }, ...cats];
     }
-    const storedTypes2 = JSON.parse(localStorage.getItem(session?.user?.id + '_listTypes') || '{}');
+    const storedTypes2 = session?.user?.user_metadata?.listTypes || JSON.parse(localStorage.getItem(session?.user?.id + '_listTypes') || '{}');
     cats = cats.map((c: any) => {
       const dbType = c.type === 'study' ? 'study' : undefined;
       const localType = storedTypes2[c.id];
@@ -551,9 +570,9 @@ export default function Home() {
     // Optimistically add to local state with the correct type
     setCategories(prev => [...prev, { id: newId, name: newCatText.trim(), type: newCatType }]);
     // Persist type to localStorage as fallback
-    const storedTypes = JSON.parse(localStorage.getItem(session?.user?.id + '_listTypes') || '{}');
+    const storedTypes = session?.user?.user_metadata?.listTypes || JSON.parse(localStorage.getItem(session?.user?.id + '_listTypes') || '{}');
     storedTypes[newId] = newCatType;
-    localStorage.setItem(session?.user?.id + '_listTypes', JSON.stringify(storedTypes));
+    localStorage.setItem(session?.user?.id + '_listTypes', JSON.stringify(storedTypes)); supabase.auth.updateUser({ data: { listTypes: storedTypes } }).catch(console.error);
     await mutate({ 
       type: 'ADD_CATEGORY', 
       name: newCatText.trim(),
@@ -1384,9 +1403,9 @@ export default function Home() {
                                   // Optimistically update local state
                                   setCategories(prev => prev.map(c => c.id === cat.id ? { ...c, type: nextType } : c));
                                   // Persist to localStorage as fallback
-                                  const storedTypes = JSON.parse(localStorage.getItem(session?.user?.id + '_listTypes') || '{}');
+                                  const storedTypes = session?.user?.user_metadata?.listTypes || JSON.parse(localStorage.getItem(session?.user?.id + '_listTypes') || '{}');
                                   storedTypes[cat.id] = nextType;
-                                  localStorage.setItem(session?.user?.id + '_listTypes', JSON.stringify(storedTypes));
+                                  localStorage.setItem(session?.user?.id + '_listTypes', JSON.stringify(storedTypes)); supabase.auth.updateUser({ data: { listTypes: storedTypes } }).catch(console.error);
                                   await mutate({ 
                                     type: 'UPDATE_CATEGORY', 
                                     id: cat.id, 
@@ -1569,6 +1588,21 @@ export default function Home() {
                       }}
                     />
                   </div>
+                ) : showGraphView ? (
+                  <div className={`h-[600px] rounded-3xl overflow-hidden border transition-all animate-in fade-in zoom-in-95 duration-500 relative ${isDark ? 'border-slate-800' : 'border-gray-200'}`}>
+                    <button onClick={() => setShowGraphView(false)} className="absolute top-4 left-4 z-50 bg-black/60 hover:bg-black/80 px-3 py-1.5 flex items-center gap-2 rounded-xl text-white text-xs font-bold backdrop-blur transition-all shadow-xl">
+                      <ChevronRight className="rotate-180" size={14} /> Back to Hub
+                    </button>
+                    <NoteGraph 
+                      userId={session?.user?.id} 
+                      isDark={isDark} 
+                      onNodeClick={(n) => { 
+                        setShowGraphView(false); 
+                        setShowStudyExplorer(true); 
+                        handleSelectNote({ id: n.id, title: n.name, relativePath: n.id, folder: n.folder, tags: [], wordCount: 0 }); 
+                      }} 
+                    />
+                  </div>
                 ) : showStudyExplorer ? (
                   <div className={`flex flex-col h-[600px] border rounded-3xl overflow-hidden transition-all animate-in fade-in zoom-in-95 duration-500 ${t.card}`}>
                     <div className={`p-3 border-b flex items-center justify-between ${isDark ? 'border-slate-800 bg-slate-900/50' : 'border-gray-100 bg-gray-50/50'}`}>
@@ -1634,50 +1668,23 @@ export default function Home() {
                       </div>
                     </button>
 
-                    {/* Upload Book Tile */}
-                    <label className={`text-left p-4 rounded-2xl border transition-all hover:scale-[1.02] active:scale-95 cursor-pointer ${t.card} flex flex-col justify-between group sm:col-span-2`}>
-                      <input 
-                        type="file" 
-                        accept=".txt,.md,.csv" 
-                        className="hidden" 
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          triggerMascot('thinking', 'curieux', true);
-                          const reader = new FileReader();
-                          reader.onload = (ev) => {
-                            const text = ev.target?.result as string;
-                            setSelectedNote({
-                              id: file.name,
-                              title: file.name.replace(/\.[^/.]+$/, ""),
-                              relativePath: file.name,
-                              absolutePath: file.name,
-                              frontmatter: {},
-                              tags: [],
-                              headings: [],
-                              wikilinks: [],
-                              rawContent: text,
-                              bodyContent: text,
-                              wordCount: text.split(/\s+/).length,
-                              lastModifiedMs: file.lastModified
-                            });
-                            triggerMascot('orbit', 'heureux');
-                          };
-                          reader.readAsText(file);
-                        }} 
-                      />
+                    {/* Visual Graph Tile */}
+                    <button 
+                      onClick={() => setShowGraphView(true)}
+                      className={`text-left p-4 rounded-2xl border transition-all hover:scale-[1.02] active:scale-95 cursor-pointer ${t.card} flex flex-col justify-between group sm:col-span-2`}
+                    >
                       <div className="flex items-center gap-4">
-                        <div className="w-9 h-9 rounded-xl bg-green-500/10 text-green-600 dark:text-green-400 flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 group-hover:rotate-3">
-                          <FileText size={18} />
+                        <div className="w-9 h-9 rounded-xl bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 group-hover:rotate-3">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
                         </div>
                         <div>
-                          <h4 className={`text-sm font-bold mb-0.5 ${t.textPrimary}`}>Upload Book / Document</h4>
+                          <h4 className={`text-sm font-bold mb-0.5 ${t.textPrimary}`}>Interactive Knowledge Graph</h4>
                           <p className={`text-[11px] leading-relaxed ${t.textMuted}`}>
-                            Upload any .txt or .md file to instantly read it and generate an AI Quiz.
+                            Visualize the connections between all your notes in a 2D physics network.
                           </p>
                         </div>
                       </div>
-                    </label>
+                    </button>
                   </div>
                 )}
 
