@@ -1,28 +1,29 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Folder, 
-  FolderOpen, 
   FileText, 
   Search, 
   Tag, 
-  Hash, 
   RotateCw, 
   Clock, 
   BookOpen, 
   ChevronRight, 
-  Layers, 
   X, 
-  Filter,
+  AlertCircle,
+  Cloud,
+  UploadCloud,
   CheckCircle2,
-  AlertCircle
+  Loader2
 } from 'lucide-react';
 import type { ObsidianNoteSummary, VaultScanSummary } from '@/types/obsidian';
+import { pickAndSyncObsidianVault, syncNotesFromFileList, type SyncProgress } from '@/lib/obsidian/vault-sync';
 
 interface NoteExplorerProps {
-  vaultPath?: string;
+  userId?: string;
+  vaultPath?: string; // Kept for backwards compatibility
   scopedFolder?: string;
   scopedTags?: string[];
   selectedNoteId?: string | null;
@@ -32,7 +33,7 @@ interface NoteExplorerProps {
 }
 
 export default function NoteExplorer({
-  vaultPath,
+  userId,
   scopedFolder,
   scopedTags,
   selectedNoteId,
@@ -45,6 +46,14 @@ export default function NoteExplorer({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Sync Progress State
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
+  const [syncSuccessMessage, setSyncSuccessMessage] = useState<string | null>(null);
+
+  // Fallback hidden file input ref
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFolder, setSelectedFolder] = useState<string>(scopedFolder || 'ALL');
@@ -55,7 +64,7 @@ export default function NoteExplorer({
     setError(null);
     try {
       const params = new URLSearchParams();
-      if (vaultPath) params.set('vaultPath', vaultPath);
+      if (userId) params.set('userId', userId);
       if (selectedFolder && selectedFolder !== 'ALL') params.set('folder', selectedFolder);
       if (selectedTag) params.set('tag', selectedTag);
 
@@ -63,22 +72,102 @@ export default function NoteExplorer({
       const data: VaultScanSummary = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to scan Obsidian vault');
+        throw new Error(data.error || 'Failed to load vault notes from cloud database');
       }
 
       setNotes(data.notes || []);
       setFolders(data.folders || []);
     } catch (err: any) {
       console.error('Failed to load vault notes:', err);
-      setError(err.message || 'Error connecting to local Obsidian vault');
+      setError(err.message || 'Error connecting to Supabase cloud database');
     } finally {
       setLoading(false);
     }
-  }, [vaultPath, selectedFolder, selectedTag]);
+  }, [userId, selectedFolder, selectedTag]);
+
+  useEffect(() => {
+    if (scopedFolder !== undefined) {
+      setSelectedFolder(scopedFolder || 'ALL');
+    }
+  }, [scopedFolder]);
+
+  useEffect(() => {
+    if (scopedTags !== undefined) {
+      setSelectedTag(scopedTags?.[0] || null);
+    }
+  }, [scopedTags]);
 
   useEffect(() => {
     fetchVault();
   }, [fetchVault]);
+
+  // Handle Connect Obsidian Vault sync with showDirectoryPicker
+  const handleConnectVault = async () => {
+    setIsSyncing(true);
+    setSyncSuccessMessage(null);
+    setError(null);
+
+    // If File System Access API is not supported, trigger file input fallback
+    if (typeof window !== 'undefined' && !(window as any).showDirectoryPicker) {
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+      }
+      setIsSyncing(false);
+      return;
+    }
+
+    try {
+      const result = await pickAndSyncObsidianVault(userId, (progress) => {
+        setSyncProgress(progress);
+      });
+
+      if (result.success) {
+        setSyncSuccessMessage(`Synced ${result.syncedCount} note${result.syncedCount === 1 ? '' : 's'} to Supabase!`);
+        await fetchVault();
+        if (onRefresh) onRefresh();
+        setTimeout(() => setSyncSuccessMessage(null), 4000);
+      } else if (result.error !== 'USER_CANCELLED') {
+        setError(result.error || 'Sync failed');
+      }
+    } catch (syncErr: any) {
+      console.error('Sync error:', syncErr);
+      setError(syncErr.message || 'Failed to sync vault folder');
+    } finally {
+      setIsSyncing(false);
+      setSyncProgress(null);
+    }
+  };
+
+  // Fallback file input change handler
+  const handleFallbackFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsSyncing(true);
+    setSyncSuccessMessage(null);
+    setError(null);
+
+    try {
+      const result = await syncNotesFromFileList(files, userId, (progress) => {
+        setSyncProgress(progress);
+      });
+
+      if (result.success) {
+        setSyncSuccessMessage(`Imported ${result.syncedCount} note${result.syncedCount === 1 ? '' : 's'} to Supabase!`);
+        await fetchVault();
+        if (onRefresh) onRefresh();
+        setTimeout(() => setSyncSuccessMessage(null), 4000);
+      } else {
+        setError(result.error || 'Import failed');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to import files');
+    } finally {
+      setIsSyncing(false);
+      setSyncProgress(null);
+      if (e.target) e.target.value = '';
+    }
+  };
 
   // Aggregate all unique tags from notes
   const allTags = useMemo(() => {
@@ -105,6 +194,18 @@ export default function NoteExplorer({
 
   return (
     <div className="flex flex-col h-full w-full space-y-4 font-sans" data-spatial-container="study-explorer">
+      {/* Hidden fallback file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        // @ts-ignore
+        webkitdirectory=""
+        directory=""
+        className="hidden"
+        onChange={handleFallbackFileSelect}
+      />
+
       {/* Top Search & Controls Bar */}
       <div className="space-y-2.5">
         <div className="relative flex items-center">
@@ -113,7 +214,7 @@ export default function NoteExplorer({
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search vault notes, tags, or folders..."
+            placeholder="Search cloud vault notes, tags, or folders..."
             className={`w-full pl-9 pr-9 py-2.5 rounded-2xl text-xs sm:text-sm font-medium transition-all outline-none border ${
               isDark 
                 ? 'bg-slate-900/90 border-slate-700/80 text-white placeholder-slate-500 focus:border-purple-500 shadow-inner' 
@@ -209,31 +310,95 @@ export default function NoteExplorer({
         )}
       </div>
 
-      {/* Header Info & Refresh */}
-      <div className="flex items-center justify-between px-1 text-xs">
-        <div className="flex items-center gap-1.5">
-          <BookOpen size={14} className="text-purple-500" />
+      {/* Sync Status Banner */}
+      <AnimatePresence>
+        {isSyncing && syncProgress && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            className={`p-3 rounded-2xl border text-xs flex items-center justify-between gap-3 ${
+              isDark ? 'bg-purple-950/40 border-purple-800/60 text-purple-200' : 'bg-purple-50 border-purple-200 text-purple-800'
+            }`}
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <Loader2 size={15} className="animate-spin text-purple-400 flex-shrink-0" />
+              <div className="truncate">
+                <span className="font-bold">
+                  {syncProgress.status === 'picking' ? 'Selecting folder...' :
+                   syncProgress.status === 'scanning' ? `Scanning local vault (${syncProgress.scannedCount} found)...` :
+                   syncProgress.status === 'uploading' ? `Uploading to Supabase (${syncProgress.uploadedCount}/${syncProgress.totalCount})...` :
+                   'Syncing...'}
+                </span>
+                {syncProgress.currentFile && (
+                  <span className="block text-[10px] opacity-75 font-mono truncate">{syncProgress.currentFile}</span>
+                )}
+              </div>
+            </div>
+            {syncProgress.totalCount > 0 && (
+              <span className="text-[11px] font-bold flex-shrink-0">
+                {Math.round((syncProgress.uploadedCount / syncProgress.totalCount) * 100)}%
+              </span>
+            )}
+          </motion.div>
+        )}
+
+        {syncSuccessMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            className={`p-3 rounded-2xl border text-xs flex items-center gap-2 ${
+              isDark ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            }`}
+          >
+            <CheckCircle2 size={15} className="text-emerald-400 flex-shrink-0" />
+            <span className="font-semibold">{syncSuccessMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Header Info & Action Controls */}
+      <div className="flex items-center justify-between px-1 text-xs gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Cloud size={14} className="text-purple-400 flex-shrink-0" />
           <span className={`font-semibold ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
-            {filteredNotes.length} {filteredNotes.length === 1 ? 'Note' : 'Notes'} Discovered
+            {filteredNotes.length} {filteredNotes.length === 1 ? 'Note' : 'Notes'} in Cloud Vault
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            fetchVault();
-            if (onRefresh) onRefresh();
-          }}
-          disabled={loading}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-all active:scale-95 ${
-            isDark 
-              ? 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 border border-slate-700' 
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
-          }`}
-          title="Rescan vault folder"
-        >
-          <RotateCw size={12} className={loading ? 'animate-spin text-purple-400' : ''} />
-          <span>Sync Vault</span>
-        </button>
+
+        <div className="flex items-center gap-2">
+          {/* Connect / Sync Obsidian Vault Button */}
+          <button
+            type="button"
+            onClick={handleConnectVault}
+            disabled={isSyncing}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md shadow-purple-600/20 transition-all active:scale-95 disabled:opacity-50"
+            title="Select local Obsidian vault folder and sync to Supabase"
+          >
+            <UploadCloud size={13} className={isSyncing ? 'animate-bounce' : ''} />
+            <span>Connect Vault</span>
+          </button>
+
+          {/* Refresh Button */}
+          <button
+            type="button"
+            onClick={() => {
+              fetchVault();
+              if (onRefresh) onRefresh();
+            }}
+            disabled={loading}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold transition-all active:scale-95 ${
+              isDark 
+                ? 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 border border-slate-700' 
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
+            }`}
+            title="Refresh notes from database"
+          >
+            <RotateCw size={12} className={loading ? 'animate-spin text-purple-400' : ''} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* Note List Container */}
@@ -257,27 +422,47 @@ export default function NoteExplorer({
             isDark ? 'bg-red-950/20 border-red-900/40 text-red-300' : 'bg-red-50 border-red-200 text-red-700'
           }`}>
             <AlertCircle size={28} className="text-red-400 mb-2" />
-            <h4 className="font-bold text-sm mb-1">Vault Discovery Notice</h4>
+            <h4 className="font-bold text-sm mb-1">Cloud Vault Sync Notice</h4>
             <p className="text-xs max-w-xs leading-relaxed opacity-90 mb-3">{error}</p>
-            <button
-              type="button"
-              onClick={fetchVault}
-              className="px-3.5 py-1.5 rounded-xl bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-all"
-            >
-              Retry Sync
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={fetchVault}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-800 text-white text-xs font-semibold hover:bg-slate-700 transition-all"
+              >
+                Retry Fetch
+              </button>
+              <button
+                type="button"
+                onClick={handleConnectVault}
+                className="px-3.5 py-1.5 rounded-xl bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 transition-all"
+              >
+                Connect Vault
+              </button>
+            </div>
           </div>
         ) : filteredNotes.length === 0 ? (
           <div className={`p-8 rounded-3xl border border-dashed text-center flex flex-col items-center justify-center ${
             isDark ? 'border-slate-800 bg-slate-900/30 text-slate-400' : 'border-gray-200 bg-gray-50 text-gray-500'
           }`}>
-            <FileText size={32} className="opacity-40 mb-2 text-purple-400" />
-            <p className="text-sm font-semibold mb-1">No Notes Found</p>
-            <p className="text-xs max-w-xs opacity-75">
+            <Cloud size={36} className="opacity-40 mb-2 text-purple-400" />
+            <p className="text-sm font-bold mb-1">No Notes in Cloud Vault</p>
+            <p className="text-xs max-w-xs opacity-75 mb-4 leading-relaxed">
               {searchQuery
                 ? `No notes matching "${searchQuery}". Try adjusting your filters.`
-                : 'Your Obsidian vault does not contain markdown files in this location.'}
+                : 'Connect your local Obsidian vault folder to sync your markdown notes securely to Supabase.'}
             </p>
+            {!searchQuery && (
+              <button
+                type="button"
+                onClick={handleConnectVault}
+                disabled={isSyncing}
+                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-md shadow-purple-600/30 transition-all active:scale-95 flex items-center gap-1.5"
+              >
+                <UploadCloud size={14} />
+                Connect Obsidian Vault
+              </button>
+            )}
           </div>
         ) : (
           <AnimatePresence mode="popLayout">

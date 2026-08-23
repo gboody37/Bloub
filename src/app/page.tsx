@@ -350,14 +350,21 @@ export default function Home() {
     if (!persist) resetToIdle();
   }, [resetToIdle]);
 
-  const handleSelectNote = async (noteSummary: ObsidianNoteSummary) => {
+  const handleSelectNote = async (noteSummary: ObsidianNoteSummary | { note: ObsidianNoteSummary }) => {
+    const target = (noteSummary as any)?.note || noteSummary;
+    const relPath = target?.relativePath || target?.path || target?.id;
+    if (!relPath) {
+      console.warn('Cannot select note without relative path:', noteSummary);
+      setIsFetchingNote(false);
+      return;
+    }
     setIsFetchingNote(true);
     triggerMascot('thinking', 'curieux');
     try {
       const res = await fetch('/api/obsidian/read', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notePath: noteSummary.relativePath })
+        body: JSON.stringify({ notePath: relPath })
       });
       const data = await res.json();
       if (res.ok && data.note) {
@@ -1530,7 +1537,7 @@ export default function Home() {
                     <div>
                       <h3 className={`text-lg font-bold ${t.textPrimary}`}>{activeCatObj.name}</h3>
                       <p className={`text-xs mt-1 leading-relaxed ${t.textSecondary}`}>
-                        Connected with local Obsidian Brain vault (<code className="font-mono text-[11px] text-purple-400">d:\AI\Vaults\Brain</code>).
+                        Connected to Supabase Cloud Vault.
                       </p>
                     </div>
                   </div>
@@ -1551,7 +1558,7 @@ export default function Home() {
                           const res = await fetch(`/api/obsidian/search?q=${encodeURIComponent(target)}`);
                           const data = await res.json();
                           if (data.results && data.results.length > 0) {
-                            handleSelectNote(data.results[0]);
+                            handleSelectNote(data.results[0].note || data.results[0]);
                           } else {
                             alert(`Could not find note: ${target}`);
                             setIsFetchingNote(false);
@@ -1573,10 +1580,13 @@ export default function Home() {
                       >
                         <ChevronRight className="rotate-180" size={14} /> Back to Hub
                       </button>
-                      <span className={`text-xs font-bold uppercase tracking-wider opacity-50`}>Obsidian Brain</span>
+                      <span className={`text-xs font-bold uppercase tracking-wider opacity-50`}>Cloud Vault</span>
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <NoteExplorer 
+                        userId={session?.user?.id}
+                        scopedFolder={activeCatObj?.vaultFolder}
+                        scopedTags={activeCatObj?.studyTags}
                         onSelectNote={handleSelectNote}
                         isDark={isDark}
                       />
@@ -1599,7 +1609,7 @@ export default function Home() {
                         </p>
                       </div>
                       <div className="mt-3 w-full pt-2.5 border-t border-dashed border-gray-200 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-blue-500">
-                        <span>Obsidian Brain</span>
+                        <span>Cloud Vault</span>
                         <ChevronRight size={14} className="transition-transform group-hover:translate-x-1" />
                       </div>
                     </button>
@@ -1678,7 +1688,7 @@ export default function Home() {
                   </div>
                   <h3 className={`text-sm font-bold mb-1 ${t.textPrimary}`}>Ready for Study Session</h3>
                   <p className={`text-xs max-w-xs mb-4 leading-relaxed ${t.textMuted}`}>
-                    Explore your local Obsidian notes or launch an AI quiz session to test your retention and master concepts.
+                    Explore your cloud Obsidian notes or launch an AI quiz session to test your retention and master concepts.
                   </p>
                   <button 
                     type="button" 

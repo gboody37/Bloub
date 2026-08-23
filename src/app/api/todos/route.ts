@@ -1,64 +1,99 @@
 import { NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
-
-const dataFilePath = path.join(process.cwd(), 'todos.json');
+import { createClient } from '@/lib/supabase/server';
+import { supabase as anonSupabase } from '@/lib/supabase';
 
 export async function GET() {
   try {
-    const fileContents = await fs.readFile(dataFilePath, 'utf8');
-    const todos = JSON.parse(fileContents);
-    return NextResponse.json(todos);
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
-      return NextResponse.json([]);
+    let supabase = anonSupabase;
+    let userId: string | undefined;
+
+    try {
+      const serverClient = await createClient();
+      const { data: { user } } = await serverClient.auth.getUser();
+      if (user) {
+        supabase = serverClient;
+        userId = user.id;
+      }
+    } catch {
+      // Fallback
     }
-    return NextResponse.json({ error: 'Failed to read data' }, { status: 500 });
+
+    let query = supabase.from('todos').select('*');
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data: todos, error } = await query;
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json(todos || []);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Failed to read data' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    let todos = [];
+    let supabase = anonSupabase;
+    let userId: string | undefined;
+
     try {
-      const fileContents = await fs.readFile(dataFilePath, 'utf8');
-      todos = JSON.parse(fileContents);
-    } catch (error: any) {
-      if (error.code !== 'ENOENT') throw error;
+      const serverClient = await createClient();
+      const { data: { user } } = await serverClient.auth.getUser();
+      if (user) {
+        supabase = serverClient;
+        userId = user.id;
+      }
+    } catch {
+      // Fallback
     }
 
     const newTodo = {
       id: Date.now().toString(),
       text: body.text,
       completed: false,
-      createdAt: new Date().toISOString()
+      user_id: userId,
+      categoryid: body.categoryId || 'default'
     };
-    
-    todos.push(newTodo);
-    await fs.writeFile(dataFilePath, JSON.stringify(todos, null, 2));
-    
+
+    const { error } = await supabase.from('todos').insert([newTodo]);
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
     return NextResponse.json(newTodo, { status: 201 });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to add todo' }, { status: 500 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Failed to add todo' }, { status: 500 });
   }
 }
 
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const fileContents = await fs.readFile(dataFilePath, 'utf8');
-    let todos = JSON.parse(fileContents);
-    
-    const index = todos.findIndex((t: any) => t.id === body.id);
-    if (index !== -1) {
-      todos[index] = { ...todos[index], ...body };
-      await fs.writeFile(dataFilePath, JSON.stringify(todos, null, 2));
-      return NextResponse.json(todos[index]);
+    let supabase = anonSupabase;
+
+    try {
+      const serverClient = await createClient();
+      supabase = serverClient;
+    } catch {
+      // Fallback
     }
-    return NextResponse.json({ error: 'Todo not found' }, { status: 404 });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to update todo' }, { status: 500 });
+
+    const { error } = await supabase
+      .from('todos')
+      .update(body)
+      .eq('id', body.id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, ...body });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Failed to update todo' }, { status: 500 });
   }
 }
 
@@ -66,15 +101,29 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    
-    const fileContents = await fs.readFile(dataFilePath, 'utf8');
-    let todos = JSON.parse(fileContents);
-    
-    todos = todos.filter((t: any) => t.id !== id);
-    await fs.writeFile(dataFilePath, JSON.stringify(todos, null, 2));
-    
+    if (!id) {
+      return NextResponse.json({ error: 'ID required' }, { status: 400 });
+    }
+
+    let supabase = anonSupabase;
+    try {
+      const serverClient = await createClient();
+      supabase = serverClient;
+    } catch {
+      // Fallback
+    }
+
+    const { error } = await supabase
+      .from('todos')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
     return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to delete todo' }, { status: 500 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Failed to delete todo' }, { status: 500 });
   }
 }

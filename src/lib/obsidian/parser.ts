@@ -1,10 +1,30 @@
-import path from 'node:path';
 import type { 
   ObsidianFrontmatter, 
   ObsidianHeading, 
   ObsidianWikilink, 
   ParsedObsidianNote 
 } from '@/types/obsidian';
+
+/**
+ * Portable path utility helpers (safe across browser, edge, and node environments)
+ */
+function getBasename(filePath: string, ext = ''): string {
+  if (!filePath) return '';
+  const normalized = filePath.replace(/\\/g, '/');
+  const base = normalized.split('/').pop() || '';
+  if (ext && base.endsWith(ext)) {
+    return base.slice(0, -ext.length);
+  }
+  return base;
+}
+
+function getDirname(filePath: string): string {
+  if (!filePath) return 'Root';
+  const normalized = filePath.replace(/\\/g, '/');
+  const lastSlash = normalized.lastIndexOf('/');
+  if (lastSlash === -1) return 'Root';
+  return normalized.slice(0, lastSlash) || 'Root';
+}
 
 /**
  * Pure parser for Obsidian Markdown notes:
@@ -14,6 +34,7 @@ import type {
  * - Discovers bidirectional [[wikilinks]] with target and alias resolution
  * - Preserves callouts (> [!NOTE]) and code blocks (```dataview, ```mermaid)
  * - Operates safely and efficiently on huge documents (> 25,000 words in < 10ms)
+ * - 100% portable: zero node:fs or environment-specific dependencies
  */
 export function parseObsidianMarkdown(
   rawContent: string,
@@ -25,13 +46,13 @@ export function parseObsidianMarkdown(
   let bodyContent = rawContent || '';
 
   if (!rawContent || rawContent.trim() === '') {
-    const filenameTitle = relativePath ? path.basename(relativePath, '.md') : 'Untitled';
+    const filenameTitle = relativePath ? getBasename(relativePath, '.md') : 'Untitled';
     return {
       id: relativePath || 'empty',
       title: filenameTitle,
       relativePath: relativePath || '',
       absolutePath,
-      folder: relativePath ? path.dirname(relativePath).replace(/\\/g, '/') : 'Root',
+      folder: relativePath ? getDirname(relativePath) : 'Root',
       frontmatter: {},
       tags: [],
       headings: [],
@@ -92,7 +113,14 @@ export function parseObsidianMarkdown(
             const cleanVal = rawVal.replace(/^['"]|['"]$/g, '');
             frontmatter[currentKey] = cleanVal;
             if ((currentKey === 'tags' || currentKey === 'tag') && cleanVal) {
-              tagsSet.add(cleanVal.replace(/^#/, ''));
+              if (cleanVal.includes(',')) {
+                cleanVal.split(',').forEach(t => {
+                  const cleanT = t.trim().replace(/^['"#]|['"]$/g, '');
+                  if (cleanT) tagsSet.add(cleanT);
+                });
+              } else {
+                tagsSet.add(cleanVal.replace(/^#/, ''));
+              }
             }
           }
         }
@@ -130,10 +158,14 @@ export function parseObsidianMarkdown(
   const h1 = headings.find(h => h.level === 1);
   let title = '';
   if (h1) {
-    title = h1.text.replace(/^[^\w\s\u0600-\u06FF]+/, '').trim();
+    title = h1.text
+      .replace(/^\[\[|\]\]$/g, '')
+      .replace(/^\*+|\*+$/g, '')
+      .replace(/^[^\w\s\u0600-\u06FF]+/, '')
+      .trim();
   }
   if (!title) {
-    title = relativePath ? path.basename(relativePath, '.md') : 'Untitled';
+    title = relativePath ? getBasename(relativePath, '.md') : 'Untitled';
   }
 
   // 5. Extract Wikilinks [[Target|Alias]]
@@ -150,7 +182,7 @@ export function parseObsidianMarkdown(
 
   // 6. Calculate Word Count on stripped body
   const words = bodyContent.trim().split(/\s+/).filter(Boolean);
-  const parentFolder = relativePath ? path.dirname(relativePath).replace(/\\/g, '/') : 'Root';
+  const parentFolder = relativePath ? getDirname(relativePath) : 'Root';
 
   return {
     id: relativePath,

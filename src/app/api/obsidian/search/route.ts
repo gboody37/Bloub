@@ -1,16 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchVaultNotes, DEFAULT_VAULT_PATH } from '@/lib/obsidian/scanner';
+import { searchVaultNotes } from '@/lib/obsidian/scanner';
+import { createClient } from '@/lib/supabase/server';
+import { supabase as anonSupabase } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || searchParams.get('search') || '';
-    const headerVault = request.headers.get('x-obsidian-vault-path');
-    const vaultPath = searchParams.get('vaultPath') || headerVault || DEFAULT_VAULT_PATH;
     const tag = searchParams.get('tag') || undefined;
     const folder = searchParams.get('folder') || undefined;
 
-    const result = await searchVaultNotes(query, vaultPath, tag, folder);
+    let supabase = anonSupabase;
+    let userId = searchParams.get('userId') || request.headers.get('x-user-id') || undefined;
+
+    try {
+      const serverClient = await createClient();
+      const { data: { user } } = await serverClient.auth.getUser();
+      if (user) {
+        supabase = serverClient;
+        userId = user.id;
+      }
+    } catch {
+      // Fallback
+    }
+
+    const result = await searchVaultNotes(query, undefined, tag, folder, userId, supabase);
 
     if (!result.success) {
       return NextResponse.json(result, { status: 400 });
