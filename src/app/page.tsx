@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BloubMascot from '@/components/BloubMascot';
-import { CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRight, Flag, Calendar, BarChart3, ListTodo, Edit2, MoreVertical, Palette, Shapes, PaintBucket, LogOut, Download, Smartphone, Repeat, Bell, Monitor, Flame, Cpu, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRight, Flag, Calendar, BarChart3, ListTodo, Edit2, MoreVertical, Palette, Shapes, PaintBucket, LogOut, Download, Smartphone, Repeat, Bell, Monitor, Flame, Cpu, AlertCircle, Mic, Camera } from 'lucide-react';
 import type { StateId } from '@/lib/bot/states';
 import type { ExpressionId } from '@/lib/bot/expressions';
 import { COLORS } from '@/lib/bot/skins';
@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 import { VAPID_PUBLIC_KEY } from '@/lib/push-config';
 
 interface Subtask { id: string; text: string; completed: boolean; }
+interface Attachment { type: 'image' | 'video' | 'audio'; url: string; name: string; }
 interface Todo {
   id: string; text: string; completed: boolean; categoryId: string;
   priority?: 'high' | 'medium' | 'low';
@@ -22,6 +23,7 @@ interface Todo {
   habitCompletedCount?: number;
   habitStreak?: number;
   habitLastCompleted?: string;
+  attachments?: Attachment[];
 }
 interface Category { id: string; name: string; }
 
@@ -81,6 +83,10 @@ export default function Home() {
   const [activeCategory, setActiveCategory] = useState('default');
   const [activeTab, setActiveTab] = useState<'lists' | 'today' | 'stats'>('lists');
   const [inputText, setInputText] = useState('');
+  const [pendingAttachments, setPendingAttachments] = useState<{file: File, type: 'image'|'video'|'audio', previewUrl?: string}[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const [newCatText, setNewCatText] = useState('');
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -406,20 +412,81 @@ export default function Home() {
     }
     setIsSubmitting(true);
     triggerMascot('wide', 'surpris');
+    
+    const uploadedAttachments: Attachment[] = [];
+    if (pendingAttachments.length > 0) {
+      for (const att of pendingAttachments) {
+        const fileExt = att.file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const { data, error } = await supabase.storage.from('media').upload(fileName, att.file);
+        
+        if (!error && data) {
+          const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(fileName);
+          uploadedAttachments.push({ type: att.type, url: publicUrl, name: att.file.name });
+        }
+      }
+    }
+
     await mutate({ 
       type: 'ADD_TODO', 
       text: inputText, 
       categoryId: activeCategory,
       isHabit,
       habitFrequency,
-      habitDays
+      habitDays,
+      attachments: uploadedAttachments
     });
     setInputText('');
+    setPendingAttachments([]);
     setIsHabit(false);
     setHabitDays([]);
     setHabitFrequency(1);
     setShowAddModal(false);
     setIsSubmitting(false);
+  };
+
+  const toggleRecording = async () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      setIsRecording(false);
+      triggerMascot('idle', 'heureux');
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+        
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        };
+        
+        mediaRecorder.onstop = () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          const file = new File([audioBlob], `voice-note-${Date.now()}.webm`, { type: 'audio/webm' });
+          setPendingAttachments(prev => [...prev, { file, type: 'audio' }]);
+          stream.getTracks().forEach(t => t.stop());
+        };
+        
+        mediaRecorder.start();
+        setIsRecording(true);
+        triggerMascot('wide', 'surpris');
+      } catch (err) {
+        alert('Microphone permission denied.');
+      }
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      const newAtts = files.map(file => ({
+        file,
+        type: file.type.startsWith('video/') ? 'video' as const : 'image' as const,
+        previewUrl: URL.createObjectURL(file)
+      }));
+      setPendingAttachments(prev => [...prev, ...newAtts]);
+    }
   };
 
   const addCategory = async (e: React.FormEvent) => {
@@ -984,6 +1051,37 @@ export default function Home() {
                 className={`w-full rounded-2xl py-4 px-4 text-base font-medium transition-all mb-4 outline-none resize-none custom-scrollbar ${t.input}`}
               />
 
+              {/* Attachments Preview */}
+              {pendingAttachments.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4 px-1">
+                  {pendingAttachments.map((att, i) => (
+                    <div key={i} className="relative group rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 h-16 w-16 flex items-center justify-center">
+                      {att.type === 'image' && <img src={att.previewUrl} className="object-cover w-full h-full" alt="preview" />}
+                      {att.type === 'video' && <video src={att.previewUrl} className="object-cover w-full h-full" />}
+                      {att.type === 'audio' && <Mic size={24} className="text-blue-500" />}
+                      <button type="button" onClick={() => setPendingAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-0 right-0 bg-red-500 text-white rounded-bl-xl p-1 opacity-80 hover:opacity-100 transition-opacity">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Media Controls */}
+              <div className="flex items-center gap-3 mb-4 px-1">
+                <button
+                  type="button"
+                  onClick={toggleRecording}
+                  className={`p-3 rounded-full transition-all ${isRecording ? 'bg-red-500 text-white animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.5)]' : isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                >
+                  <Mic size={20} />
+                </button>
+                <label className={`p-3 rounded-full cursor-pointer transition-all ${isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                  <Camera size={20} />
+                  <input type="file" className="hidden" accept="image/*,video/*" multiple onChange={handleFileSelect} />
+                </label>
+              </div>
+
               {/* Habit Toggle */}
               <div className="flex items-center justify-between mb-4 px-1">
                 <span className={`text-sm font-semibold ${t.textPrimary}`}>Make it a Habit</span>
@@ -1292,6 +1390,22 @@ export default function Home() {
                             <p className={`text-sm font-medium ${isExpanded ? 'break-words whitespace-normal' : 'truncate'} ${todo.completed ? 'line-through ' + t.textMuted : isOverdue ? 'text-red-500' : t.textPrimary}`}>
                               {todo.text}
                             </p>
+                            {todo.attachments && todo.attachments.length > 0 && (
+                              <div className="flex gap-2 w-full mt-2 overflow-x-auto custom-scrollbar pb-1">
+                                {todo.attachments.map((att, i) => (
+                                  <div key={i} className="flex-shrink-0 relative rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 h-24 w-24 flex items-center justify-center">
+                                    {att.type === 'image' && <img src={att.url} className="object-cover w-full h-full" alt="attachment" />}
+                                    {att.type === 'video' && <video src={att.url} controls className="object-cover w-full h-full" />}
+                                    {att.type === 'audio' && (
+                                      <div className="flex flex-col items-center justify-center gap-1 w-full h-full">
+                                        <Mic size={24} className="text-blue-500" />
+                                        <audio src={att.url} controls className="h-6 w-20 scale-75 transform origin-center" />
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                             {todo.isHabit && (todo.habitStreak || 0) > 0 && (
                               <span className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400">
                                 <Flame size={10} className="fill-current text-orange-500" />

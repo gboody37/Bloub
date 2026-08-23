@@ -84,7 +84,8 @@ export async function POST(req: Request) {
       habit_frequency: body.habitFrequency || 1,
       habit_days: body.habitDays || [],
       habit_completed_count: 0,
-      habit_streak: 0
+      habit_streak: 0,
+      attachments: body.attachments || []
     }]);
   } else if (body.type === 'TOGGLE_TODO') {
     await supabase.from('todos').update({ completed: body.completed }).match({ id: body.id, user_id: user.id });
