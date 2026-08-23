@@ -16,6 +16,9 @@ import { COLORS } from '@/lib/bot/skins';
 import { createClient } from '@/lib/supabase/client';
 import { VAPID_PUBLIC_KEY } from '@/lib/push-config';
 import type { Todo, Category, ListType, Subtask, Attachment } from '@/types/todo';
+import NoteExplorer from '@/components/study/NoteExplorer';
+import NoteViewer from '@/components/study/NoteViewer';
+import type { ObsidianNoteSummary, ParsedObsidianNote } from '@/types/obsidian';
 
 const PRIORITY_COLOR = { high: '#ef4444', medium: '#f59e0b', low: '#3b82f6' };
 const PRIORITY_LABEL = { high: 'High', medium: 'Medium', low: 'Low' };
@@ -107,6 +110,11 @@ export default function Home() {
   const [editingListName, setEditingListName] = useState('');
   const [editingListType, setEditingListType] = useState<ListType>('todo');
   const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Study Workflow State
+  const [showStudyExplorer, setShowStudyExplorer] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<ParsedObsidianNote | null>(null);
+  const [isFetchingNote, setIsFetchingNote] = useState(false);
 
   // Auth Effect
   useEffect(() => {
@@ -341,6 +349,31 @@ export default function Home() {
     setMascotExpression(expr);
     if (!persist) resetToIdle();
   }, [resetToIdle]);
+
+  const handleSelectNote = async (noteSummary: ObsidianNoteSummary) => {
+    setIsFetchingNote(true);
+    triggerMascot('thinking', 'curieux');
+    try {
+      const res = await fetch('/api/obsidian/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notePath: noteSummary.path })
+      });
+      const data = await res.json();
+      if (res.ok && data.note) {
+        setSelectedNote(data.note);
+        triggerMascot('orbit', 'heureux');
+      } else {
+        triggerMascot('alert', 'mefiant');
+        alert('Failed to load note: ' + (data.error || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error(err);
+      triggerMascot('alert', 'triste');
+    } finally {
+      setIsFetchingNote(false);
+    }
+  };
 
   const fetchTodos = async () => {
     if (!session) return;
@@ -1503,40 +1536,95 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Study Feature Tiles */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div className={`p-4 rounded-2xl border transition-all ${t.card} flex flex-col justify-between`}>
-                    <div>
-                      <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2.5">
-                        <Brain size={18} />
-                      </div>
-                      <h4 className={`text-sm font-bold mb-1 ${t.textPrimary}`}>Vault Notes</h4>
-                      <p className={`text-[11px] leading-relaxed ${t.textMuted}`}>
-                        Scan and browse Markdown notes, frontmatter tags, and wikilinks.
-                      </p>
+                {/* Study UI: Viewer > Explorer > Tiles */}
+                {selectedNote ? (
+                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <NoteViewer 
+                      note={selectedNote} 
+                      isDark={isDark} 
+                      isLoading={isFetchingNote}
+                      onClose={() => setSelectedNote(null)}
+                      onWikilinkClick={async (target) => {
+                        // Quick search for the wikilink target
+                        try {
+                          setIsFetchingNote(true);
+                          const res = await fetch(`/api/obsidian/search?q=${encodeURIComponent(target)}`);
+                          const data = await res.json();
+                          if (data.results && data.results.length > 0) {
+                            handleSelectNote(data.results[0]);
+                          } else {
+                            alert(`Could not find note: ${target}`);
+                            setIsFetchingNote(false);
+                          }
+                        } catch (e) {
+                          setIsFetchingNote(false);
+                        }
+                      }}
+                    />
+                  </div>
+                ) : showStudyExplorer ? (
+                  <div className={`flex flex-col h-[600px] border rounded-3xl overflow-hidden transition-all animate-in fade-in zoom-in-95 duration-500 ${t.card}`}>
+                    <div className={`p-3 border-b flex items-center justify-between ${isDark ? 'border-slate-800 bg-slate-900/50' : 'border-gray-100 bg-gray-50/50'}`}>
+                      <button 
+                        onClick={() => setShowStudyExplorer(false)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                          isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-gray-200 text-gray-700'
+                        }`}
+                      >
+                        <ChevronRight className="rotate-180" size={14} /> Back to Hub
+                      </button>
+                      <span className={`text-xs font-bold uppercase tracking-wider opacity-50`}>Obsidian Brain</span>
                     </div>
-                    <div className="mt-3 pt-2.5 border-t border-dashed border-gray-200 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-blue-500">
-                      <span>Obsidian Brain</span>
-                      <ChevronRight size={14} />
+                    <div className="flex-1 overflow-hidden">
+                      <NoteExplorer 
+                        onSelectNote={handleSelectNote}
+                        isDark={isDark}
+                      />
                     </div>
                   </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {/* Vault Notes Tile */}
+                    <button 
+                      onClick={() => setShowStudyExplorer(true)}
+                      className={`text-left p-4 rounded-2xl border transition-all hover:scale-[1.02] active:scale-95 cursor-pointer ${t.card} flex flex-col justify-between group`}
+                    >
+                      <div>
+                        <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2.5 transition-transform group-hover:scale-110 group-hover:rotate-3">
+                          <Brain size={18} />
+                        </div>
+                        <h4 className={`text-sm font-bold mb-1 ${t.textPrimary}`}>Vault Notes</h4>
+                        <p className={`text-[11px] leading-relaxed ${t.textMuted}`}>
+                          Scan and browse Markdown notes, frontmatter tags, and wikilinks.
+                        </p>
+                      </div>
+                      <div className="mt-3 w-full pt-2.5 border-t border-dashed border-gray-200 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-blue-500">
+                        <span>Obsidian Brain</span>
+                        <ChevronRight size={14} className="transition-transform group-hover:translate-x-1" />
+                      </div>
+                    </button>
 
-                  <div className={`p-4 rounded-2xl border transition-all ${t.card} flex flex-col justify-between`}>
-                    <div>
-                      <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-2.5">
-                        <Sparkles size={18} />
+                    {/* AI Quizzing Tile */}
+                    <button 
+                      onClick={() => setShowStudyExplorer(true)}
+                      className={`text-left p-4 rounded-2xl border transition-all hover:scale-[1.02] active:scale-95 cursor-pointer ${t.card} flex flex-col justify-between group`}
+                    >
+                      <div>
+                        <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-2.5 transition-transform group-hover:scale-110 group-hover:-rotate-3">
+                          <Sparkles size={18} />
+                        </div>
+                        <h4 className={`text-sm font-bold mb-1 ${t.textPrimary}`}>NotebookLM AI Quiz</h4>
+                        <p className={`text-[11px] leading-relaxed ${t.textMuted}`}>
+                          Generate interactive multi-choice quizzes and flashcards with Gemini.
+                        </p>
                       </div>
-                      <h4 className={`text-sm font-bold mb-1 ${t.textPrimary}`}>NotebookLM AI Quiz</h4>
-                      <p className={`text-[11px] leading-relaxed ${t.textMuted}`}>
-                        Generate interactive multi-choice quizzes and flashcards with Gemini.
-                      </p>
-                    </div>
-                    <div className="mt-3 pt-2.5 border-t border-dashed border-gray-200 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-purple-500">
-                      <span>AI Quizzing</span>
-                      <ChevronRight size={14} />
-                    </div>
+                      <div className="mt-3 w-full pt-2.5 border-t border-dashed border-gray-200 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-purple-500">
+                        <span>Select a Note First</span>
+                        <ChevronRight size={14} className="transition-transform group-hover:translate-x-1" />
+                      </div>
+                    </button>
                   </div>
-                </div>
+                )}
 
                 {/* Empty State / Session Starter */}
                 <div className={`p-8 rounded-3xl border border-dashed text-center flex flex-col items-center justify-center ${isDark ? 'border-slate-800 bg-slate-900/30' : 'border-gray-200 bg-gray-50/50'}`}>
@@ -1549,7 +1637,10 @@ export default function Home() {
                   </p>
                   <button 
                     type="button" 
-                    onClick={() => triggerMascot('orbit', 'fier')} 
+                    onClick={() => {
+                      setShowStudyExplorer(true);
+                      triggerMascot('orbit', 'fier');
+                    }} 
                     className="px-4 py-2 rounded-xl bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 shadow-md shadow-purple-600/20 transition-all active:scale-95 flex items-center gap-1.5"
                   >
                     <Sparkles size={13} />
