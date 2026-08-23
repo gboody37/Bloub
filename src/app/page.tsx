@@ -357,7 +357,7 @@ export default function Home() {
       const res = await fetch('/api/obsidian/read', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notePath: noteSummary.path })
+        body: JSON.stringify({ notePath: noteSummary.relativePath })
       });
       const data = await res.json();
       if (res.ok && data.note) {
