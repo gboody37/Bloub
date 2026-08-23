@@ -1623,6 +1623,51 @@ export default function Home() {
                         <ChevronRight size={14} className="transition-transform group-hover:translate-x-1" />
                       </div>
                     </button>
+
+                    {/* Upload Book Tile */}
+                    <label className={`text-left p-4 rounded-2xl border transition-all hover:scale-[1.02] active:scale-95 cursor-pointer ${t.card} flex flex-col justify-between group sm:col-span-2`}>
+                      <input 
+                        type="file" 
+                        accept=".txt,.md,.csv" 
+                        className="hidden" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          triggerMascot('thinking', 'curieux', true);
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const text = ev.target?.result as string;
+                            setSelectedNote({
+                              id: file.name,
+                              title: file.name.replace(/\.[^/.]+$/, ""),
+                              relativePath: file.name,
+                              absolutePath: file.name,
+                              frontmatter: {},
+                              tags: [],
+                              headings: [],
+                              wikilinks: [],
+                              rawContent: text,
+                              bodyContent: text,
+                              wordCount: text.split(/\s+/).length,
+                              lastModifiedMs: file.lastModified
+                            });
+                            triggerMascot('orbit', 'heureux');
+                          };
+                          reader.readAsText(file);
+                        }} 
+                      />
+                      <div className="flex items-center gap-4">
+                        <div className="w-9 h-9 rounded-xl bg-green-500/10 text-green-600 dark:text-green-400 flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 group-hover:rotate-3">
+                          <FileText size={18} />
+                        </div>
+                        <div>
+                          <h4 className={`text-sm font-bold mb-0.5 ${t.textPrimary}`}>Upload Book / Document</h4>
+                          <p className={`text-[11px] leading-relaxed ${t.textMuted}`}>
+                            Upload any .txt or .md file to instantly read it and generate an AI Quiz.
+                          </p>
+                        </div>
+                      </div>
+                    </label>
                   </div>
                 )}
 
