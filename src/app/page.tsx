@@ -1040,7 +1040,6 @@ export default function Home() {
                 value={inputText}
                 onChange={e => {
                   setInputText(e.target.value);
-                  if (e.target.value.length === 1 && !inputText) triggerMascot('alert', 'heureux');
                 }}
                 onFocus={(e) => {
                   triggerMascot('thinking', 'curieux');
@@ -1278,7 +1277,6 @@ export default function Home() {
               <input type="text" value={newCatText} 
                 onChange={e => {
                   setNewCatText(e.target.value);
-                  if (e.target.value.length === 1 && !newCatText) triggerMascot('alert', 'heureux');
                 }}
                 onFocus={(e) => {
                   triggerMascot('thinking', 'curieux');
