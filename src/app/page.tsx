@@ -414,8 +414,9 @@ export default function Home() {
     if (id === 'default') return;
     if (confirm('Delete this list?')) {
       triggerMascot('idle', 'triste');
-      await mutate({ type: 'DELETE_CATEGORY', id });
+      setCategories(categories.filter(c => c.id !== id));
       if (activeCategory === id) setActiveCategory('default');
+      await mutate({ type: 'DELETE_CATEGORY', id });
     }
     setListMenuId(null);
   };
@@ -474,7 +475,12 @@ export default function Home() {
       resetToIdle();
     }
 
-    await mutate({ type: 'INCREMENT_HABIT', id: todo.id });
+    await mutate({ 
+      type: 'INCREMENT_HABIT', 
+      id: todo.id,
+      newCount: todo.completed ? 0 : currentCount + 1,
+      isCompleted: todo.completed ? false : isNextCompleted
+    });
   };
 
   const toggleTodo = async (id: string, completed: boolean) => {
@@ -500,6 +506,7 @@ export default function Home() {
 
   const deleteTodo = async (id: string) => {
     triggerMascot('comet', 'triste');
+    setTodos(todos.filter(t => t.id !== id));
     await mutate({ type: 'DELETE_TODO', id });
     setTimeout(() => triggerMascot('idle', 'neutre'), 2500);
   };

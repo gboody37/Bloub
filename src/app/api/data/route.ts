@@ -96,16 +96,15 @@ export async function POST(req: Request) {
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-      if (todo.completed) {
+      if (body.newCount === 0 && !body.isCompleted) {
         // Reset habit if clicked while already completed
         await supabase.from('todos').update({
           habit_completed_count: 0,
           completed: false
         }).match({ id: body.id, user_id: user.id });
       } else {
-        const newCount = (todo.habit_completed_count || 0) + 1;
-        const freq = todo.habit_frequency || 1;
-        const isCompleted = newCount >= freq;
+        const newCount = body.newCount;
+        const isCompleted = body.isCompleted;
         
         let streak = todo.habit_streak || 0;
         let lastCompleted = todo.habit_last_completed;
