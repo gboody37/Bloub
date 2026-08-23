@@ -128,6 +128,8 @@ export async function POST(req: Request) {
     }
   } else if (body.type === 'DELETE_TODO') {
     await supabase.from('todos').delete().match({ id: body.id, user_id: user.id });
+  } else if (body.type === 'CLEAR_COMPLETED') {
+    await supabase.from('todos').delete().match({ completed: true, is_habit: false, user_id: user.id });
   } else if (body.type === 'ADD_CATEGORY') {
     await supabase.from('categories').insert([{
       id: Date.now().toString(),

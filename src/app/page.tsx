@@ -345,7 +345,29 @@ export default function Home() {
     const res = await fetch('/api/data');
     if (res.status === 401) return;
     const data = await res.json();
-    setTodos(data.todos);
+    
+    // Auto-clear logic: Clear completed tasks (non-habit) every 12 hours
+    const uid = session.user.id;
+    const lastClear = localStorage.getItem(`${uid}_lastClear`);
+    const now = Date.now();
+    const twelveHours = 12 * 60 * 60 * 1000;
+    
+    let currentTodos = data.todos;
+    
+    if (!lastClear || now - parseInt(lastClear) > twelveHours) {
+      const hasCompleted = currentTodos.some((t: any) => t.completed && !t.isHabit);
+      if (hasCompleted) {
+        await fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'CLEAR_COMPLETED' })
+        });
+        currentTodos = currentTodos.filter((t: any) => !t.completed || t.isHabit);
+      }
+      localStorage.setItem(`${uid}_lastClear`, now.toString());
+    }
+
+    setTodos(currentTodos);
     
     let cats = data.categories || [];
     if (!cats.find((c: any) => c.id === 'default')) cats = [{ id: 'default', name: 'General' }, ...cats];
@@ -946,8 +968,7 @@ export default function Home() {
             </div>
             
             <form onSubmit={addTodo}>
-              <input
-                type="text"
+              <textarea
                 autoFocus
                 value={inputText}
                 onChange={e => {
@@ -959,7 +980,8 @@ export default function Home() {
                   e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }}
                 placeholder="What needs to be done?"
-                className={`w-full rounded-2xl py-4 px-4 text-base font-medium transition-all mb-4 outline-none ${t.input}`}
+                rows={3}
+                className={`w-full rounded-2xl py-4 px-4 text-base font-medium transition-all mb-4 outline-none resize-none custom-scrollbar ${t.input}`}
               />
 
               {/* Habit Toggle */}
