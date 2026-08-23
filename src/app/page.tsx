@@ -266,7 +266,7 @@ export default function Home() {
     if (!session) return;
     const uid = session.user.id;
     const savedExpr = localStorage.getItem(`${uid}_mascotExpression`) as ExpressionId;
-    const savedShape = localStorage.getItem(`${uid}_mascotShape`) as MascotShape;
+    const savedShape = localStorage.getItem(`${uid}_mascotShape`);
     const savedColor = localStorage.getItem(`${uid}_mascotColor`);
     const savedTheme = localStorage.getItem(`${uid}_bgTheme`);
     const savedCatSet = localStorage.getItem(`${uid}_catSettings`);
