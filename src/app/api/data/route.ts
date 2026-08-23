@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import type { Category, Todo, ListType } from '@/types/todo';
 
 // Helper to map Postgres lowercase columns to frontend camelCase
-const mapTodos = (todos: any[]) => todos.map(t => ({
+const mapTodos = (todos: any[]): Todo[] => todos.map(t => ({
   ...t,
   categoryId: t.categoryid,
   dueDate: t.duedate,
@@ -14,12 +15,21 @@ const mapTodos = (todos: any[]) => todos.map(t => ({
   habitLastCompleted: t.habit_last_completed
 }));
 
+// Helper to ensure category type defaults safely to 'todo'
+const mapCategories = (categories: any[]): Category[] => categories.map(c => ({
+  ...c,
+  type: (c.type === 'study' ? 'study' : 'todo') as ListType
+}));
+
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ todos: [], categories: [{ id: 'default', name: 'General' }] }, { status: 401 });
+    return NextResponse.json({
+      todos: [],
+      categories: [{ id: 'default', name: 'General', type: 'todo' as ListType }]
+    }, { status: 401 });
   }
 
   // --- Dynamic Habits Daily Reset & Streak Checker ---
@@ -59,7 +69,7 @@ export async function GET() {
   
   return NextResponse.json({
     todos: todos ? mapTodos(todos) : [],
-    categories: categories?.length ? categories : [{ id: 'default', name: 'General' }]
+    categories: categories?.length ? mapCategories(categories) : [{ id: 'default', name: 'General', type: 'todo' as ListType }]
   });
 }
 
@@ -72,8 +82,9 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
+  const action = body.action || body.type;
 
-  if (body.type === 'ADD_TODO') {
+  if (action === 'ADD_TODO') {
     await supabase.from('todos').insert([{
       id: Date.now().toString(),
       text: body.text,
@@ -87,9 +98,9 @@ export async function POST(req: Request) {
       habit_streak: 0,
       attachments: body.attachments || []
     }]);
-  } else if (body.type === 'TOGGLE_TODO') {
+  } else if (action === 'TOGGLE_TODO') {
     await supabase.from('todos').update({ completed: body.completed }).match({ id: body.id, user_id: user.id });
-  } else if (body.type === 'INCREMENT_HABIT') {
+  } else if (action === 'INCREMENT_HABIT') {
     const { data: todo } = await supabase.from('todos').select('*').eq('id', body.id).single();
     if (todo && todo.is_habit) {
       const todayStr = new Date().toISOString().split('T')[0];
@@ -127,24 +138,50 @@ export async function POST(req: Request) {
         }).match({ id: body.id, user_id: user.id });
       }
     }
-  } else if (body.type === 'DELETE_TODO') {
+  } else if (action === 'DELETE_TODO') {
     await supabase.from('todos').delete().match({ id: body.id, user_id: user.id });
-  } else if (body.type === 'CLEAR_COMPLETED') {
+  } else if (action === 'CLEAR_COMPLETED') {
     await supabase.from('todos').delete().match({ completed: true, is_habit: false, user_id: user.id });
-  } else if (body.type === 'ADD_CATEGORY') {
-    await supabase.from('categories').insert([{
+  } else if (action === 'ADD_CATEGORY') {
+    const rawType = body.categoryType || body.listType || (body.action ? body.type : undefined) || 'todo';
+    const categoryType: ListType = rawType === 'study' ? 'study' : 'todo';
+    
+    const { error: insertErr } = await supabase.from('categories').insert([{
       id: Date.now().toString(),
       name: body.name,
+      type: categoryType,
       user_id: user.id
     }]);
-  } else if (body.type === 'DELETE_CATEGORY') {
+
+    if (insertErr) {
+      // Fallback if schema doesn't have type column yet
+      await supabase.from('categories').insert([{
+        id: Date.now().toString(),
+        name: body.name,
+        user_id: user.id
+      }]);
+    }
+  } else if (action === 'DELETE_CATEGORY') {
     await supabase.from('categories').delete().match({ id: body.id, user_id: user.id });
     await supabase.from('todos').update({ categoryid: 'default' }).match({ categoryid: body.id, user_id: user.id });
-  } else if (body.type === 'UPDATE_CATEGORY') {
-    await supabase.from('categories').update({ name: body.name }).match({ id: body.id, user_id: user.id });
-  } else if (body.type === 'SET_PRIORITY') {
+  } else if (action === 'UPDATE_CATEGORY') {
+    const updateData: any = {};
+    if (body.name !== undefined) updateData.name = body.name;
+    const rawType = body.categoryType || body.listType || (body.action ? body.type : undefined);
+    if (rawType !== undefined) {
+      updateData.type = rawType === 'study' ? 'study' : 'todo';
+    }
+
+    const { error: updateErr } = await supabase.from('categories').update(updateData).match({ id: body.id, user_id: user.id });
+    if (updateErr && updateData.type) {
+      const { type: _, ...fallbackData } = updateData;
+      if (Object.keys(fallbackData).length > 0) {
+        await supabase.from('categories').update(fallbackData).match({ id: body.id, user_id: user.id });
+      }
+    }
+  } else if (action === 'SET_PRIORITY') {
     await supabase.from('todos').update({ priority: body.priority }).match({ id: body.id, user_id: user.id });
-  } else if (body.type === 'SET_DUE_DATE') {
+  } else if (action === 'SET_DUE_DATE') {
     await supabase.from('todos').update({ duedate: body.dueDate }).match({ id: body.id, user_id: user.id });
   }
 
@@ -154,6 +191,6 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     todos: todos ? mapTodos(todos) : [],
-    categories: categories?.length ? categories : [{ id: 'default', name: 'General' }]
+    categories: categories?.length ? mapCategories(categories) : [{ id: 'default', name: 'General', type: 'todo' as ListType }]
   });
 }

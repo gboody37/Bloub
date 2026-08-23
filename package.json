@@ -2,11 +2,20 @@
   "name": "vibe-todos",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --experimental-strip-types tests/verification/run-all-verifications.ts",
+    "test:all": "node --experimental-strip-types --test tests/unit/*.test.ts tests/integration/*.test.ts",
+    "test:unit": "node --experimental-strip-types --test tests/unit/*.test.ts",
+    "test:integration": "node --experimental-strip-types --test tests/integration/*.test.ts",
+    "verify": "node --experimental-strip-types tests/verification/run-all-verifications.ts",
+    "verify:ac1": "node --experimental-strip-types tests/verification/verify-ac1-list-types.ts",
+    "verify:ac2": "node --experimental-strip-types tests/verification/verify-ac2-obsidian-sync.ts",
+    "verify:ac3": "node --experimental-strip-types tests/verification/verify-ac3-ai-quizzing.ts"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",

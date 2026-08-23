@@ -1,0 +1,90 @@
+/**
+ * Master Verification Harness: Runs all Acceptance Criteria verification scripts.
+ * 
+ * Executable via:
+ *   node --experimental-strip-types tests/verification/run-all-verifications.ts
+ */
+
+import { verifyAC1 } from './verify-ac1-list-types.ts';
+import { verifyAC2 } from './verify-ac2-obsidian-sync.ts';
+import { verifyAC3 } from './verify-ac3-ai-quizzing.ts';
+
+interface VerificationResult {
+  id: string;
+  name: string;
+  passed: boolean;
+  durationMs: number;
+  error?: string;
+}
+
+async function runAllVerifications(): Promise<void> {
+  const banner = `
+========================================================================
+  🚀 VIBE TODOS AI & STUDY APPLICATION — MASTER VERIFICATION HARNESS  
+========================================================================
+Runtime: Node.js ${process.version} (Native Types Stripping)
+Date: ${new Date().toISOString()}
+`;
+  console.log(banner);
+
+  const suiteStartTime = Date.now();
+  const results: VerificationResult[] = [];
+
+  const runStep = async (id: string, name: string, fn: () => Promise<boolean>) => {
+    const start = Date.now();
+    try {
+      await fn();
+      results.push({
+        id,
+        name,
+        passed: true,
+        durationMs: Date.now() - start
+      });
+    } catch (err: any) {
+      results.push({
+        id,
+        name,
+        passed: false,
+        durationMs: Date.now() - start,
+        error: err.stack || err.message
+      });
+    }
+  };
+
+  await runStep('AC-1', 'List Types (ToDo vs Study) & Strict UI Segregation', verifyAC1);
+  await runStep('AC-2', 'Local Obsidian Vault Note Ingestion & Markdown Parsing', verifyAC2);
+  await runStep('AC-3', 'Settings LLM Key Storage & Dynamic AI Quiz Generation', verifyAC3);
+
+  const totalDuration = ((Date.now() - suiteStartTime) / 1000).toFixed(2);
+  const passedCount = results.filter(r => r.passed).length;
+  const failedCount = results.filter(r => !r.passed).length;
+
+  console.log('\n========================================================================');
+  console.log('  📊 FINAL ACCEPTANCE VERIFICATION SUMMARY REPORT');
+  console.log('========================================================================');
+
+  for (const res of results) {
+    const statusIcon = res.passed ? '✅ PASS' : '❌ FAIL';
+    console.log(`  ${statusIcon} [${res.id}] ${res.name} (${res.durationMs}ms)`);
+    if (!res.passed && res.error) {
+      console.log(`         Error: ${res.error}`);
+    }
+  }
+
+  console.log('------------------------------------------------------------------------');
+  console.log(`  Total Criteria Tested: ${results.length}`);
+  console.log(`  Passed: ${passedCount} / ${results.length}`);
+  console.log(`  Failed: ${failedCount} / ${results.length}`);
+  console.log(`  Duration: ${totalDuration}s`);
+  console.log('========================================================================\n');
+
+  if (failedCount > 0) {
+    console.error(`❌ VERIFICATION SUITE FAILED: ${failedCount} criteria did not pass.`);
+    process.exit(1);
+  } else {
+    console.log('🎉 ALL ACCEPTANCE CRITERIA 100% VERIFIED AND PASSING!');
+    process.exit(0);
+  }
+}
+
+runAllVerifications();

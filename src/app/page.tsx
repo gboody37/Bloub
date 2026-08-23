@@ -3,37 +3,33 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BloubMascot from '@/components/BloubMascot';
-import { CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRight, Flag, Calendar, BarChart3, ListTodo, Edit2, MoreVertical, Palette, Shapes, PaintBucket, LogOut, Download, Smartphone, Repeat, Bell, Monitor, Flame, Cpu, AlertCircle, Mic, Camera } from 'lucide-react';
+import { 
+  CheckCircle2, Circle, Trash2, Plus, Settings, X, ChevronDown, ChevronRight, 
+  Flag, Calendar, BarChart3, ListTodo, Edit2, MoreVertical, Palette, Shapes, 
+  PaintBucket, LogOut, Download, Smartphone, Repeat, Bell, Monitor, Flame, 
+  Cpu, AlertCircle, Mic, Camera, GraduationCap, BookOpen, Sparkles, Brain, 
+  CheckSquare, Layers, FileText 
+} from 'lucide-react';
 import type { StateId } from '@/lib/bot/states';
 import type { ExpressionId } from '@/lib/bot/expressions';
 import { COLORS } from '@/lib/bot/skins';
 import { createClient } from '@/lib/supabase/client';
 import { VAPID_PUBLIC_KEY } from '@/lib/push-config';
-
-interface Subtask { id: string; text: string; completed: boolean; }
-interface Attachment { type: 'image' | 'video' | 'audio'; url: string; name: string; }
-interface Todo {
-  id: string; text: string; completed: boolean; categoryId: string;
-  priority?: 'high' | 'medium' | 'low';
-  dueDate?: string;
-  subtasks?: Subtask[];
-  isHabit?: boolean;
-  habitFrequency?: number;
-  habitDays?: string[];
-  habitCompletedCount?: number;
-  habitStreak?: number;
-  habitLastCompleted?: string;
-  attachments?: Attachment[];
-}
-interface Category { id: string; name: string; }
+import type { Todo, Category, ListType, Subtask, Attachment } from '@/types/todo';
 
 const PRIORITY_COLOR = { high: '#ef4444', medium: '#f59e0b', low: '#3b82f6' };
 const PRIORITY_LABEL = { high: 'High', medium: 'Medium', low: 'Low' };
 
-const getListMascot = (cat: {id: string, name: string}, settings: Record<string, {shape: string, color: string}>) => {
+const getListMascot = (cat: Category, settings: Record<string, {shape: string, color: string}>) => {
+  if (cat.type === 'study') {
+    return {
+      shape: settings[cat.id]?.shape || 'livre',
+      color: settings[cat.id]?.color || 'violet'
+    };
+  }
   const shapes = ['squircle', 'cercle', 'galet', 'hexagone', 'capsule'];
   const colors = ['vert', 'bleu', 'violet', 'orange', 'rose', 'turquoise', 'ambre'];
-  const hash = cat.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const hash = (cat.name || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return {
     shape: settings[cat.id]?.shape || shapes[hash % shapes.length],
     color: settings[cat.id]?.color || colors[hash % colors.length]
@@ -88,6 +84,7 @@ export default function Home() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [newCatText, setNewCatText] = useState('');
+  const [newCatType, setNewCatType] = useState<ListType>('todo');
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
@@ -102,14 +99,13 @@ export default function Home() {
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [copiedApiKey, setCopiedApiKey] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   
   // List Context Menu (Long press)
   const [listMenuId, setListMenuId] = useState<string | null>(null);
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editingListName, setEditingListName] = useState('');
+  const [editingListType, setEditingListType] = useState<ListType>('todo');
   const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auth Effect
@@ -330,7 +326,7 @@ export default function Home() {
       window.removeEventListener('touchstart', resetAFK);
       clearTimeout(timeout);
     };
-  }, [mascotState]);
+  }, [mascotState, session]);
 
   const resetToIdle = useCallback(() => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -338,7 +334,7 @@ export default function Home() {
       setMascotState('idle');
       setMascotExpression(localStorage.getItem(session?.user?.id + '_mascotExpression') as ExpressionId || 'timide');
     }, 2000);
-  }, []);
+  }, [session]);
 
   const triggerMascot = useCallback((state: StateId, expr: ExpressionId) => {
     setMascotState(state);
@@ -376,7 +372,10 @@ export default function Home() {
     setTodos(currentTodos);
     
     let cats = data.categories || [];
-    if (!cats.find((c: any) => c.id === 'default')) cats = [{ id: 'default', name: 'General' }, ...cats];
+    if (!cats.find((c: any) => c.id === 'default')) {
+      cats = [{ id: 'default', name: 'General', type: 'todo' as ListType }, ...cats];
+    }
+    cats = cats.map((c: any) => ({ ...c, type: (c.type === 'study' ? 'study' : 'todo') as ListType }));
     setCategories(cats);
   };
 
@@ -398,7 +397,10 @@ export default function Home() {
     setTodos(data.todos);
     
     let cats = data.categories || [];
-    if (!cats.find((c: any) => c.id === 'default')) cats = [{ id: 'default', name: 'General' }, ...cats];
+    if (!cats.find((c: any) => c.id === 'default')) {
+      cats = [{ id: 'default', name: 'General', type: 'todo' as ListType }, ...cats];
+    }
+    cats = cats.map((c: any) => ({ ...c, type: (c.type === 'study' ? 'study' : 'todo') as ListType }));
     setCategories(cats);
     
     return data;
@@ -494,8 +496,14 @@ export default function Home() {
     if (!newCatText.trim() || isSubmitting) return;
     setIsSubmitting(true);
     triggerMascot('orbit', 'heureux');
-    await mutate({ type: 'ADD_CATEGORY', name: newCatText });
+    await mutate({ 
+      type: 'ADD_CATEGORY', 
+      name: newCatText.trim(),
+      categoryType: newCatType,
+      listType: newCatType
+    });
     setNewCatText('');
+    setNewCatType('todo');
     setIsSubmitting(false);
   };
 
@@ -510,10 +518,16 @@ export default function Home() {
     setListMenuId(null);
   };
   
-  const saveCategoryName = async (id: string) => {
+  const saveCategory = async (id: string) => {
     if (!editingListName.trim() || isSubmitting) return;
     setIsSubmitting(true);
-    await mutate({ type: 'UPDATE_CATEGORY', id, name: editingListName });
+    await mutate({ 
+      type: 'UPDATE_CATEGORY', 
+      id, 
+      name: editingListName.trim(),
+      categoryType: editingListType,
+      listType: editingListType
+    });
     setEditingListId(null);
     setListMenuId(null);
     setIsSubmitting(false);
@@ -523,6 +537,7 @@ export default function Home() {
     if (pressTimerRef.current) clearTimeout(pressTimerRef.current);
     pressTimerRef.current = setTimeout(() => {
       setListMenuId(cat.id);
+      setEditingListType(cat.type || 'todo');
       triggerMascot('alert', 'curieux');
     }, 500); // 500ms long press
   };
@@ -613,14 +628,14 @@ export default function Home() {
   const completedCount = filteredTodos.filter(t => t.completed).length;
   const totalCount = filteredTodos.length;
 
-  const activeCatObj = categories.find(c => c.id === activeCategory) || { id: 'default', name: 'General' };
+  const activeCatObj: Category = categories.find(c => c.id === activeCategory) || { id: 'default', name: 'General', type: 'todo' };
   
   const showListHero = !isListView && activeTab === 'lists';
   const heroShape = showListHero ? getListMascot(activeCatObj, catSettings).shape : mascotShape;
   const heroColor = showListHero ? getListMascot(activeCatObj, catSettings).color : mascotColor;
   
   const isGlobalTarget = settingsTarget === 'global';
-  const targetCatObj = categories.find(c => c.id === settingsTarget) || { id: 'default', name: 'General' };
+  const targetCatObj: Category = categories.find(c => c.id === settingsTarget) || { id: 'default', name: 'General', type: 'todo' };
   const targetShape = isGlobalTarget ? mascotShape : getListMascot(targetCatObj, catSettings).shape;
   const targetColor = isGlobalTarget ? mascotColor : getListMascot(targetCatObj, catSettings).color;
 
@@ -834,7 +849,15 @@ export default function Home() {
               {activeTab === 'lists' ? (isListView ? 'My Lists' : activeCatObj.name) : activeTab === 'today' ? 'Today' : 'Stats'}
             </h1>
             {!isListView && activeTab === 'lists' && (
-              <p className={`text-sm mt-1 font-medium transition-colors ${t.textSecondary}`}>{completedCount} of {totalCount} completed</p>
+              <div className="flex items-center gap-2 mt-1">
+                {activeCatObj.type === 'study' ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                    <GraduationCap size={13} /> Study Workspace
+                  </span>
+                ) : (
+                  <p className={`text-sm font-medium transition-colors ${t.textSecondary}`}>{completedCount} of {totalCount} completed</p>
+                )}
+              </div>
             )}
           </div>
 
@@ -1208,6 +1231,7 @@ export default function Home() {
                 const isMenuOpen = listMenuId === cat.id;
                 const isEditing = editingListId === cat.id;
                 const dynCat = getDynamicMascotProps(catShape, catColor, count);
+                const isStudyList = cat.type === 'study';
 
                 return (
                   <motion.li 
@@ -1227,24 +1251,54 @@ export default function Home() {
                       onClick={() => handleCategoryClick(cat)}
                     >
                       <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 drop-shadow-sm flex items-center justify-center">
+                        <div className="flex items-center gap-3.5">
+                          <div className="w-12 h-12 drop-shadow-sm flex items-center justify-center flex-shrink-0">
                             <BloubMascot size={42} state="idle" expression={dynCat.expr} shape={catShape} color={dynCat.color} />
                           </div>
-                          {isEditing ? (
-                            <form onSubmit={(e) => { e.preventDefault(); saveCategoryName(cat.id); }} onClick={e => e.stopPropagation()}>
-                               <input type="text" autoFocus value={editingListName} onChange={e => setEditingListName(e.target.value)} onBlur={() => saveCategoryName(cat.id)} onFocus={e => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })} className={`bg-transparent outline-none font-semibold text-lg ${t.textPrimary} border-b ${isDark ? 'border-slate-500' : 'border-gray-300'}`} />
-                            </form>
-                          ) : (
-                            <span className={`font-semibold text-lg ${t.textPrimary}`}>{cat.name}</span>
-                          )}
+                          <div className="flex flex-col">
+                            {isEditing ? (
+                              <form onSubmit={(e) => { e.preventDefault(); saveCategory(cat.id); }} onClick={e => e.stopPropagation()}>
+                                <input 
+                                  type="text" 
+                                  autoFocus 
+                                  value={editingListName} 
+                                  onChange={e => setEditingListName(e.target.value)} 
+                                  onBlur={() => saveCategory(cat.id)} 
+                                  onFocus={e => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })} 
+                                  className={`bg-transparent outline-none font-semibold text-lg ${t.textPrimary} border-b ${isDark ? 'border-slate-500' : 'border-gray-300'}`} 
+                                />
+                              </form>
+                            ) : (
+                              <span className={`font-semibold text-lg leading-snug ${t.textPrimary}`}>{cat.name}</span>
+                            )}
+                            <div className="flex items-center gap-1.5 mt-1">
+                              {isStudyList ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                  <GraduationCap size={11} /> Study
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                  <CheckSquare size={11} /> ToDo
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className={`text-sm font-medium px-3 py-1 rounded-full ${isDark ? 'bg-slate-700/50 text-slate-300' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
+
+                        <div className="flex items-center gap-2">
+                          {isStudyList ? (
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-300">
+                              Workspace
+                            </span>
+                          ) : (
+                            <span className={`text-sm font-medium px-3 py-1 rounded-full ${isDark ? 'bg-slate-700/50 text-slate-300' : 'bg-gray-100 text-gray-500'}`}>
+                              {count}
+                            </span>
+                          )}
                         </div>
                       </div>
 
-                      {/* Context Menu (Revealed on long press or swipe) */}
+                      {/* Context Menu (Revealed on long press) */}
                       <AnimatePresence>
                         {isMenuOpen && (
                           <motion.div 
@@ -1253,13 +1307,49 @@ export default function Home() {
                             exit={{ height: 0, opacity: 0, marginTop: 0 }}
                             className="overflow-hidden"
                           >
-                            <div className={`flex gap-2 pt-3 border-t ${isDark ? 'border-slate-700' : 'border-gray-100'}`} onClick={e => e.stopPropagation()}>
-                              <button onClick={() => { setEditingListId(cat.id); setEditingListName(cat.name); setListMenuId(null); }} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium transition-colors ${isDark ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                                <Edit2 size={16}/> Rename
+                            <div className={`flex flex-wrap gap-2 pt-3 border-t ${isDark ? 'border-slate-700' : 'border-gray-100'}`} onClick={e => e.stopPropagation()}>
+                              <button 
+                                onClick={() => { 
+                                  setEditingListId(cat.id); 
+                                  setEditingListName(cat.name); 
+                                  setEditingListType(cat.type || 'todo');
+                                  setListMenuId(null); 
+                                }} 
+                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition-colors ${isDark ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                              >
+                                <Edit2 size={14}/> Rename
                               </button>
+                              
+                              <button 
+                                onClick={async () => {
+                                  const nextType: ListType = cat.type === 'study' ? 'todo' : 'study';
+                                  await mutate({ 
+                                    type: 'UPDATE_CATEGORY', 
+                                    id: cat.id, 
+                                    categoryType: nextType,
+                                    listType: nextType
+                                  });
+                                  setListMenuId(null);
+                                }} 
+                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition-colors ${
+                                  cat.type === 'study'
+                                    ? isDark ? 'bg-blue-950/40 text-blue-300 hover:bg-blue-950/60' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                                    : isDark ? 'bg-purple-950/40 text-purple-300 hover:bg-purple-950/60' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+                                }`}
+                              >
+                                {cat.type === 'study' ? (
+                                  <><CheckSquare size={14} /> To ToDo</>
+                                ) : (
+                                  <><GraduationCap size={14} /> To Study</>
+                                )}
+                              </button>
+
                               {cat.id !== 'default' && (
-                                <button onClick={() => deleteCategory(cat.id)} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium bg-red-100 text-red-600 hover:bg-red-200 transition-colors">
-                                  <Trash2 size={16}/> Delete
+                                <button 
+                                  onClick={() => deleteCategory(cat.id)} 
+                                  className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                                >
+                                  <Trash2 size={14}/> Delete
                                 </button>
                               )}
                             </div>
@@ -1273,18 +1363,60 @@ export default function Home() {
               </AnimatePresence>
             </ul>
 
-            <form onSubmit={addCategory} className="mt-6 flex items-center gap-2">
-              <input type="text" value={newCatText} 
-                onChange={e => {
-                  setNewCatText(e.target.value);
-                }}
-                onFocus={(e) => {
-                  triggerMascot('thinking', 'curieux');
-                  e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }}
-                placeholder="New List..." className={`flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none transition-all ${t.input}`} />
-              <button type="submit" disabled={!newCatText.trim() || isSubmitting} className="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"><Plus size={20}/></button>
-            </form>
+            {/* Create Category Form with List Type Selector */}
+            <div className={`p-4 rounded-2xl border transition-all ${t.card} mt-6`}>
+              <div className="flex items-center justify-between mb-3">
+                <span className={`text-[11px] font-bold uppercase tracking-wider ${t.textMuted}`}>Create New List</span>
+                <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800/80 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setNewCatType('todo')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      newCatType === 'todo'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : isDark ? 'text-slate-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <CheckSquare size={13} />
+                    ToDo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewCatType('study')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      newCatType === 'study'
+                        ? 'bg-purple-600 text-white shadow-sm'
+                        : isDark ? 'text-slate-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <GraduationCap size={13} />
+                    Study
+                  </button>
+                </div>
+              </div>
+              <form onSubmit={addCategory} className="flex items-center gap-2">
+                <input 
+                  type="text" 
+                  value={newCatText} 
+                  onChange={e => setNewCatText(e.target.value)}
+                  onFocus={(e) => {
+                    triggerMascot('thinking', 'curieux');
+                    e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }}
+                  placeholder={newCatType === 'study' ? 'New Study List (e.g. AI Concepts, Exam Prep)...' : 'New ToDo List (e.g. Work, Gym)...'} 
+                  className={`flex-1 rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all ${t.input}`} 
+                />
+                <button 
+                  type="submit" 
+                  disabled={!newCatText.trim() || isSubmitting} 
+                  className={`p-2.5 rounded-xl text-white font-semibold shadow-md transition-all disabled:opacity-50 active:scale-95 ${
+                    newCatType === 'study' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  <Plus size={18}/>
+                </button>
+              </form>
+            </div>
           </div>
         ) : activeTab === 'stats' ? (
           /* Stats View */
@@ -1321,165 +1453,242 @@ export default function Home() {
             </div>
           </div>
         ) : (
-          /* Task List View */
+          /* Main Workspace View: Branching based on List Type (Study vs ToDo) */
           <div>
             {activeTab === 'lists' && !isListView && (
                <div className="mb-4">
                  <button onClick={() => setIsListView(true)} className={`text-sm font-medium transition-colors ${isDark ? 'text-slate-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}>← Back to Lists</button>
                </div>
             )}
-            
-            {/* Add Task FAB */}
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="fixed bottom-24 right-6 sm:right-[calc(50%-13rem)] w-14 h-14 bg-blue-600 text-white rounded-full shadow-xl shadow-blue-600/30 flex items-center justify-center hover:bg-blue-700 transition-all hover:scale-105 active:scale-95 z-40"
-            >
-              <Plus size={28} />
-            </button>
 
-            <ul className="space-y-3 pb-8 relative">
-              <AnimatePresence mode="popLayout">
-              {filteredTodos.length === 0 && (
-                <motion.li layout initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className={`text-center py-20 text-sm ${t.textMuted}`}>
-                  {activeTab === 'lists' ? "No tasks in this list yet." : "Nothing due today!"}
-                </motion.li>
-              )}
-              {filteredTodos
-                .slice()
-                .sort((a, b) => Number(b.id) - Number(a.id))
-                .map(todo => {
-                  const isExpanded = expandedTask === todo.id;
-                  const isOverdue = !todo.completed && todo.dueDate && new Date(todo.dueDate) < new Date();
+            {/* Study Workspace Scaffold for categories with type === 'study' */}
+            {activeTab === 'lists' && activeCatObj.type === 'study' ? (
+              <div className="space-y-5">
+                {/* Study Hub Hero Card */}
+                <div className={`p-6 rounded-3xl border transition-all ${t.card} relative overflow-hidden`}>
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center flex-shrink-0">
+                      <BookOpen size={24} />
+                    </div>
+                    <div>
+                      <h3 className={`text-lg font-bold ${t.textPrimary}`}>{activeCatObj.name}</h3>
+                      <p className={`text-xs mt-1 leading-relaxed ${t.textSecondary}`}>
+                        Connected with local Obsidian Brain vault (<code className="font-mono text-[11px] text-purple-400">d:\AI\Vaults\Brain</code>).
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-                  return (
-                    <motion.li 
-                      layout
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
-                      transition={{ duration: 0.2 }}
-                      key={todo.id}
-                      className={`rounded-2xl border transition-all duration-200 overflow-hidden ${todo.completed ? t.cardMuted + ' opacity-60' : isOverdue ? (isDark ? 'bg-red-950/30 border-red-900 shadow-red-900/20' : 'bg-red-50 border-red-200 shadow-red-100') : t.card}`}
-                    >
-                      <div className="flex items-center gap-3 px-4 py-3.5">
-                        {todo.isHabit ? (
-                          <button onClick={() => incrementHabit(todo)} className="flex-shrink-0">
-                            {todo.completed ? (
-                              <CheckCircle2 size={22} className={isDark ? "text-slate-500" : "text-gray-800"} />
-                            ) : (
-                              <div className={`w-8 h-8 rounded-full border flex items-center justify-center text-[10px] font-black transition-all active:scale-90 ${
-                                isDark ? 'border-slate-700 bg-slate-800 text-slate-300' : 'border-gray-200 bg-gray-50 text-gray-700'
-                              }`}>
-                                {(todo.habitCompletedCount || 0)}/{(todo.habitFrequency || 1)}
-                              </div>
-                            )}
-                          </button>
-                        ) : (
-                          <button onClick={() => toggleTodo(todo.id, todo.completed)} className="flex-shrink-0">
-                            {todo.completed
-                              ? <CheckCircle2 size={22} className={isDark ? "text-slate-500" : "text-gray-800"} />
-                              : <Circle size={22} className={isOverdue ? 'text-red-400' : isDark ? 'text-slate-600' : 'text-gray-300'} />
-                            }
-                          </button>
-                        )}
+                {/* Study Feature Tiles */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className={`p-4 rounded-2xl border transition-all ${t.card} flex flex-col justify-between`}>
+                    <div>
+                      <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2.5">
+                        <Brain size={18} />
+                      </div>
+                      <h4 className={`text-sm font-bold mb-1 ${t.textPrimary}`}>Vault Notes</h4>
+                      <p className={`text-[11px] leading-relaxed ${t.textMuted}`}>
+                        Scan and browse Markdown notes, frontmatter tags, and wikilinks.
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2.5 border-t border-dashed border-gray-200 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-blue-500">
+                      <span>Obsidian Brain</span>
+                      <ChevronRight size={14} />
+                    </div>
+                  </div>
 
-                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedTask(isExpanded ? null : todo.id)}>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className={`text-sm font-medium ${isExpanded ? 'break-words whitespace-normal' : 'truncate'} ${todo.completed ? 'line-through ' + t.textMuted : isOverdue ? 'text-red-500' : t.textPrimary}`}>
-                              {todo.text}
-                            </p>
-                            {todo.attachments && todo.attachments.length > 0 && (
-                              <div className="flex gap-2 w-full mt-2 overflow-x-auto custom-scrollbar pb-1">
-                                {todo.attachments.map((att, i) => (
-                                  <div key={i} className="flex-shrink-0 relative rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 h-24 w-24 flex items-center justify-center">
-                                    {att.type === 'image' && <img src={att.url} className="object-cover w-full h-full" alt="attachment" />}
-                                    {att.type === 'video' && <video src={att.url} controls className="object-cover w-full h-full" />}
-                                    {att.type === 'audio' && (
-                                      <div className="flex flex-col items-center justify-center gap-1 w-full h-full">
-                                        <Mic size={24} className="text-blue-500" />
-                                        <audio src={att.url} controls className="h-6 w-20 scale-75 transform origin-center" />
-                                      </div>
-                                    )}
+                  <div className={`p-4 rounded-2xl border transition-all ${t.card} flex flex-col justify-between`}>
+                    <div>
+                      <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-2.5">
+                        <Sparkles size={18} />
+                      </div>
+                      <h4 className={`text-sm font-bold mb-1 ${t.textPrimary}`}>NotebookLM AI Quiz</h4>
+                      <p className={`text-[11px] leading-relaxed ${t.textMuted}`}>
+                        Generate interactive multi-choice quizzes and flashcards with Gemini.
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2.5 border-t border-dashed border-gray-200 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-purple-500">
+                      <span>AI Quizzing</span>
+                      <ChevronRight size={14} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Empty State / Session Starter */}
+                <div className={`p-8 rounded-3xl border border-dashed text-center flex flex-col items-center justify-center ${isDark ? 'border-slate-800 bg-slate-900/30' : 'border-gray-200 bg-gray-50/50'}`}>
+                  <div className="w-14 h-14 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center mb-3.5">
+                    <GraduationCap size={28} />
+                  </div>
+                  <h3 className={`text-sm font-bold mb-1 ${t.textPrimary}`}>Ready for Study Session</h3>
+                  <p className={`text-xs max-w-xs mb-4 leading-relaxed ${t.textMuted}`}>
+                    Explore your local Obsidian notes or launch an AI quiz session to test your retention and master concepts.
+                  </p>
+                  <button 
+                    type="button" 
+                    onClick={() => triggerMascot('orbit', 'fier')} 
+                    className="px-4 py-2 rounded-xl bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 shadow-md shadow-purple-600/20 transition-all active:scale-95 flex items-center gap-1.5"
+                  >
+                    <Sparkles size={13} />
+                    Study with Bloub
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Classic ToDo Task List View */
+              <div>
+                {/* Add Task FAB */}
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="fixed bottom-24 right-6 sm:right-[calc(50%-13rem)] w-14 h-14 bg-blue-600 text-white rounded-full shadow-xl shadow-blue-600/30 flex items-center justify-center hover:bg-blue-700 transition-all hover:scale-105 active:scale-95 z-40"
+                >
+                  <Plus size={28} />
+                </button>
+
+                <ul className="space-y-3 pb-8 relative">
+                  <AnimatePresence mode="popLayout">
+                  {filteredTodos.length === 0 && (
+                    <motion.li layout initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className={`text-center py-20 text-sm ${t.textMuted}`}>
+                      {activeTab === 'lists' ? "No tasks in this list yet." : "Nothing due today!"}
+                    </motion.li>
+                  )}
+                  {filteredTodos
+                    .slice()
+                    .sort((a, b) => Number(b.id) - Number(a.id))
+                    .map(todo => {
+                      const isExpanded = expandedTask === todo.id;
+                      const isOverdue = !todo.completed && todo.dueDate && new Date(todo.dueDate) < new Date();
+
+                      return (
+                        <motion.li 
+                          layout
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
+                          transition={{ duration: 0.2 }}
+                          key={todo.id}
+                          className={`rounded-2xl border transition-all duration-200 overflow-hidden ${todo.completed ? t.cardMuted + ' opacity-60' : isOverdue ? (isDark ? 'bg-red-950/30 border-red-900 shadow-red-900/20' : 'bg-red-50 border-red-200 shadow-red-100') : t.card}`}
+                        >
+                          <div className="flex items-center gap-3 px-4 py-3.5">
+                            {todo.isHabit ? (
+                              <button onClick={() => incrementHabit(todo)} className="flex-shrink-0">
+                                {todo.completed ? (
+                                  <CheckCircle2 size={22} className={isDark ? "text-slate-500" : "text-gray-800"} />
+                                ) : (
+                                  <div className={`w-8 h-8 rounded-full border flex items-center justify-center text-[10px] font-black transition-all active:scale-90 ${
+                                    isDark ? 'border-slate-700 bg-slate-800 text-slate-300' : 'border-gray-200 bg-gray-50 text-gray-700'
+                                  }`}>
+                                    {(todo.habitCompletedCount || 0)}/{(todo.habitFrequency || 1)}
                                   </div>
+                                )}
+                              </button>
+                            ) : (
+                              <button onClick={() => toggleTodo(todo.id, todo.completed)} className="flex-shrink-0">
+                                {todo.completed
+                                  ? <CheckCircle2 size={22} className={isDark ? "text-slate-500" : "text-gray-800"} />
+                                  : <Circle size={22} className={isOverdue ? 'text-red-400' : isDark ? 'text-slate-600' : 'text-gray-300'} />
+                                }
+                              </button>
+                            )}
+
+                            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedTask(isExpanded ? null : todo.id)}>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className={`text-sm font-medium ${isExpanded ? 'break-words whitespace-normal' : 'truncate'} ${todo.completed ? 'line-through ' + t.textMuted : isOverdue ? 'text-red-500' : t.textPrimary}`}>
+                                  {todo.text}
+                                </p>
+                                {todo.attachments && todo.attachments.length > 0 && (
+                                  <div className="flex gap-2 w-full mt-2 overflow-x-auto custom-scrollbar pb-1">
+                                    {todo.attachments.map((att, i) => (
+                                      <div key={i} className="flex-shrink-0 relative rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 h-24 w-24 flex items-center justify-center">
+                                        {att.type === 'image' && <img src={att.url} className="object-cover w-full h-full" alt="attachment" />}
+                                        {att.type === 'video' && <video src={att.url} controls className="object-cover w-full h-full" />}
+                                        {att.type === 'audio' && (
+                                          <div className="flex flex-col items-center justify-center gap-1 w-full h-full">
+                                            <Mic size={24} className="text-blue-500" />
+                                            <audio src={att.url} controls className="h-6 w-20 scale-75 transform origin-center" />
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {todo.isHabit && (todo.habitStreak || 0) > 0 && (
+                                  <span className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400">
+                                    <Flame size={10} className="fill-current text-orange-500" />
+                                    {todo.habitStreak}d
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {todo.isHabit ? (
+                                  <span className={`text-[10px] flex items-center gap-1 ${t.textMuted}`}>
+                                    <Repeat size={10} />
+                                    {todo.habitDays && todo.habitDays.length > 0 ? todo.habitDays.join(', ') : 'Every day'}
+                                  </span>
+                                ) : (
+                                  todo.dueDate && (
+                                    <span className={`text-xs flex items-center gap-1 ${isOverdue ? 'text-red-400 font-semibold' : t.textMuted}`}>
+                                      {isOverdue && <AlertCircle size={12} className="text-red-400" />}
+                                      {isOverdue ? 'Overdue ' : ''}
+                                      {new Date(todo.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    </span>
+                                  )
+                                )}
+                              </div>
+                            </div>
+
+                            {todo.priority && (
+                              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: PRIORITY_COLOR[todo.priority] }} />
+                            )}
+
+                            <button onClick={() => setExpandedTask(isExpanded ? null : todo.id)} className={`transition-colors flex-shrink-0 ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-gray-300 hover:text-gray-500'}`}>
+                              {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                            </button>
+
+                            <button onClick={() => deleteTodo(todo.id)} className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0">
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+
+                          {isExpanded && (
+                            <div className={`border-t px-4 py-3 space-y-3 ${isDark ? 'border-slate-700/50' : 'border-gray-100'}`}>
+                              <div className="flex items-center gap-2">
+                                <Flag size={14} className={t.textMuted} />
+                                <span className={`text-xs mr-1 ${t.textMuted}`}>Priority:</span>
+                                {(['high', 'medium', 'low'] as const).map(p => (
+                                  <button key={p}
+                                    onClick={() => mutate({ type: 'SET_PRIORITY', id: todo.id, priority: p }).then(d => { if (d) { setTodos(d.todos); setCategories(d.categories); } })}
+                                    className={`px-2 py-0.5 rounded-full text-xs font-medium transition-all border ${
+                                      todo.priority === p ? 'text-white border-transparent' : isDark ? 'text-slate-400 border-slate-700' : 'text-gray-500 border-gray-200'
+                                    }`}
+                                    style={todo.priority === p ? { backgroundColor: PRIORITY_COLOR[p] } : {}}
+                                  >
+                                    {PRIORITY_LABEL[p]}
+                                  </button>
                                 ))}
                               </div>
-                            )}
-                            {todo.isHabit && (todo.habitStreak || 0) > 0 && (
-                              <span className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400">
-                                <Flame size={10} className="fill-current text-orange-500" />
-                                {todo.habitStreak}d
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            {todo.isHabit ? (
-                              <span className={`text-[10px] flex items-center gap-1 ${t.textMuted}`}>
-                                <Repeat size={10} />
-                                {todo.habitDays && todo.habitDays.length > 0 ? todo.habitDays.join(', ') : 'Every day'}
-                              </span>
-                            ) : (
-                              todo.dueDate && (
-                                <span className={`text-xs flex items-center gap-1 ${isOverdue ? 'text-red-400 font-semibold' : t.textMuted}`}>
-                                  {isOverdue && <AlertCircle size={12} className="text-red-400" />}
-                                  {isOverdue ? 'Overdue ' : ''}
-                                  {new Date(todo.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                </span>
-                              )
-                            )}
-                          </div>
-                        </div>
 
-                        {todo.priority && (
-                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: PRIORITY_COLOR[todo.priority] }} />
-                        )}
-
-                        <button onClick={() => setExpandedTask(isExpanded ? null : todo.id)} className={`transition-colors flex-shrink-0 ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-gray-300 hover:text-gray-500'}`}>
-                          {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                        </button>
-
-                        <button onClick={() => deleteTodo(todo.id)} className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0">
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-
-                      {isExpanded && (
-                        <div className={`border-t px-4 py-3 space-y-3 ${isDark ? 'border-slate-700/50' : 'border-gray-100'}`}>
-                          <div className="flex items-center gap-2">
-                            <Flag size={14} className={t.textMuted} />
-                            <span className={`text-xs mr-1 ${t.textMuted}`}>Priority:</span>
-                            {(['high', 'medium', 'low'] as const).map(p => (
-                              <button key={p}
-                                onClick={() => mutate({ type: 'SET_PRIORITY', id: todo.id, priority: p }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
-                                className={`px-2 py-0.5 rounded-full text-xs font-medium transition-all border ${
-                                  todo.priority === p ? 'text-white border-transparent' : isDark ? 'text-slate-400 border-slate-700' : 'text-gray-500 border-gray-200'
-                                }`}
-                                style={todo.priority === p ? { backgroundColor: PRIORITY_COLOR[p] } : {}}
-                              >
-                                {PRIORITY_LABEL[p]}
-                              </button>
-                            ))}
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <Calendar size={14} className={t.textMuted} />
-                            <span className={`text-xs ${t.textMuted}`}>Due:</span>
-                            <input type="date"
-                              value={todo.dueDate ? todo.dueDate.split('T')[0] : ''}
-                              onChange={e => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: e.target.value }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
-                              className={`text-xs rounded-lg px-2 py-1 outline-none ${t.input}`}
-                            />
-                            {todo.dueDate && (
-                              <button onClick={() => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: null }).then(d => { setTodos(d.todos); setCategories(d.categories); })}
-                                className={`hover:text-red-400 ${t.textMuted}`}><X size={12} /></button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </motion.li>
-                  );
-                })}
-              </AnimatePresence>
-            </ul>
+                              <div className="flex items-center gap-2">
+                                <Calendar size={14} className={t.textMuted} />
+                                <span className={`text-xs ${t.textMuted}`}>Due:</span>
+                                <input type="date"
+                                  value={todo.dueDate ? todo.dueDate.split('T')[0] : ''}
+                                  onChange={e => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: e.target.value }).then(d => { if (d) { setTodos(d.todos); setCategories(d.categories); } })}
+                                  className={`text-xs rounded-lg px-2 py-1 outline-none ${t.input}`}
+                                />
+                                {todo.dueDate && (
+                                  <button onClick={() => mutate({ type: 'SET_DUE_DATE', id: todo.id, dueDate: null }).then(d => { if (d) { setTodos(d.todos); setCategories(d.categories); } })}
+                                    className={`hover:text-red-400 ${t.textMuted}`}><X size={12} /></button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </motion.li>
+                      );
+                    })}
+                  </AnimatePresence>
+                </ul>
+              </div>
+            )}
           </div>
         )}
       </div>

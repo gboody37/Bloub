@@ -1,15 +1,69 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   FLUID / PLAYFUL SPATIAL DESIGN TOKENS & SURFACES
+   ========================================================================== */
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Spatial Canvas Surfaces */
+  --spatial-bg-light: #f8fafc;
+  --spatial-bg-dark: #090d16;
+  --spatial-card-bg: rgba(255, 255, 255, 0.85);
+  --spatial-card-border: rgba(255, 255, 255, 0.75);
+  --spatial-card-muted-bg: rgba(243, 244, 246, 0.75);
+  --spatial-nav-bg: rgba(255, 255, 255, 0.88);
+  --spatial-nav-border: rgba(255, 255, 255, 0.70);
+  --spatial-input-bg: rgba(255, 255, 255, 0.90);
+  --spatial-input-border: rgba(229, 231, 235, 0.80);
+
+  /* Claymorphic Inset Specular Highlights (Dual Inset) */
+  --clay-highlight-light: inset 0 1.5px 1.5px 0 rgba(255, 255, 255, 0.85),
+                          inset 0 -2px 4px 0 rgba(0, 0, 0, 0.04);
+  --clay-highlight-dark: inset 0 1px 1px 0 rgba(255, 255, 255, 0.15),
+                         inset 0 -2px 4px 0 rgba(0, 0, 0, 0.35);
+  --clay-highlight-primary: inset 0 1.5px 1.5px 0 rgba(255, 255, 255, 0.45),
+                            inset 0 -2px 3px 0 rgba(0, 0, 0, 0.15);
+  --clay-highlight-purple: inset 0 1.5px 1.5px 0 rgba(255, 255, 255, 0.45),
+                           inset 0 -2px 3px 0 rgba(0, 0, 0, 0.15);
+  --clay-bevel: var(--clay-highlight-light);
+
+  /* Claymorphic Multi-Layer Floating Shadows */
+  --clay-shadow-floating: 0 12px 32px -8px rgba(15, 23, 42, 0.08),
+                          0 4px 12px -2px rgba(15, 23, 42, 0.04);
+  --clay-shadow-floating-dark: 0 16px 40px -8px rgba(0, 0, 0, 0.5),
+                               0 4px 16px -2px rgba(0, 0, 0, 0.3);
+
+  --clay-shadow-dock: 0 20px 45px -10px rgba(0, 0, 0, 0.18),
+                      0 8px 20px -4px rgba(0, 0, 0, 0.08);
+  --clay-shadow-dock-dark: 0 24px 50px -10px rgba(0, 0, 0, 0.7),
+                           0 8px 20px -4px rgba(0, 0, 0, 0.4);
+
+  --clay-shadow-pressed: inset 0 2px 5px 0 rgba(0, 0, 0, 0.08),
+                         inset 0 1px 2px 0 rgba(0, 0, 0, 0.12);
+  --clay-shadow-pressed-dark: inset 0 3px 6px 0 rgba(0, 0, 0, 0.6),
+                              inset 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+
+  /* Squircle Radius Scale */
+  --radius-stage: 36px;
+  --radius-modal: 32px;
+  --radius-card: 28px;
+  --radius-pill: 9999px;
+  --radius-control: 20px;
+  --radius-thumb: 16px;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+  --radius-squircle-stage: 36px;
+  --radius-squircle-modal: 32px;
+  --radius-squircle-card: 28px;
+  --radius-squircle-control: 20px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -20,11 +74,313 @@
 }
 
 body {
-  background-color: #f9fafb; /* gray-50 */
-  color: #111827; /* gray-900 */
+  background-color: #f9fafb;
+  color: #111827;
   font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* ==========================================================================
+   DARK MODE TOKEN OVERRIDES (.dark, [data-dark="true"], [data-theme-dark="true"])
+   ========================================================================== */
+
+.dark,
+[data-dark="true"],
+[data-theme-dark="true"] {
+  --spatial-card-bg: rgba(30, 41, 59, 0.85); /* Slate-800 fallback */
+  --spatial-card-border: rgba(255, 255, 255, 0.09);
+  --spatial-card-muted-bg: rgba(15, 23, 42, 0.70);
+  --spatial-nav-bg: rgba(15, 23, 42, 0.88);
+  --spatial-nav-border: rgba(255, 255, 255, 0.08);
+  --spatial-input-bg: rgba(30, 41, 59, 0.90);
+  --spatial-input-border: rgba(51, 65, 85, 0.80);
+
+  --clay-bevel: var(--clay-highlight-dark);
+  --clay-shadow-floating: var(--clay-shadow-floating-dark);
+  --clay-shadow-pressed: var(--clay-shadow-pressed-dark);
+  --clay-shadow-dock: var(--clay-shadow-dock-dark);
+}
+
+/* Specific Dark Theme Family Overrides */
+[data-theme="zinc"],
+.dark[data-theme="zinc"],
+[data-theme-dark="true"][data-theme="zinc"] {
+  --spatial-card-bg: rgba(24, 24, 27, 0.85);
+  --spatial-nav-bg: rgba(9, 9, 11, 0.88);
+  --spatial-input-bg: rgba(24, 24, 27, 0.90);
+  --spatial-input-border: rgba(39, 39, 42, 0.80);
+}
+
+[data-theme="darkBlue"],
+.dark[data-theme="darkBlue"],
+[data-theme-dark="true"][data-theme="darkBlue"] {
+  --spatial-card-bg: rgba(30, 58, 138, 0.75);
+  --spatial-nav-bg: rgba(23, 37, 84, 0.88);
+  --spatial-input-bg: rgba(30, 58, 138, 0.80);
+  --spatial-input-border: rgba(30, 64, 175, 0.80);
+}
+
+/* ==========================================================================
+   CLAYMORPHIC & SPATIAL UTILITY CLASSES
+   ========================================================================== */
+
+/* Tactile Claymorphic Card Surface */
+.clay-card {
+  box-shadow: var(--clay-shadow-floating), var(--clay-highlight-light);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.dark .clay-card,
+[data-dark="true"] .clay-card,
+[data-theme-dark="true"] .clay-card {
+  box-shadow: var(--clay-shadow-floating-dark), var(--clay-highlight-dark);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Interactive Claymorphic Card with Tactile Lift & Press */
+.clay-card-interactive {
+  box-shadow: var(--clay-shadow-floating), var(--clay-highlight-light);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  cursor: pointer;
+}
+
+.clay-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px -8px rgba(15, 23, 42, 0.12), var(--clay-highlight-light);
+}
+
+.clay-card-interactive:active {
+  transform: translateY(1px) scale(0.99);
+  box-shadow: var(--clay-shadow-pressed), var(--clay-highlight-light);
+}
+
+.dark .clay-card-interactive,
+[data-dark="true"] .clay-card-interactive,
+[data-theme-dark="true"] .clay-card-interactive {
+  box-shadow: var(--clay-shadow-floating-dark), var(--clay-highlight-dark);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dark .clay-card-interactive:hover,
+[data-dark="true"] .clay-card-interactive:hover,
+[data-theme-dark="true"] .clay-card-interactive:hover {
+  box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.6), var(--clay-highlight-dark);
+}
+
+/* Muted / Inset Claymorphic Surface */
+.clay-card-muted {
+  background: var(--spatial-card-muted-bg);
+  border: 1px solid var(--spatial-card-border);
+  box-shadow: var(--clay-shadow-pressed);
+}
+
+/* Primary Action Button (Blue Claymorphic) */
+.clay-btn-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 8px 20px -4px rgba(37, 99, 235, 0.4),
+              var(--clay-highlight-primary);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-control);
+  color: #ffffff;
+  font-weight: 600;
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease;
+}
+
+.clay-btn-primary:hover {
+  box-shadow: 0 12px 24px -4px rgba(37, 99, 235, 0.5),
+              var(--clay-highlight-primary);
+  transform: translateY(-1px);
+}
+
+.clay-btn-primary:active {
+  transform: scale(0.96);
+  box-shadow: 0 4px 10px -2px rgba(37, 99, 235, 0.3),
+              inset 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* Purple Action Button (Study / Quiz / AI Claymorphic) */
+.clay-btn-purple {
+  background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+  box-shadow: 0 8px 20px -4px rgba(147, 51, 234, 0.4),
+              var(--clay-highlight-purple);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-control);
+  color: #ffffff;
+  font-weight: 600;
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease;
+}
+
+.clay-btn-purple:hover {
+  box-shadow: 0 12px 24px -4px rgba(147, 51, 234, 0.5),
+              var(--clay-highlight-purple);
+  transform: translateY(-1px);
+}
+
+.clay-btn-purple:active {
+  transform: scale(0.96);
+  box-shadow: 0 4px 10px -2px rgba(147, 51, 234, 0.3),
+              inset 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* Emerald Action Button (Success / Completion) */
+.clay-btn-emerald {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 8px 20px -4px rgba(16, 185, 129, 0.4),
+              var(--clay-highlight-primary);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-control);
+  color: #ffffff;
+  font-weight: 600;
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease;
+}
+
+.clay-btn-emerald:hover {
+  box-shadow: 0 12px 24px -4px rgba(16, 185, 129, 0.5),
+              var(--clay-highlight-primary);
+  transform: translateY(-1px);
+}
+
+.clay-btn-emerald:active {
+  transform: scale(0.96);
+  box-shadow: 0 4px 10px -2px rgba(16, 185, 129, 0.3),
+              inset 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* Floating Action Button (FAB) */
+.clay-fab {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 12px 28px -4px rgba(37, 99, 235, 0.45),
+              inset 0 2px 2px 0 rgba(255, 255, 255, 0.50),
+              inset 0 -2px 4px 0 rgba(0, 0, 0, 0.25);
+}
+
+.clay-fab:hover {
+  transform: scale(1.06) translateY(-2px);
+  box-shadow: 0 16px 36px -4px rgba(37, 99, 235, 0.55),
+              inset 0 2px 2px 0 rgba(255, 255, 255, 0.50),
+              inset 0 -2px 4px 0 rgba(0, 0, 0, 0.25);
+}
+
+.clay-fab:active {
+  transform: scale(0.95) translateY(1px);
+  box-shadow: inset 0 2px 5px 0 rgba(0, 0, 0, 0.40);
+}
+
+/* Floating Spatial Island Bottom Navigation Dock */
+.spatial-nav-dock {
+  box-shadow: var(--clay-shadow-dock), var(--clay-highlight-light);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: var(--radius-pill);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.dark .spatial-nav-dock,
+[data-dark="true"] .spatial-nav-dock,
+[data-theme-dark="true"] .spatial-nav-dock {
+  box-shadow: var(--clay-shadow-dock-dark), var(--clay-highlight-dark);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Tactile Pill & Filter Chips */
+.clay-pill {
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05), var(--clay-highlight-light);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius-pill);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.dark .clay-pill,
+[data-dark="true"] .clay-pill,
+[data-theme-dark="true"] .clay-pill {
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.3), var(--clay-highlight-dark);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.clay-pill-active {
+  box-shadow: var(--clay-shadow-pressed);
+  transform: translateY(1px);
+}
+
+.dark .clay-pill-active,
+[data-dark="true"] .clay-pill-active,
+[data-theme-dark="true"] .clay-pill-active {
+  box-shadow: var(--clay-shadow-pressed-dark);
+  transform: translateY(1px);
+}
+
+/* Sunken Claymorphic Input Field */
+.clay-input {
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.04),
+              inset 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-control);
+  transition: all 0.2s ease;
+}
+
+.clay-input:focus {
+  outline: none;
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.04),
+              0 0 0 3px rgba(59, 130, 246, 0.25);
+  border-color: #3b82f6;
+}
+
+.dark .clay-input,
+[data-dark="true"] .clay-input,
+[data-theme-dark="true"] .clay-input {
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dark .clay-input:focus,
+[data-dark="true"] .clay-input:focus,
+[data-theme-dark="true"] .clay-input:focus {
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.35),
+              0 0 0 3px rgba(59, 130, 246, 0.35);
+  border-color: #60a5fa;
+}
+
+/* Squircle Radii Classes */
+.squircle-stage { border-radius: var(--radius-stage); }
+.squircle-modal { border-radius: var(--radius-modal); }
+.squircle-card { border-radius: var(--radius-card); }
+.squircle-control { border-radius: var(--radius-control); }
+.squircle-thumb { border-radius: var(--radius-thumb); }
+
+/* Ambient Dynamic Aura Background */
+.ambient-halo {
+  border-radius: 9999px;
+  filter: blur(48px);
+  pointer-events: none;
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+/* Performance & GPU Acceleration */
+.transform-gpu {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+.touch-spring {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Legacy Pop-In Animation (Maintained for Backward Compatibility) */
 @keyframes popIn {
   0% { opacity: 0; transform: scale(0.95) translateY(10px); }
   100% { opacity: 1; transform: scale(1) translateY(0); }
@@ -34,17 +390,18 @@ body {
   animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Custom scrollbar styling (replaces native white slider) */
+/* Custom Thin Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
-  height: 5px; /* Thin horizontal scrollbar */
+  height: 5px;
+  width: 5px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent; /* Seamless blend */
+  background: transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.3); /* Subtle gray thumb */
+  background: rgba(156, 163, 175, 0.3);
   border-radius: 10px;
 }
 
