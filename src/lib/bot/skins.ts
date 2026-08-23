@@ -64,6 +64,25 @@ const sun = normalize(
   1.15
 )
 
+const book = normalize(
+  profileFromPolygon(
+    roundedPolygon(
+      [
+        { x: -0.95, y: -0.75 },
+        { x: 0, y: -0.55 },
+        { x: 0.95, y: -0.75 },
+        { x: 0.95, y: 0.75 },
+        { x: 0, y: 0.55 },
+        { x: -0.95, y: 0.75 }
+      ],
+      0.15
+    ),
+    0,
+    0
+  ),
+  1.15
+)
+
 export const SHAPES: BotShape[] = [
   { id: 'cercle', radii: new Array(PROFILE_SAMPLES).fill(1) },
   { id: 'galet', radii: pebble },
@@ -76,7 +95,7 @@ export const SHAPES: BotShape[] = [
   { id: 'oeuf', radii: normalize([...PROFILES.egg], 1.05) },
   { id: 'soleil', radii: sun },
   { id: 'fromage', radii: normalize(superellipseProfile(3.2), 1.1) },
-  { id: 'livre', radii: normalize(superellipseProfile(4.2), 1.15) }
+  { id: 'livre', radii: book }
 ]
 
 // Map indexee par `string` et non par `ShapeId` : les appelants interrogent avec

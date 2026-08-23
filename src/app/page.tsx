@@ -732,7 +732,7 @@ export default function Home() {
     <div className={`min-h-screen w-full ${bgTheme} transition-colors duration-500 font-sans`}>
       <main className={`w-full max-w-md mx-auto min-h-screen flex flex-col relative transition-colors duration-500`}>
         {/* Header */}
-        <header className={`pt-12 pb-6 px-6 sticky top-0 z-30 flex justify-between items-center border-b transition-colors duration-500 ${isDark ? 'border-slate-800' : 'border-gray-200/30'}`}>
+        <header className={`pt-12 pb-6 px-6 sticky top-0 z-30 flex justify-between items-center border-b transition-colors duration-500 ${bgTheme} ${isDark ? 'border-slate-800' : 'border-gray-200/30'}`}>
           <div className="flex-1">
             <h1 className={`text-3xl font-bold tracking-tight transition-colors ${t.textPrimary}`}>
               {activeTab === 'lists' ? (isListView ? 'My Lists' : activeCatObj.name) : activeTab === 'today' ? 'Today' : 'Stats'}
