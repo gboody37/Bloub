@@ -64,8 +64,8 @@ export function parseObsidianMarkdown(
     };
   }
 
-  // 1. Extract YAML Frontmatter safely
-  const yamlMatch = rawContent.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  // 1. Extract YAML Frontmatter safely (tolerant to optional newlines and whitespace around delimiters)
+  const yamlMatch = rawContent.match(/^---[ \t]*\r?\n([\s\S]*?)(?:\r?\n)?[ \t]*---[ \t]*(?:\r?\n)?/);
   if (yamlMatch) {
     const yamlBlock = yamlMatch[1];
     bodyContent = rawContent.slice(yamlMatch[0].length);
@@ -154,7 +154,7 @@ export function parseObsidianMarkdown(
     headings.push({ level, text, slug });
   }
 
-  // 4. Extract Title (Prefer H1, fallback to filename)
+  // 4. Extract Title (Prefer H1, then frontmatter title, fallback to filename)
   const h1 = headings.find(h => h.level === 1);
   let title = '';
   if (h1) {
@@ -165,7 +165,7 @@ export function parseObsidianMarkdown(
       .trim();
   }
   if (!title) {
-    title = relativePath ? getBasename(relativePath, '.md') : 'Untitled';
+    title = (frontmatter.title as string) || (relativePath ? getBasename(relativePath, '.md') : 'Untitled');
   }
 
   // 5. Extract Wikilinks [[Target|Alias]]

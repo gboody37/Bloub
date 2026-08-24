@@ -13,22 +13,20 @@ import {
   Copy, 
   Check, 
   ExternalLink, 
+  Download,
   FileText, 
   ArrowLeft, 
   Folder, 
   CheckCircle2, 
-  AlertCircle,
-  HelpCircle,
-  Code,
-  Layers,
-  ChevronDown,
-  ChevronRight,
-  Maximize2,
-  Image as ImageIcon,
-  Loader2,
-  Minimize2
+  AlertCircle, 
+  Code, 
+  Layers, 
+  Maximize2, 
+  Minimize2,
+  Image as ImageIcon, 
+  Loader2 
 } from 'lucide-react';
-import type { ParsedObsidianNote, ObsidianHeading, ObsidianWikilink } from '@/types/obsidian';
+import type { ParsedObsidianNote } from '@/types/obsidian';
 
 interface NoteViewerProps {
   note: ParsedObsidianNote | null;
@@ -38,6 +36,7 @@ interface NoteViewerProps {
   onStartQuiz?: (note: ParsedObsidianNote) => void;
   onUpdateNote?: (updatedContent: string) => void;
   isDark?: boolean;
+  hideTopHeader?: boolean; // For dual-pane embedding
 }
 
 export default function NoteViewer({
@@ -47,26 +46,29 @@ export default function NoteViewer({
   onWikilinkClick,
   onStartQuiz,
   onUpdateNote,
-  isDark = true
+  isDark = true,
+  hideTopHeader = false
 }: NoteViewerProps) {
   const [showOutline, setShowOutline] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCodeBlockIdx, setCopiedCodeBlockIdx] = useState<number | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
-  
   const [showScratchpad, setShowScratchpad] = useState(false);
   const [scratchContent, setScratchContent] = useState('');
-
   const [isUploading, setIsUploading] = useState(false);
+  const [isPdfFullscreen, setIsPdfFullscreen] = useState(false);
+  const [pdfViewMode, setPdfViewMode] = useState<'pdf' | 'reader'>('pdf');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
   const supabase = createClient();
 
   useEffect(() => {
     setEditContent(note?.bodyContent || '');
     setIsEditing(false);
+    setPdfViewMode('pdf');
+    setIsPdfFullscreen(false);
     
     if (note) {
       setScratchContent(localStorage.getItem(`scratch_${note.id}`) || '');
@@ -92,11 +94,8 @@ export default function NoteViewer({
       
       const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(fileName);
       
-      // Insert markdown image syntax into editContent
       const markdownImage = `\n![${file.name}](${publicUrl})\n`;
       setEditContent(prev => prev + markdownImage);
-      
-      // Auto-save if possible
       if (onUpdateNote) onUpdateNote(editContent + markdownImage);
     } catch (error) {
       console.error('Error uploading image:', error);
@@ -113,6 +112,16 @@ export default function NoteViewer({
       await navigator.clipboard.writeText(note.bodyContent || note.rawContent || '');
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore
+    }
+  };
+
+  const copyDocumentUrl = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
     } catch {
       // ignore
     }
@@ -135,7 +144,6 @@ export default function NoteViewer({
     }
   };
 
-  // Estimate reading time in minutes
   const readingTime = useMemo(() => {
     if (!note || !note.wordCount) return 1;
     return Math.max(1, Math.ceil(note.wordCount / 200));
@@ -173,11 +181,9 @@ export default function NoteViewer({
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      // Code Block Boundary
       if (line.trim().startsWith('```')) {
         flushList();
         if (inCodeBlock) {
-          // Closing code block
           const blockCode = codeBuffer.join('\n');
           const blockIdx = codeBlockCount++;
           const lang = codeLanguage;
@@ -205,7 +211,6 @@ export default function NoteViewer({
           inCodeBlock = false;
           codeLanguage = '';
         } else {
-          // Opening code block
           inCodeBlock = true;
           codeLanguage = line.trim().slice(3).trim();
         }
@@ -217,7 +222,6 @@ export default function NoteViewer({
         continue;
       }
 
-      // Headings (H1 to H6)
       const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
       if (headingMatch) {
         flushList();
@@ -249,7 +253,6 @@ export default function NoteViewer({
         continue;
       }
 
-      // Horizontal Rule (---, ***, ___)
       if (/^(\*{3,}|-{3,}|_{3,})$/.test(line.trim())) {
         flushList();
         elements.push(
@@ -258,7 +261,6 @@ export default function NoteViewer({
         continue;
       }
 
-      // Callout / Blockquote (> [!NOTE] ...)
       if (line.trim().startsWith('>')) {
         flushList();
         const calloutText = line.trim().replace(/^>\s?/, '');
@@ -299,7 +301,6 @@ export default function NoteViewer({
         continue;
       }
 
-      // Unordered or Ordered List items (- , * , 1. )
       const listMatch = line.match(/^(\s*)([-*]|\d+\.)\s+(.+)$/);
       if (listMatch) {
         inList = true;
@@ -309,19 +310,10 @@ export default function NoteViewer({
         flushList();
       }
 
-      // Empty line / paragraph break
-      if (!line.trim()) {
-        continue;
-      }
+      if (!line.trim()) continue;
 
-      // Normal Paragraph
       elements.push(
-        <p
-          key={`p-${i}`}
-          className={`my-2 text-xs sm:text-sm leading-relaxed ${
-            isDark ? 'text-slate-300' : 'text-gray-700'
-          }`}
-        >
+        <p key={`p-${i}`} className={`my-2 text-xs sm:text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
           {renderInlineFormattedText(line)}
         </p>
       );
@@ -331,26 +323,19 @@ export default function NoteViewer({
     return elements;
   };
 
-  // Helper for inline wikilinks [[...]], bold **...**, italic *...*, inline code `...`, hashtags #tag
   const renderInlineFormattedText = (text: string) => {
     if (!text) return null;
 
-    // Pattern to capture [[wikilinks]], `code`, **bold**, *italic*, #hashtags
     const parts: React.ReactNode[] = [];
     let remaining = text;
     let keyIdx = 0;
 
     while (remaining.length > 0) {
-      // 1. Wikilink [[Target|Alias]]
       const wikiMatch = remaining.match(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/);
-      // 2. Inline code `code`
       const codeMatch = remaining.match(/`([^`]+)`/);
-      // 3. Bold **bold**
       const boldMatch = remaining.match(/\*\*([^*]+)\*\*/);
-      // 4. Hashtag #tag
       const tagMatch = remaining.match(/(?:^|[\s,;:(])#([a-zA-Z0-9_\-\u0600-\u06FF]+)/);
 
-      // Find the earliest match
       const matches = [
         wikiMatch ? { type: 'wiki', match: wikiMatch, index: wikiMatch.index! } : null,
         codeMatch ? { type: 'code', match: codeMatch, index: codeMatch.index! } : null,
@@ -366,7 +351,6 @@ export default function NoteViewer({
       matches.sort((a, b) => a.index - b.index);
       const first = matches[0];
 
-      // Add text before match
       if (first.index > 0) {
         parts.push(remaining.slice(0, first.index));
       }
@@ -391,10 +375,7 @@ export default function NoteViewer({
         );
       } else if (first.type === 'code') {
         parts.push(
-          <code
-            key={`code-${keyIdx++}`}
-            className="px-1.5 py-0.5 mx-0.5 rounded-md font-mono text-[11px] sm:text-xs bg-slate-800 text-purple-300 border border-slate-700/80"
-          >
+          <code key={`code-${keyIdx++}`} className="px-1.5 py-0.5 mx-0.5 rounded-md font-mono text-[11px] sm:text-xs bg-slate-800 text-purple-300 border border-slate-700/80">
             {first.match[1]}
           </code>
         );
@@ -407,10 +388,7 @@ export default function NoteViewer({
       } else if (first.type === 'tag') {
         const tagText = first.match[1];
         parts.push(
-          <span
-            key={`tag-${keyIdx++}`}
-            className="inline-flex items-center px-1.5 py-0.2 mx-0.5 rounded-md font-medium text-[10px] sm:text-[11px] bg-purple-500/10 text-purple-400 border border-purple-500/20"
-          >
+          <span key={`tag-${keyIdx++}`} className="inline-flex items-center px-1.5 py-0.2 mx-0.5 rounded-md font-medium text-[10px] sm:text-[11px] bg-purple-500/10 text-purple-400 border border-purple-500/20">
             #{tagText}
           </span>
         );
@@ -445,210 +423,180 @@ export default function NoteViewer({
     );
   }
 
+  const pdfUrl = note.frontmatter?.pdf_url;
+
   return (
     <div className="flex flex-col h-full w-full relative font-sans" data-spatial-container="study-viewer">
       {/* Top Floating Action Bar */}
-      <div className={`flex items-center justify-between pb-4 mb-4 border-b ${isDark ? 'border-slate-800' : 'border-gray-200'}`}>
-        <div className="flex items-center gap-2">
-          {onClose && (
-            <button
-              onClick={onClose}
-              className={`p-2 rounded-xl transition-all active:scale-95 ${
-                isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-              title="Back"
-            >
-              <ArrowLeft size={16} />
-            </button>
-          )}
+      {!hideTopHeader && (
+        <div className={`flex items-center justify-between pb-4 mb-4 border-b ${isDark ? 'border-slate-800' : 'border-gray-200'}`}>
+          <div className="flex items-center gap-2">
+            {onClose && (
+              <button
+                onClick={onClose}
+                className={`p-2 rounded-xl transition-all active:scale-95 ${
+                  isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                title="Back"
+              >
+                <ArrowLeft size={16} />
+              </button>
+            )}
 
-          <div className="flex items-center gap-1.5 text-xs text-purple-400 font-semibold truncate max-w-[200px] sm:max-w-xs">
-            <Folder size={13} className="flex-shrink-0" />
-            <span className="truncate">{note.folder || 'Vault'}</span>
+            <div className="flex items-center gap-1.5 text-xs text-purple-400 font-semibold truncate max-w-[200px] sm:max-w-xs">
+              <Folder size={13} className="flex-shrink-0" />
+              <span className="truncate">{note.folder || 'Vault'}</span>
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          {/* Outline Toggle */}
-          {note.headings && note.headings.length > 0 && (
+          <div className="flex items-center gap-2">
+            {/* Outline Toggle */}
+            {note.headings && note.headings.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowOutline(!showOutline)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  showOutline
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                    : isDark
+                      ? 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
+                }`}
+                title="Table of contents outline"
+              >
+                <ListTree size={14} />
+                <span className="hidden sm:inline">Outline</span>
+              </button>
+            )}
+
+            {/* Edit / Save Action */}
+            {onUpdateNote && !pdfUrl && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (isEditing) {
+                    onUpdateNote(editContent);
+                    setIsEditing(false);
+                  } else {
+                    setIsEditing(true);
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                  isEditing 
+                    ? 'bg-green-600 hover:bg-green-500 text-white shadow-md shadow-green-600/30' 
+                    : isDark 
+                      ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {isEditing ? <Check size={14} /> : <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>}
+                <span>{isEditing ? 'Save Note' : 'Edit Note'}</span>
+              </button>
+            )}
+
+            {/* Scratchpad Toggle */}
             <button
               type="button"
-              onClick={() => setShowOutline(!showOutline)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                showOutline
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                  : isDark
-                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
-              }`}
-              title="Table of contents outline"
-            >
-              <ListTree size={14} />
-              <span className="hidden sm:inline">Outline</span>
-            </button>
-          )}
-
-          {/* Edit / Save Action */}
-          {onUpdateNote && (
-            <button
-              type="button"
-              onClick={() => {
-                if (isEditing) {
-                  onUpdateNote(editContent);
-                  setIsEditing(false);
-                } else {
-                  setIsEditing(true);
-                }
-              }}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
-                isEditing 
-                  ? 'bg-green-600 hover:bg-green-500 text-white shadow-md shadow-green-600/30' 
+              onClick={() => setShowScratchpad(!showScratchpad)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                showScratchpad 
+                  ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30' 
                   : isDark 
                     ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              {isEditing ? <Check size={14} /> : <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>}
-              <span>{isEditing ? 'Save Note' : 'Edit Note'}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
+              <span className="hidden sm:inline">Scratchpad</span>
             </button>
-          )}
 
-          {/* Image Upload */}
-          {isEditing && (
-            <>
-              <input
-                type="file"
-                accept="image/*"
-                ref={fileInputRef}
-                className="hidden"
-                onChange={handleImageUpload}
-              />
-              <button
-                type="button"
-                disabled={isUploading}
-                onClick={() => fileInputRef.current?.click()}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
-                  isDark 
-                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                } ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {isUploading ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
-                <span className="hidden sm:inline">Image</span>
-              </button>
-            </>
-          )}
-
-          {/* Scratchpad Toggle */}
-          <button
-            type="button"
-            onClick={() => setShowScratchpad(!showScratchpad)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
-              showScratchpad 
-                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30' 
-                : isDark 
-                  ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
-            <span className="hidden sm:inline">Scratchpad</span>
-          </button>
-
-          {/* Copy Markdown */}
-          <button
-            type="button"
-            onClick={copyMarkdown}
-            className={`p-2 rounded-xl transition-all active:scale-95 ${
-              isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-            title="Copy Note Markdown"
-          >
-            {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
-          </button>
-
-          {/* Start Quiz Action */}
-          {onStartQuiz && (
+            {/* Copy Markdown */}
             <button
               type="button"
-              onClick={() => onStartQuiz(note)}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-purple-600/30 transition-all active:scale-95"
+              onClick={copyMarkdown}
+              className={`p-2 rounded-xl transition-all active:scale-95 ${
+                isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+              title="Copy Note Markdown"
             >
-              <Sparkles size={14} />
-              <span>AI Quiz</span>
+              {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
             </button>
-          )}
-        </div>
-      </div>
 
-      {/* Note Header Info: Title & Frontmatter Chips */}
-      <div className={`p-5 rounded-3xl mb-5 border shadow-sm ${
-        isDark ? 'bg-slate-900/90 border-slate-800 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
-      }`}>
-        <h1 className="text-xl sm:text-2xl font-black tracking-tight leading-snug text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-indigo-300 to-blue-400 mb-3">
-          {note.title}
-        </h1>
-
-        {/* Metadata Badges */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          {/* Word Count */}
-          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl font-medium ${
-            isDark ? 'bg-slate-800 text-slate-300' : 'bg-gray-100 text-gray-600'
-          }`}>
-            <Clock size={12} className="text-purple-400" />
-            {note.wordCount} words (~{readingTime} min read)
-          </span>
-
-          {/* Frontmatter Status */}
-          {note.frontmatter?.status && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl font-semibold bg-green-500/15 text-green-400 border border-green-500/20">
-              <CheckCircle2 size={12} />
-              {note.frontmatter.status}
-            </span>
-          )}
-
-          {/* Frontmatter Created Date */}
-          {note.frontmatter?.created && (
-            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl font-medium ${
-              isDark ? 'bg-slate-800 text-slate-400' : 'bg-gray-100 text-gray-500'
-            }`}>
-              <Calendar size={12} />
-              {note.frontmatter.created}
-            </span>
-          )}
-        </div>
-
-        {/* Frontmatter Tags */}
-        {note.tags && note.tags.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-dashed border-slate-800 dark:border-slate-800/80">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-              <Tag size={11} /> Tags:
-            </span>
-            {note.tags.map(t => (
-              <span
-                key={t}
-                className="text-xs font-semibold px-2 py-0.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20"
+            {/* Start Quiz Action */}
+            {onStartQuiz && (
+              <button
+                type="button"
+                onClick={() => onStartQuiz(note)}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-purple-600/30 transition-all active:scale-95"
               >
-                #{t}
-              </span>
-            ))}
+                <Sparkles size={14} />
+                <span>AI Quiz</span>
+              </button>
+            )}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Frontmatter Aliases */}
-        {note.frontmatter?.aliases && Array.isArray(note.frontmatter.aliases) && note.frontmatter.aliases.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[11px] text-slate-400">
-            <span className="font-semibold">Aliases:</span>
-            {note.frontmatter.aliases.map((a: string) => (
-              <span key={a} className="italic text-slate-300">
-                "{a}"
+      {/* Note Header Info: Title & Frontmatter Badges */}
+      {!hideTopHeader && (
+        <div className={`p-5 rounded-3xl mb-5 border shadow-sm ${
+          isDark ? 'bg-slate-900/90 border-slate-800 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
+        }`}>
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight leading-snug text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-indigo-300 to-blue-400 mb-3">
+            {note.title}
+          </h1>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl font-medium ${
+              isDark ? 'bg-slate-800 text-slate-300' : 'bg-gray-100 text-gray-600'
+            }`}>
+              <Clock size={12} className="text-purple-400" />
+              {note.wordCount} words (~{readingTime} min read)
+            </span>
+
+            {pdfUrl && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/20">
+                <FileText size={12} />
+                PDF Document
               </span>
-            ))}
-          </div>
-        )}
-      </div>
+            )}
 
-      {/* Main Body + Outline Drawer Grid */}
+            {note.frontmatter?.status && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl font-semibold bg-green-500/15 text-green-400 border border-green-500/20">
+                <CheckCircle2 size={12} />
+                {note.frontmatter.status}
+              </span>
+            )}
+
+            {note.frontmatter?.created && (
+              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl font-medium ${
+                isDark ? 'bg-slate-800 text-slate-400' : 'bg-gray-100 text-gray-500'
+              }`}>
+                <Calendar size={12} />
+                {note.frontmatter.created}
+              </span>
+            )}
+          </div>
+
+          {note.tags && note.tags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-dashed border-slate-800 dark:border-slate-800/80">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                <Tag size={11} /> Tags:
+              </span>
+              {note.tags.map(t => (
+                <span
+                  key={t}
+                  className="text-xs font-semibold px-2 py-0.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                >
+                  #{t}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Main Document & Outline Body */}
       <div className="flex-1 flex flex-col md:flex-row gap-5 min-h-0">
         {/* Scratchpad Panel */}
         {showScratchpad && (
@@ -659,7 +607,7 @@ export default function NoteViewer({
             </h4>
             <textarea
               dir="auto"
-              placeholder="Jot down rough notes, translations, or ideas here... (Auto-saves to this note)"
+              placeholder="Jot down rough notes, translations, or ideas here..."
               value={scratchContent}
               onChange={(e) => handleScratchChange(e.target.value)}
               className="flex-1 w-full bg-transparent resize-none outline-none text-sm leading-relaxed custom-scrollbar"
@@ -667,8 +615,8 @@ export default function NoteViewer({
           </div>
         )}
 
-        {/* Rendered Markdown Body */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar" dir="auto">
+        {/* Visual Document / Markdown Container */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden" dir="auto">
           {isEditing ? (
             <textarea
               dir="auto"
@@ -678,26 +626,122 @@ export default function NoteViewer({
               placeholder="Start typing markdown..."
               spellCheck={false}
             />
-          ) : note.frontmatter?.pdf_url ? (
-            <div className="flex flex-col w-full h-full space-y-4 p-2">
-              <iframe
-                src={note.frontmatter.pdf_url}
-                className={`w-full h-[75vh] rounded-2xl shadow-md border ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}
-                title="PDF Viewer"
-              />
-              <details className={`p-4 rounded-xl border transition-all ${isDark ? 'bg-slate-900/30 border-slate-800 text-slate-400' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
-                <summary className="cursor-pointer text-xs font-bold uppercase tracking-wider select-none outline-none">Show Extracted Text (For AI Quizzes)</summary>
-                <div className="mt-4 opacity-80 text-sm">
+          ) : pdfUrl ? (
+            <div className={`flex flex-col w-full h-full space-y-3 ${isPdfFullscreen ? 'fixed inset-0 z-50 p-6 bg-slate-950/95 backdrop-blur-xl' : ''}`}>
+              {/* PDF Toolbar Header */}
+              <div className={`flex items-center justify-between px-4 py-2.5 rounded-2xl border shadow-sm ${
+                isDark ? 'bg-slate-900/90 border-slate-800 text-slate-300' : 'bg-white border-gray-200 text-gray-700'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <FileText size={15} className="text-purple-400 flex-shrink-0" />
+                  <span className="text-xs font-bold truncate max-w-[200px] sm:max-w-xs">{note.title}</span>
+                </div>
+
+                <div className="flex items-center gap-1 sm:gap-2">
+                  {/* View Mode Toggle: Visual PDF vs Extracted Text */}
+                  <button
+                    type="button"
+                    onClick={() => setPdfViewMode(pdfViewMode === 'pdf' ? 'reader' : 'pdf')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                      pdfViewMode === 'reader'
+                        ? 'bg-purple-600 text-white'
+                        : isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                    }`}
+                    title="Toggle Reader Mode"
+                  >
+                    {pdfViewMode === 'pdf' ? <BookOpen size={13} /> : <FileText size={13} />}
+                    <span className="hidden sm:inline">{pdfViewMode === 'pdf' ? 'Reader View' : 'PDF View'}</span>
+                  </button>
+
+                  {/* Copy Link */}
+                  <button
+                    type="button"
+                    onClick={() => copyDocumentUrl(pdfUrl)}
+                    className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                      isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                    }`}
+                    title="Copy Document URL"
+                  >
+                    {copiedLink ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                  </button>
+
+                  {/* Open in New Tab */}
+                  <a
+                    href={pdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                      isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                    }`}
+                    title="Open in new window"
+                  >
+                    <ExternalLink size={13} />
+                    <span className="hidden sm:inline">New Tab</span>
+                  </a>
+
+                  {/* Direct Download */}
+                  <a
+                    href={pdfUrl}
+                    download={note.title || 'document.pdf'}
+                    className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                      isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                    }`}
+                    title="Download PDF"
+                  >
+                    <Download size={14} />
+                  </a>
+
+                  {/* Fullscreen Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setIsPdfFullscreen(!isPdfFullscreen)}
+                    className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                      isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                    }`}
+                    title={isPdfFullscreen ? "Exit Fullscreen" : "Fullscreen Viewer"}
+                  >
+                    {isPdfFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Visual Frame or Reader Mode */}
+              {pdfViewMode === 'pdf' ? (
+                <div className="flex-1 w-full min-h-[550px] relative rounded-2xl overflow-hidden border shadow-inner border-slate-700/60 bg-slate-900">
+                  <iframe
+                    src={`${pdfUrl}#toolbar=1&navpanes=1&view=FitH`}
+                    className="w-full h-full min-h-[550px] border-0"
+                    title={note.title}
+                    loading="lazy"
+                  />
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 rounded-2xl border border-slate-800 bg-slate-900/60 text-slate-200">
                   {renderMarkdownContent(editContent)}
                 </div>
-              </details>
+              )}
+
+              {/* Extracted Text Accordion for AI Quizzing Verification */}
+              {pdfViewMode === 'pdf' && (
+                <details className={`p-3 rounded-xl border transition-all ${isDark ? 'bg-slate-900/30 border-slate-800 text-slate-400' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                  <summary className="cursor-pointer text-xs font-bold uppercase tracking-wider select-none outline-none flex items-center justify-between">
+                    <span>Show Extracted Text (For AI Quizzes & Search)</span>
+                    <span className="text-[10px] lowercase font-normal">{note.wordCount} words</span>
+                  </summary>
+                  <div className="mt-4 opacity-80 text-sm max-h-60 overflow-y-auto custom-scrollbar">
+                    {renderMarkdownContent(editContent)}
+                  </div>
+                </details>
+              )}
             </div>
           ) : (
-            renderMarkdownContent(editContent)
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+              {renderMarkdownContent(editContent)}
+            </div>
           )}
 
-          {/* Bidirectional Wikilinks Footer Section */}
-          {note.wikilinks && note.wikilinks.length > 0 && (
+          {/* Bidirectional Wikilinks Footer */}
+          {note.wikilinks && note.wikilinks.length > 0 && !pdfUrl && (
             <div className="mt-8 pt-5 border-t border-dashed border-purple-500/20">
               <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400 mb-2 flex items-center gap-1.5">
                 <Layers size={13} /> Connected Knowledge Nodes ({note.wikilinks.length})
@@ -719,7 +763,7 @@ export default function NoteViewer({
           )}
         </div>
 
-        {/* Outline Table of Contents Pane */}
+        {/* Outline Table of Contents Drawer */}
         <AnimatePresence>
           {showOutline && note.headings && note.headings.length > 0 && (
             <motion.aside

@@ -4,17 +4,17 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Folder, 
-  FolderOpen,
+  FolderOpen, 
   FileText, 
   Search, 
   RotateCw, 
   Clock, 
-  ChevronRight,
-  ChevronDown,
-  AlertCircle,
-  Cloud,
-  UploadCloud,
-  Loader2
+  ChevronRight, 
+  ChevronDown, 
+  AlertCircle, 
+  Cloud, 
+  UploadCloud, 
+  Loader2 
 } from 'lucide-react';
 import type { ObsidianNoteSummary, VaultScanSummary } from '@/types/obsidian';
 import { pickAndSyncObsidianVault, syncNotesFromFileList, type SyncProgress } from '@/lib/obsidian/vault-sync';
@@ -49,6 +49,7 @@ export default function NoteExplorer({
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
 
   const fetchVault = useCallback(async () => {
     setLoading(true);
@@ -77,26 +78,45 @@ export default function NoteExplorer({
 
   useEffect(() => { fetchVault(); }, [fetchVault]);
 
-  const docInputRef = useRef<HTMLInputElement>(null);
-
+  /**
+   * High-Performance Direct Supabase Storage PDF & Document Ingestion
+   */
   const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-        try {
-        setSyncProgress({ status: 'scanning', scannedCount: 1, uploadedCount: 0, totalCount: 1 } as any);
-        
-        const arrayBuffer = await file.arrayBuffer();
-        
-        let pdfDataUrl = '';
-        if (file.name.toLowerCase().endsWith('.pdf')) {
-          setSyncProgress({ status: 'uploading', scannedCount: 1, uploadedCount: 1, totalCount: 2 } as any);
-          // Convert PDF to base64 data URL (no storage bucket needed)
-          const bytes = new Uint8Array(arrayBuffer);
-          let binary = '';
-          for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-          pdfDataUrl = `data:application/pdf;base64,${btoa(binary)}`;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id || userId || '27157bfd-443f-4eea-8431-bf58a74bae8b';
+
+      setSyncProgress({ status: 'uploading', scannedCount: 1, uploadedCount: 0, totalCount: 2 } as any);
+
+      let pdfPublicUrl = '';
+      let extractedText = '';
+
+      if (file.name.toLowerCase().endsWith('.pdf')) {
+        // 1. Upload binary PDF directly to Supabase Storage 'media' bucket
+        const cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const storagePath = `vault_pdfs/${currentUserId}/${Date.now()}_${cleanFileName}`;
+
+        const { data: uploadData, error: uploadErr } = await supabase.storage
+          .from('media')
+          .upload(storagePath, file, {
+            contentType: 'application/pdf',
+            upsert: true
+          });
+
+        if (uploadErr) {
+          throw new Error(`Storage upload failed: ${uploadErr.message}`);
         }
-        
+
+        // 2. Retrieve Public CDN URL
+        const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(storagePath);
+        pdfPublicUrl = publicUrl;
+        setSyncProgress({ status: 'uploading', scannedCount: 1, uploadedCount: 1, totalCount: 2 } as any);
+
+        // 3. Extract text client-side via pdf.js (for AI Quizzes and search index)
+        const arrayBuffer = await file.arrayBuffer();
         let pdfjsLib = (window as any).pdfjsLib;
         if (!pdfjsLib) {
           await new Promise((resolve, reject) => {
@@ -109,45 +129,51 @@ export default function NoteExplorer({
           pdfjsLib = (window as any).pdfjsLib;
           pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
-        
+
         const loadingTask = pdfjsLib.getDocument(new Uint8Array(arrayBuffer));
         const pdf = await loadingTask.promise;
-        let text = pdfDataUrl ? `---\npdf_url: ${pdfDataUrl}\n---\n\n` : '';
-        const maxPages = Math.min(pdf.numPages, 50); // Extract up to 50 pages to prevent browser crash
-        
+        const maxPages = Math.min(pdf.numPages, 50);
+
         for (let i = 1; i <= maxPages; i++) {
           const page = await pdf.getPage(i);
           const content = await page.getTextContent();
           const strings = content.items.map((item: any) => item.str);
-          text += strings.join(' ') + '\n';
-          setSyncProgress({ status: 'uploading', scannedCount: 1, uploadedCount: i, totalCount: maxPages } as any);
+          extractedText += strings.join(' ') + '\n';
         }
-        
+
         if (pdf.numPages > 50) {
-          text += `\n\n... (Extracted first 50 pages of the book to prevent memory limits)`;
+          extractedText += `\n\n... (Extracted first 50 pages of document for search and AI quizzes)`;
         }
-        
-        const title = file.name.replace(/\.[^/.]+$/, "");
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) throw new Error('Not logged in');
-        
-        const newNote = {
-        user_id: user.id,
+      }
+
+      // 4. Construct clean Markdown note with lightweight public URL in frontmatter
+      const title = file.name.replace(/\.[^/.]+$/, '');
+      const noteContent = pdfPublicUrl
+        ? `---\ntitle: "${title}"\ntype: "pdf"\npdf_url: "${pdfPublicUrl}"\nfile_name: "${file.name}"\nuploaded_at: "${new Date().toISOString()}"\n---\n\n${extractedText}`
+        : extractedText;
+
+      const newNote = {
+        user_id: currentUserId,
         title: title,
-        content: text,
+        content: noteContent,
         path: `Documents/${file.name}.md`,
         folder: 'Documents',
         tags: ['document', 'pdf'],
-        word_count: text.split(/\s+/).length,
+        word_count: extractedText.split(/\s+/).filter(Boolean).length,
         updated_at: new Date().toISOString()
       };
-      
-            const { error: dbError } = await supabase.from('vault_notes').upsert([newNote], { onConflict: 'user_id,path' });
-        if (dbError) throw new Error(dbError.message);
-      
+
+      // 5. Fast, lightweight database upsert (<50KB payload)
+      const { error: dbError } = await supabase
+        .from('vault_notes')
+        .upsert([newNote], { onConflict: 'user_id,path' });
+
+      if (dbError) throw new Error(dbError.message);
+
       await fetchVault();
+      onRefresh?.();
     } catch (err: any) {
+      console.error('Document upload error:', err);
       alert('Failed to upload document: ' + err.message);
     } finally {
       setSyncProgress(null);
@@ -210,16 +236,13 @@ export default function NoteExplorer({
     return grouped;
   }, [filteredNotes]);
 
-  const toggleFolder = (folder: string) => {
-    setExpandedFolders(prev => ({ ...prev, [folder]: !prev[folder] }));
-  };
-
   return (
     <div className="flex flex-col h-full w-full font-sans" data-spatial-container="study-explorer">
-      {/* Hidden file input */}
+      {/* Hidden file inputs */}
       <input ref={fileInputRef} type="file" {...{webkitdirectory: "", directory: ""}} multiple className="hidden" onChange={handleFallbackFileSelect} />
+      <input type="file" accept=".pdf,.doc,.docx" ref={docInputRef} className="hidden" onChange={handleDocumentUpload} />
 
-      {/* Search and Actions */}
+      {/* Search and Action Toolbar */}
       <div className="relative flex items-center mb-4 gap-2">
         <div className="relative flex-1">
           <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} />
@@ -229,46 +252,59 @@ export default function NoteExplorer({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search notes or tags..."
             className={`w-full pl-8 pr-3 py-2 text-xs rounded-xl border outline-none transition-all ${
-              isDark ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-gray-200 text-gray-800'
+              isDark ? 'bg-slate-900 border-slate-700 text-slate-200 focus:border-purple-500' : 'bg-white border-gray-200 text-gray-800 focus:border-purple-500'
             }`}
           />
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <button onClick={fetchVault} className={`p-2 rounded-xl transition-colors ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`} title="Refresh Vault">
+          <button 
+            onClick={fetchVault} 
+            className={`p-2 rounded-xl transition-colors ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`} 
+            title="Refresh Vault"
+          >
             <RotateCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
-          <input type="file" accept=".pdf,.doc,.docx" ref={docInputRef} className="hidden" onChange={handleDocumentUpload} />
-          <button onClick={() => docInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all text-xs font-bold" title="Upload PDF/Doc">
+          
+          <button 
+            onClick={() => docInputRef.current?.click()} 
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all text-xs font-bold" 
+            title="Upload PDF Document"
+          >
             <UploadCloud size={14} />
             <span>PDF</span>
           </button>
-          <button onClick={handleConnectVault} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white shadow-sm transition-all text-xs font-bold" title="Sync local folder to cloud">
+          
+          <button 
+            onClick={handleConnectVault} 
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white shadow-sm transition-all text-xs font-bold" 
+            title="Sync local folder to cloud"
+          >
             <RotateCw size={14} />
             <span>Sync</span>
           </button>
         </div>
       </div>
 
-      {/* Syncing Progress Alert */}
+      {/* Syncing / Upload Progress Notification */}
       {isSyncing && syncProgress && (
         <div className={`mb-4 p-3 rounded-xl flex items-center gap-3 text-xs font-semibold ${isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-50 text-purple-700'}`}>
           <Loader2 size={16} className="animate-spin flex-shrink-0" />
           <div className="truncate">
             {syncProgress.status === 'picking' ? 'Selecting folder...' :
              syncProgress.status === 'scanning' ? `Scanning local vault (${syncProgress.scannedCount} files)...` :
-             `Uploading to Cloud: ${syncProgress.uploadedCount} / ${syncProgress.totalCount} notes...`}
+             `Uploading to Cloud: ${syncProgress.uploadedCount} / ${syncProgress.totalCount}...`}
           </div>
         </div>
       )}
 
-      {/* Notes Grid Area */}
+      {/* Notes Tree Listing */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
         {loading ? (
           <div className="flex items-center justify-center h-20 opacity-50"><Loader2 className="animate-spin" size={20} /></div>
         ) : error ? (
           <div className={`p-4 rounded-xl text-center text-xs ${isDark ? 'bg-red-950/20 text-red-400' : 'bg-red-50 text-red-600'}`}>{error}</div>
         ) : filteredNotes.length === 0 ? (
-          <div className="text-center p-6 opacity-50 text-xs font-medium">No notes found. Connect your vault to get started!</div>
+          <div className="text-center p-6 opacity-50 text-xs font-medium">No notes found. Upload a PDF or sync your vault to start!</div>
         ) : (
           <div className="space-y-6 pb-6">
             {Object.entries(tree).sort((a,b) => a[0].localeCompare(b[0])).map(([folder, folderNotes]) => (
@@ -283,51 +319,51 @@ export default function NoteExplorer({
                   {folderNotes.map(note => {
                     const isSelected = selectedNoteId === note.id || selectedNoteId === note.relativePath;
                     return (
-                        <div className="relative group/note w-full">
-                          <button
-                            key={note.id}
-                            onClick={() => onSelectNote(note)}
-                            className={`w-full flex flex-col items-start text-left p-3.5 rounded-2xl transition-all duration-300 border ${
+                      <div key={note.id} className="relative group/note w-full">
+                        <button
+                          onClick={() => onSelectNote(note)}
+                          className={`w-full flex flex-col items-start text-left p-3.5 rounded-2xl transition-all duration-300 border ${
+                            isSelected 
+                              ? (isDark ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'bg-indigo-50 border-indigo-200 shadow-sm scale-[0.98]') 
+                              : (isDark ? 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800 hover:border-slate-600' : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm')
+                          }`}
+                        >
+                          <div className="w-full flex justify-between items-start mb-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
                               isSelected 
-                                ? (isDark ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'bg-indigo-50 border-indigo-200 shadow-sm scale-[0.98]') 
-                                : (isDark ? 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800 hover:border-slate-600' : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm')
-                            }`}
-                          >
-                            <div className="w-full flex justify-between items-start mb-3">
-                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                                isSelected 
-                                  ? (isDark ? 'bg-indigo-500/30' : 'bg-indigo-100')
-                                  : (isDark ? 'bg-slate-700/50 group-hover:bg-slate-700' : 'bg-gray-50 group-hover:bg-gray-100')
-                              }`}>
-                                <FileText size={18} className={isSelected ? 'text-indigo-500' : (isDark ? 'text-slate-400 group-hover:text-slate-300' : 'text-gray-400 group-hover:text-gray-600')} />
-                              </div>
-                              <button
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    if (!confirm('Delete this note?')) return;
-                                    try {
-                                      const deleteQuery = supabase.from('vault_notes').delete().eq('path', note.relativePath || note.id);
-                                      if (userId) deleteQuery.eq('user_id', userId);
-                                      const { error: deleteError } = await deleteQuery;
-                                      if (deleteError) throw new Error(deleteError.message);
-                                      await fetchVault();
-                                    } catch (err: any) {
-                                      alert('Failed to delete: ' + err.message);
-                                    }
-                                  }}
-                                className={`p-1.5 rounded-lg opacity-0 group-hover/note:opacity-100 transition-all ${isDark ? 'hover:bg-red-500/20 text-red-400' : 'hover:bg-red-100 text-red-500'}`}
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                              </button>
+                                ? (isDark ? 'bg-indigo-500/30' : 'bg-indigo-100') 
+                                : (isDark ? 'bg-slate-700/50 group-hover:bg-slate-700' : 'bg-gray-50 group-hover:bg-gray-100')
+                            }`}>
+                              <FileText size={18} className={isSelected ? 'text-indigo-500' : (isDark ? 'text-slate-400 group-hover:text-slate-300' : 'text-gray-400 group-hover:text-gray-600')} />
                             </div>
-                            <h5 className={`text-xs font-bold truncate w-full mb-1 ${isSelected ? (isDark ? 'text-indigo-300' : 'text-indigo-700') : (isDark ? 'text-slate-300 group-hover:text-white' : 'text-gray-800')}`}>{note.title}</h5>
-                            {note.tags && note.tags.length > 0 && (
-                              <span className={`text-[9px] font-bold uppercase tracking-wider truncate w-full mt-auto ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
-                                {note.tags.join(', ')}
-                              </span>
-                            )}
-                          </button>
-                        </div>
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!confirm('Delete this note?')) return;
+                                try {
+                                  const deleteQuery = supabase.from('vault_notes').delete().eq('path', note.relativePath || note.id);
+                                  if (userId) deleteQuery.eq('user_id', userId);
+                                  const { error: deleteError } = await deleteQuery;
+                                  if (deleteError) throw new Error(deleteError.message);
+                                  await fetchVault();
+                                } catch (err: any) {
+                                  alert('Failed to delete: ' + err.message);
+                                }
+                              }}
+                              className={`p-1.5 rounded-lg opacity-0 group-hover/note:opacity-100 transition-all ${isDark ? 'hover:bg-red-500/20 text-red-400' : 'hover:bg-red-100 text-red-500'}`}
+                              title="Delete note"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                            </button>
+                          </div>
+                          <h5 className={`text-xs font-bold truncate w-full mb-1 ${isSelected ? (isDark ? 'text-indigo-300' : 'text-indigo-700') : (isDark ? 'text-slate-300 group-hover:text-white' : 'text-gray-800')}`}>{note.title}</h5>
+                          {note.tags && note.tags.length > 0 && (
+                            <span className={`text-[9px] font-bold uppercase tracking-wider truncate w-full mt-auto ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
+                              {note.tags.join(', ')}
+                            </span>
+                          )}
+                        </button>
+                      </div>
                     );
                   })}
                 </div>

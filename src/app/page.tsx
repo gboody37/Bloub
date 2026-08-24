@@ -8,7 +8,7 @@ import {
   Flag, Calendar, BarChart3, ListTodo, Edit2, MoreVertical, Palette, Shapes, 
   PaintBucket, LogOut, Download, Smartphone, Repeat, Bell, Monitor, Flame, 
   Cpu, AlertCircle, Mic, Camera, GraduationCap, BookOpen, Sparkles, Brain, 
-  CheckSquare, Layers, FileText, Smile 
+  CheckSquare, Layers, FileText, Smile, ArrowLeft 
 } from 'lucide-react';
 import type { StateId } from '@/lib/bot/states';
 import type { ExpressionId } from '@/lib/bot/expressions';
@@ -1698,16 +1698,59 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* Study UI: Viewer > Explorer > Tiles */}
+                {/* Study UI: Side-by-Side Dual-Pane Study View (PDF on Left, Quiz on Right) */}
                 {selectedNote && showQuizSession ? (
-                  <div className={`h-[800px] rounded-3xl overflow-hidden border shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-500 relative ${isDark ? 'border-purple-500/30 bg-slate-900/95' : 'border-purple-200 bg-white'}`}>
-                    <QuizSession
-                      note={selectedNote}
-                      apiKey={geminiApiKey}
-                      isDark={isDark}
-                      onClose={() => setShowQuizSession(false)}
-                      triggerMascot={triggerMascot}
-                    />
+                  <div className={`rounded-3xl overflow-hidden border shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-500 relative ${
+                    isDark ? 'border-purple-500/30 bg-slate-900/95' : 'border-purple-200 bg-white'
+                  }`}>
+                    {/* Dual-Pane Header */}
+                    <div className={`p-4 border-b flex items-center justify-between ${
+                      isDark ? 'border-slate-800 bg-slate-950/60' : 'border-gray-100 bg-gray-50'
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setShowQuizSession(false)}
+                          className={`p-2 rounded-xl transition-all active:scale-95 text-xs font-bold flex items-center gap-1.5 ${
+                            isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          }`}
+                        >
+                          <ArrowLeft size={14} />
+                          <span>Exit Quiz</span>
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-gradient-to-r from-purple-600/20 to-indigo-600/20 text-purple-400 border border-purple-500/30">
+                            Study Mode
+                          </span>
+                          <h3 className={`text-sm font-bold truncate max-w-xs sm:max-w-md ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                            {selectedNote.title}
+                          </h3>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Responsive Dual-Pane Container */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[780px] h-[82vh] divide-y lg:divide-y-0 lg:divide-x divide-slate-800">
+                      {/* Left Pane: Visual PDF Document Viewer (58% width on desktop) */}
+                      <div className="lg:col-span-7 h-full flex flex-col p-4 overflow-hidden">
+                        <NoteViewer
+                          note={selectedNote}
+                          isDark={isDark}
+                          isLoading={isFetchingNote}
+                          hideTopHeader={true}
+                        />
+                      </div>
+
+                      {/* Right Pane: AI Interactive Quiz (42% width on desktop) */}
+                      <div className="lg:col-span-5 h-full flex flex-col overflow-hidden bg-slate-950/40">
+                        <QuizSession
+                          note={selectedNote}
+                          apiKey={geminiApiKey}
+                          isDark={isDark}
+                          onClose={() => setShowQuizSession(false)}
+                          triggerMascot={triggerMascot}
+                        />
+                      </div>
+                    </div>
                   </div>
                 ) : selectedNote ? (
                   <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">

@@ -58,8 +58,8 @@ export function parseObsidianMarkdown(
   const tagsSet = new Set<string>();
   let bodyContent = rawContent;
 
-  // 1. Extract YAML Frontmatter
-  const yamlMatch = rawContent.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  // 1. Extract YAML Frontmatter (tolerant to optional newlines and whitespace around delimiters)
+  const yamlMatch = rawContent.match(/^---[ \t]*\r?\n([\s\S]*?)(?:\r?\n)?[ \t]*---[ \t]*(?:\r?\n)?/);
   if (yamlMatch) {
     const yamlBlock = yamlMatch[1];
     bodyContent = rawContent.slice(yamlMatch[0].length);
@@ -124,9 +124,11 @@ export function parseObsidianMarkdown(
     headings.push({ level, text, slug });
   }
 
-  // 4. Extract Title (From H1 or filename)
+  // 4. Extract Title (Prefer H1, then frontmatter title, fallback to filename)
   const h1 = headings.find(h => h.level === 1);
-  const title = h1 ? h1.text.replace(/^[^\w\s\u0600-\u06FF]+/, '').trim() : path.basename(relativePath, '.md');
+  const title = h1 
+    ? h1.text.replace(/^[^\w\s\u0600-\u06FF]+/, '').trim() 
+    : ((frontmatter.title as string) || path.basename(relativePath, '.md'));
 
   // 5. Extract Wikilinks [[Target|Alias]]
   const wikilinks: ObsidianWikilink[] = [];

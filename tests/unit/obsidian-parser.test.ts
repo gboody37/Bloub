@@ -126,4 +126,29 @@ describe('Obsidian Parser Boundary & Edge Cases (Tier 2)', () => {
     assert.ok(note.wordCount > 25000);
     assert.ok(elapsed < 100, `Massive note parsing took ${elapsed.toFixed(2)}ms, expected < 100ms`);
   });
+
+  it('T2.8: should parse frontmatter with missing newline before closing delimiter', () => {
+    const rawContent = `---\npdf_url: "https://example.com/storage/media/vault_pdfs/1.pdf"---\n\nSample PDF body text`;
+    const note = parseObsidianMarkdown(rawContent, 'Documents/1.pdf.md');
+    assert.equal(note.frontmatter.pdf_url, 'https://example.com/storage/media/vault_pdfs/1.pdf');
+    assert.ok(note.bodyContent.includes('Sample PDF body text'));
+    assert.ok(!note.bodyContent.includes('pdf_url'));
+  });
+
+  it('T2.9: should parse full standard PDF frontmatter with title, type, and pdf_url', () => {
+    const rawContent = `---\ntitle: "1.pdf"\ntype: "pdf"\npdf_url: "https://example.com/storage/media/vault_pdfs/1.pdf"\n---\n\nExtracted PDF text`;
+    const note = parseObsidianMarkdown(rawContent, 'Documents/1.pdf.md');
+    assert.equal(note.title, '1.pdf');
+    assert.equal(note.frontmatter.type, 'pdf');
+    assert.equal(note.frontmatter.pdf_url, 'https://example.com/storage/media/vault_pdfs/1.pdf');
+    assert.ok(note.bodyContent.includes('Extracted PDF text'));
+  });
+
+  it('T2.10: should parse frontmatter with CRLF windows line endings and trailing whitespace', () => {
+    const rawContent = `---\r\ntitle: "CRLF Doc"\r\npdf_url: "https://example.com/crlf.pdf"\r\n---  \r\n\r\nWindows body content`;
+    const note = parseObsidianMarkdown(rawContent, 'crlf.md');
+    assert.equal(note.title, 'CRLF Doc');
+    assert.equal(note.frontmatter.pdf_url, 'https://example.com/crlf.pdf');
+    assert.ok(note.bodyContent.includes('Windows body content'));
+  });
 });
