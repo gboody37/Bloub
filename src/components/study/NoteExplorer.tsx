@@ -315,7 +315,7 @@ export default function NoteExplorer({
                                     if (!confirm('Delete this note?')) return;
                                     try {
                                       // If it's a PDF, try to delete the file from storage first
-                                      const { data: fullNote } = await supabase.from('vault_notes').select('content').eq('id', note.id).single();
+                                      const { data: fullNote } = await supabase.from('vault_notes').select('content').eq('path', note.relativePath || note.id).single();
                                       if (fullNote?.content?.includes('pdf_url:')) {
                                         const urlMatch = fullNote.content.match(/pdf_url:\s*(.+)/);
                                         if (urlMatch && urlMatch[1]) {
@@ -332,7 +332,9 @@ export default function NoteExplorer({
                                         }
                                       }
 
-                                      const { error: deleteError } = await supabase.from('vault_notes').delete().eq('id', note.id);
+                                      const deleteQuery = supabase.from('vault_notes').delete().eq('path', note.relativePath || note.id);
+                                      if (userId) deleteQuery.eq('user_id', userId);
+                                      const { error: deleteError } = await deleteQuery;
                                       if (deleteError) throw new Error(deleteError.message);
                                       await fetchVault();
                                     } catch (err: any) {
