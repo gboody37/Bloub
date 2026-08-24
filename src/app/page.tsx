@@ -82,7 +82,7 @@ export default function Home() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategory, setActiveCategory] = useState('default');
-  const [activeTab, setActiveTab] = useState<'lists' | 'today' | 'stats'>('lists');
+  const [activeTab, setActiveTab] = useState<'lists' | 'today' | 'stats' | 'settings'>('lists');
   const [inputText, setInputText] = useState('');
   const [pendingAttachments, setPendingAttachments] = useState<{file: File, type: 'image'|'video'|'audio', previewUrl?: string}[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -969,24 +969,13 @@ export default function Home() {
               </div>
             )}
           </div>
-
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowSettings(true)} className={`p-2.5 rounded-full transition-all active:scale-95 shadow-sm backdrop-blur-md ${isDark ? 'bg-slate-800/60 text-slate-300 hover:bg-slate-700 hover:text-white' : 'bg-white/60 text-gray-400 hover:text-gray-700 hover:bg-white'}`}>
-              <Settings size={20} />
-            </button>
-          </div>
         </header>
 
-      {/* Settings Side Panel */}
-      <div className={`fixed inset-y-0 right-0 z-50 flex transform transition-transform duration-500 ease-out ${showSettings ? 'translate-x-0' : 'translate-x-full'}`}>
-        {showSettings && (
-          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm -z-10 md:hidden" onClick={() => setShowSettings(false)} />
-        )}
-        <div className={`w-full max-w-md h-full shadow-2xl overflow-y-auto custom-scrollbar flex flex-col border-l ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
-          <div className="p-7 flex-1" onClick={e => e.stopPropagation()}>
+      {activeTab === 'settings' && (
+        <div className={`w-full max-w-md mx-auto h-full overflow-y-auto custom-scrollbar flex flex-col pb-32 animate-in fade-in zoom-in-95 duration-300`}>
+          <div className="p-7 flex-1">
             <div className="flex justify-between items-center mb-6">
-              <h2 className={`text-lg font-semibold ${t.textPrimary}`}>Customize</h2>
-              <button onClick={() => setShowSettings(false)} className={`p-1.5 rounded-full ${isDark ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-gray-100 text-gray-400 hover:text-gray-700'}`}><X size={18}/></button>
+              <h2 className={`text-2xl font-bold tracking-tight transition-colors ${t.textPrimary}`}>Settings</h2>
             </div>
 
             {/* Mascot Preview inside Settings */}
@@ -1173,7 +1162,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Add Task Modal */}
       {showAddModal && (
@@ -1588,9 +1577,9 @@ export default function Home() {
               </div>
             </div>
           </div>
-        ) : (
-          /* Main Workspace View: Branching based on List Type (Study vs ToDo) */
-          <div>
+          ) : activeTab === 'lists' && !isListView ? (
+            /* Main Workspace View: Branching based on List Type (Study vs ToDo) */
+            <div>
             {activeTab === 'lists' && !isListView && (
                <div className="mb-4">
                  <button onClick={() => setIsListView(true)} className={`text-sm font-medium transition-colors ${isDark ? 'text-slate-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}>← Back to Lists</button>
@@ -1600,20 +1589,22 @@ export default function Home() {
             {/* Study Workspace Scaffold for categories with type === 'study' */}
             {activeTab === 'lists' && activeCatObj.type === 'study' ? (
               <div className="space-y-5">
-                {/* Study Hub Hero Card */}
-                <div className={`p-6 rounded-3xl border transition-all ${t.card} relative overflow-hidden`}>
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center flex-shrink-0">
-                      <BookOpen size={24} />
-                    </div>
-                    <div>
-                      <h3 className={`text-lg font-bold ${t.textPrimary}`}>{activeCatObj.name}</h3>
-                      <p className={`text-xs mt-1 leading-relaxed ${t.textSecondary}`}>
-                        Connected to Supabase Cloud Vault.
-                      </p>
+                {/* Study Hub Hero Card - Hide when deep inside a view */}
+                {!selectedNote && !showStudyExplorer && !showGraphView && (
+                  <div className={`p-6 rounded-3xl border transition-all ${t.card} relative overflow-hidden`}>
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center flex-shrink-0">
+                        <BookOpen size={24} />
+                      </div>
+                      <div>
+                        <h3 className={`text-lg font-bold ${t.textPrimary}`}>{activeCatObj.name}</h3>
+                        <p className={`text-xs mt-1 leading-relaxed ${t.textSecondary}`}>
+                          Connected to Supabase Cloud Vault.
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Study UI: Viewer > Explorer > Tiles */}
                 {selectedNote && showQuizSession ? (
@@ -2002,7 +1993,7 @@ export default function Home() {
               </div>
             )}
           </div>
-        )}
+        ) : null}
       </div>
       
       {/* Bottom Navigation */}
@@ -2033,6 +2024,14 @@ export default function Home() {
                 style={{ color: activeTab === 'stats' ? activeColorHex : undefined }}>
                 <BarChart3 size={22} />
                 <span>Stats</span>
+              </button>
+
+              <button 
+                onClick={() => setActiveTab('settings')}
+                className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'settings' ? 'font-semibold' : t.textSecondary}`}
+                style={{ color: activeTab === 'settings' ? activeColorHex : undefined }}>
+                <Settings size={22} />
+                <span>Settings</span>
               </button>
             </div>
           </nav>

@@ -27,7 +27,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <meta name="darkreader-lock" />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="antialiased bg-gray-50 text-gray-900 dark:bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] dark:from-slate-900 dark:via-[#0F172A] dark:to-[#020617] dark:text-gray-100 min-h-screen">
+        {children}</body>
     </html>
   );
 }

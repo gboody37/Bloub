@@ -183,28 +183,34 @@ export default function NoteExplorer({
       {/* Hidden file input */}
       <input ref={fileInputRef} type="file" {...{webkitdirectory: "", directory: ""}} multiple className="hidden" onChange={handleFallbackFileSelect} />
 
-      {/* Header Bar */}
-      <div className={`flex items-center justify-between pb-3 mb-3 border-b ${isDark ? 'border-slate-800' : 'border-gray-200'}`}>
-        <div className="flex items-center gap-2">
-          <Cloud size={16} className="text-purple-400" />
-          <span className={`font-bold text-sm ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>
-            Cloud Vault
-          </span>
+      {/* Search and Actions */}
+      <div className="relative flex items-center mb-4 gap-2">
+        <div className="relative flex-1">
+          <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search notes or tags..."
+            className={`w-full pl-8 pr-3 py-2 text-xs rounded-xl border outline-none transition-all ${
+              isDark ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-gray-200 text-gray-800'
+            }`}
+          />
         </div>
-          <div className="flex items-center gap-1.5">
-            <button onClick={fetchVault} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-gray-100 text-gray-500'}`} title="Refresh Vault">
-              <RotateCw size={14} className={loading ? 'animate-spin' : ''} />
-            </button>
-            <input type="file" accept=".pdf,.doc,.docx" ref={docInputRef} className="hidden" onChange={handleDocumentUpload} />
-            <button onClick={() => docInputRef.current?.click()} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 transition-colors text-xs font-bold" title="Upload PDF/Doc">
-              <UploadCloud size={14} />
-              <span>PDF</span>
-            </button>
-            <button onClick={handleConnectVault} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-600/10 hover:bg-purple-600/20 text-purple-500 transition-colors text-xs font-bold" title="Sync local folder to cloud">
-              <RotateCw size={14} />
-              <span>Sync</span>
-            </button>
-          </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button onClick={fetchVault} className={`p-2 rounded-xl transition-colors ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`} title="Refresh Vault">
+            <RotateCw size={14} className={loading ? 'animate-spin' : ''} />
+          </button>
+          <input type="file" accept=".pdf,.doc,.docx" ref={docInputRef} className="hidden" onChange={handleDocumentUpload} />
+          <button onClick={() => docInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all text-xs font-bold" title="Upload PDF/Doc">
+            <UploadCloud size={14} />
+            <span>PDF</span>
+          </button>
+          <button onClick={handleConnectVault} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white shadow-sm transition-all text-xs font-bold" title="Sync local folder to cloud">
+            <RotateCw size={14} />
+            <span>Sync</span>
+          </button>
+        </div>
       </div>
 
       {/* Syncing Progress Alert */}
@@ -219,24 +225,8 @@ export default function NoteExplorer({
         </div>
       )}
 
-      {/* Search Bar */}
-      <div className="relative flex items-center mb-4">
-        <Search size={14} className={`absolute left-3 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search notes or tags..."
-          className={`w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border outline-none transition-all ${
-            isDark 
-              ? 'bg-slate-900/50 border-slate-800 text-white placeholder-slate-500 focus:border-purple-500/50 focus:bg-slate-900' 
-              : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-purple-400 focus:bg-white'
-          }`}
-        />
-      </div>
-
-      {/* File Tree Area */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 -mr-1 space-y-1">
+      {/* Notes Grid Area */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
         {loading ? (
           <div className="flex items-center justify-center h-20 opacity-50"><Loader2 className="animate-spin" size={20} /></div>
         ) : error ? (
@@ -244,51 +234,50 @@ export default function NoteExplorer({
         ) : filteredNotes.length === 0 ? (
           <div className="text-center p-6 opacity-50 text-xs font-medium">No notes found. Connect your vault to get started!</div>
         ) : (
-          Object.entries(tree).sort((a,b) => a[0].localeCompare(b[0])).map(([folder, folderNotes]) => {
-            const isExpanded = expandedFolders[folder];
-            return (
-              <div key={folder} className="mb-2">
-                <button 
-                  onClick={() => toggleFolder(folder)}
-                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors text-xs font-semibold ${isDark ? 'hover:bg-slate-800/60 text-slate-300' : 'hover:bg-gray-100 text-gray-700'}`}
-                >
-                  {isExpanded ? <ChevronDown size={14} className="opacity-50" /> : <ChevronRight size={14} className="opacity-50" />}
-                  {isExpanded ? <FolderOpen size={14} className="text-purple-400" /> : <Folder size={14} className="text-purple-400" />}
-                  <span className="truncate">{folder}</span>
-                  <span className="ml-auto text-[10px] opacity-40">{folderNotes.length}</span>
-                </button>
+          <div className="space-y-6 pb-6">
+            {Object.entries(tree).sort((a,b) => a[0].localeCompare(b[0])).map(([folder, folderNotes]) => (
+              <div key={folder}>
+                <div className="flex items-center gap-2 mb-3 pl-1">
+                  <FolderOpen size={16} className={isDark ? 'text-indigo-400' : 'text-indigo-500'} />
+                  <h4 className={`text-sm font-bold tracking-tight ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>{folder}</h4>
+                  <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${isDark ? 'bg-slate-800 text-slate-400' : 'bg-gray-100 text-gray-500'}`}>{folderNotes.length}</span>
+                </div>
                 
-                <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div 
-                      initial={{ height: 0, opacity: 0 }} 
-                      animate={{ height: 'auto', opacity: 1 }} 
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden ml-3 pl-3 border-l border-dashed border-slate-700 mt-1 space-y-0.5"
-                    >
-                      {folderNotes.map(note => {
-                        const isSelected = selectedNoteId === note.id || selectedNoteId === note.relativePath;
-                        return (
-                          <button
-                            key={note.id}
-                            onClick={() => onSelectNote(note)}
-                            className={`w-full flex items-center justify-between text-left px-2 py-1.5 rounded-lg text-xs transition-colors ${
-                              isSelected 
-                                ? 'bg-purple-500/20 text-purple-400 font-bold' 
-                                : isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                            }`}
-                          >
-                            <span className="truncate flex-1">{note.title}</span>
-                            {isSelected && <ChevronRight size={12} className="flex-shrink-0 ml-2" />}
-                          </button>
-                        );
-                      })}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {folderNotes.map(note => {
+                    const isSelected = selectedNoteId === note.id || selectedNoteId === note.relativePath;
+                    return (
+                      <button
+                        key={note.id}
+                        onClick={() => onSelectNote(note)}
+                        className={`group flex flex-col items-start text-left p-3.5 rounded-2xl transition-all duration-300 border ${
+                          isSelected 
+                            ? (isDark ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'bg-indigo-50 border-indigo-200 shadow-sm scale-[0.98]') 
+                            : (isDark ? 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800 hover:border-slate-600' : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm')
+                        }`}
+                      >
+                        <div className={`w-10 h-10 rounded-xl mb-3 flex items-center justify-center transition-colors ${
+                          isSelected 
+                            ? (isDark ? 'bg-indigo-500/30' : 'bg-indigo-100')
+                            : (isDark ? 'bg-slate-700/50 group-hover:bg-slate-700' : 'bg-gray-50 group-hover:bg-gray-100')
+                        }`}>
+                          <FileText size={18} className={isSelected ? 'text-indigo-500' : (isDark ? 'text-slate-400 group-hover:text-slate-300' : 'text-gray-400 group-hover:text-gray-600')} />
+                        </div>
+                        <span className={`font-bold text-xs leading-snug line-clamp-2 w-full ${isSelected ? (isDark ? 'text-indigo-300' : 'text-indigo-700') : (isDark ? 'text-slate-300' : 'text-gray-700')}`}>
+                          {note.title}
+                        </span>
+                        {note.tags && note.tags.length > 0 && (
+                          <span className={`text-[9px] font-semibold truncate w-full mt-2 pt-2 border-t ${isSelected ? (isDark ? 'border-indigo-500/20 text-indigo-400/80' : 'border-indigo-200/50 text-indigo-500/80') : (isDark ? 'border-slate-700/50 text-slate-500' : 'border-gray-100 text-gray-400')}`}>
+                            {note.tags.join(', ')}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            );
-          })
+            ))}
+          </div>
         )}
       </div>
     </div>
