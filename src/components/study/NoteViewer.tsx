@@ -27,6 +27,9 @@ import {
   Loader2 
 } from 'lucide-react';
 import type { ParsedObsidianNote } from '@/types/obsidian';
+import dynamic from 'next/dynamic';
+
+const PdfNotebookViewer = dynamic(() => import('./PdfNotebookViewer'), { ssr: false });
 
 interface NoteViewerProps {
   note: ParsedObsidianNote | null;
@@ -707,14 +710,12 @@ export default function NoteViewer({
 
               {/* Main Visual Frame or Reader Mode */}
               {pdfViewMode === 'pdf' ? (
-                <div className="flex-1 w-full min-h-[550px] relative rounded-2xl overflow-hidden border shadow-inner border-slate-700/60 bg-slate-900">
-                  <iframe
-                    src={`${pdfUrl}#toolbar=1&navpanes=1&view=FitH`}
-                    className="w-full h-full min-h-[550px] border-0"
-                    title={note.title}
-                    loading="lazy"
-                  />
-                </div>
+                <PdfNotebookViewer 
+                  pdfUrl={pdfUrl} 
+                  noteId={note.id} 
+                  initialNotesStr={note.frontmatter?.pdf_notes} 
+                  isDark={isDark} 
+                />
               ) : (
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-6 rounded-2xl border border-slate-800 bg-slate-900/60 text-slate-200">
                   {renderMarkdownContent(editContent)}

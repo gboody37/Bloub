@@ -1,0 +1,152 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+import { ChevronLeft, ChevronRight, PenTool, Save, Check } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+
+// Use the exact same version we installed
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+
+interface PdfNotebookViewerProps {
+  pdfUrl: string;
+  noteId: string;
+  initialNotesStr?: string;
+  isDark?: boolean;
+}
+
+export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isDark = true }: PdfNotebookViewerProps) {
+  const [numPages, setNumPages] = useState<number>();
+  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [notes, setNotes] = useState<Record<number, { text: string, lang: 'en' | 'ar' }>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  
+  const supabase = createClient();
+
+  useEffect(() => {
+    if (initialNotesStr) {
+      try {
+        setNotes(JSON.parse(initialNotesStr));
+      } catch (e) {
+        console.error("Failed to parse initial pdf notes", e);
+      }
+    }
+  }, [initialNotesStr]);
+
+  function onDocumentLoadSuccess({ numPages }: { numPages: number }): void {
+    setNumPages(numPages);
+    setPageNumber(1);
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      // We fetch the latest frontmatter to not overwrite other things
+      const { data: currentNote } = await supabase.from('vault_notes').select('content').eq('id', noteId).single();
+      if (!currentNote) return;
+
+      let content = currentNote.content;
+      // Replace or inject pdf_notes in frontmatter
+      const notesJson = JSON.stringify(notes).replace(/"/g, '\\"'); // escape quotes for yaml
+      
+      if (content.includes('pdf_notes:')) {
+        content = content.replace(/pdf_notes:\s*'.*?'/, `pdf_notes: '${notesJson}'`);
+      } else {
+        // inject it right after pdf_url if possible
+        content = content.replace(/(pdf_url:.*?)\n/, `$1\npdf_notes: '${notesJson}'\n`);
+      }
+
+      await supabase.from('vault_notes').update({ content }).eq('id', noteId);
+      
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to save notebook');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const currentNote = notes[pageNumber] || { text: '', lang: 'en' };
+
+  return (
+    <div className={`flex w-full h-[650px] border rounded-2xl overflow-hidden shadow-inner ${isDark ? 'border-slate-800 bg-slate-950' : 'border-gray-200 bg-gray-100'}`}>
+       
+       {/* PDF Viewer Side */}
+       <div className="flex-1 h-full overflow-y-auto custom-scrollbar flex flex-col items-center py-6 relative bg-black/20">
+         <Document 
+            file={pdfUrl} 
+            onLoadSuccess={onDocumentLoadSuccess} 
+            loading={<div className="text-slate-400 font-mono text-sm animate-pulse flex h-full items-center">Loading Document...</div>}
+            className="drop-shadow-2xl"
+         >
+           <Page 
+             pageNumber={pageNumber} 
+             renderTextLayer={true} 
+             renderAnnotationLayer={true} 
+             width={450} 
+             className="rounded-lg overflow-hidden"
+           />
+         </Document>
+         
+         {numPages && (
+           <div className="sticky bottom-6 mt-6 flex items-center gap-6 bg-slate-900/90 backdrop-blur px-6 py-3 rounded-full border border-slate-700 shadow-2xl z-50">
+             <button onClick={() => setPageNumber(p => Math.max(1, p - 1))} disabled={pageNumber <= 1} className="p-1.5 text-white disabled:opacity-30 hover:bg-slate-800 rounded-full transition-colors"><ChevronLeft size={20}/></button>
+             <span className="text-white text-xs tracking-widest font-bold uppercase">Page {pageNumber} / {numPages}</span>
+             <button onClick={() => setPageNumber(p => Math.min(numPages || 1, p + 1))} disabled={pageNumber >= (numPages||1)} className="p-1.5 text-white disabled:opacity-30 hover:bg-slate-800 rounded-full transition-colors"><ChevronRight size={20}/></button>
+           </div>
+         )}
+       </div>
+
+       {/* Handwriting Notebook Side */}
+       <div className={`w-[450px] h-full border-l flex flex-col ${isDark ? 'border-slate-800 bg-[#12141c]' : 'border-gray-200 bg-[#fffdf5]'}`}>
+         
+         <div className={`p-4 border-b flex justify-between items-center ${isDark ? 'border-slate-800 bg-slate-900' : 'border-gray-200 bg-white'}`}>
+           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-purple-400">
+             <PenTool size={14}/> Pg. {pageNumber} Notes
+           </div>
+           
+           <div className="flex items-center gap-3">
+             <select 
+               value={currentNote.lang} 
+               onChange={e => setNotes(n => ({...n, [pageNumber]: {...currentNote, lang: e.target.value as 'en'|'ar'}}))}
+               className={`text-xs px-2.5 py-1.5 rounded-lg border outline-none cursor-pointer ${isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
+             >
+               <option value="en">English (Caveat)</option>
+               <option value="ar">عربي (Aref Ruqaa)</option>
+             </select>
+
+             <button
+               onClick={handleSave}
+               disabled={isSaving}
+               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${saved ? 'bg-green-500/20 text-green-400' : 'bg-purple-600 hover:bg-purple-500 text-white'}`}
+             >
+               {saved ? <Check size={14}/> : <Save size={14}/>}
+               {saved ? 'Saved' : 'Save'}
+             </button>
+           </div>
+         </div>
+
+         <textarea 
+           value={currentNote.text}
+           onChange={e => setNotes(n => ({...n, [pageNumber]: {...currentNote, text: e.target.value}}))}
+           placeholder="Write your notes here..."
+           dir={currentNote.lang === 'ar' ? 'rtl' : 'ltr'}
+           className={`flex-1 w-full p-8 bg-transparent outline-none resize-none leading-[32px] ${
+             currentNote.lang === 'ar' 
+               ? 'font-[family-name:var(--font-aref-ruqaa)] text-right text-3xl' 
+               : 'font-[family-name:var(--font-caveat)] text-left text-2xl tracking-wide'
+           } ${isDark ? 'text-amber-100/90 placeholder:text-amber-100/20' : 'text-slate-800 placeholder:text-slate-300'}`}
+           style={{
+             backgroundImage: `repeating-linear-gradient(transparent, transparent 31px, ${isDark ? 'rgba(167, 139, 250, 0.15)' : 'rgba(167, 139, 250, 0.3)'} 31px, ${isDark ? 'rgba(167, 139, 250, 0.15)' : 'rgba(167, 139, 250, 0.3)'} 32px)`,
+             backgroundAttachment: 'local'
+           }}
+         />
+       </div>
+    </div>
+  )
+}
