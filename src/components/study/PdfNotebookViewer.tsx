@@ -131,7 +131,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
                className={`text-xs px-2.5 py-1.5 rounded-lg border outline-none cursor-pointer ${isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
              >
                <option value="en">English (Caveat)</option>
-               <option value="ar">عربي (Aref Ruqaa)</option>
+               <option value="ar">عربي (Lemonada)</option>
              </select>
 
              <button
@@ -152,7 +152,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
            dir={currentNote.lang === 'ar' ? 'rtl' : 'ltr'}
            className={`flex-1 w-full p-8 bg-transparent outline-none resize-none leading-[32px] ${
              currentNote.lang === 'ar' 
-               ? 'font-[family-name:var(--font-aref-ruqaa)] text-right text-3xl' 
+               ? 'font-[family-name:var(--font-lemonada)] text-right text-[1.1rem]' 
                : 'font-[family-name:var(--font-caveat)] text-left text-2xl tracking-wide'
            } ${isDark ? 'text-amber-100/90 placeholder:text-amber-100/20' : 'text-slate-800 placeholder:text-slate-300'}`}
            style={{

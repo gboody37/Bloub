@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Caveat, Aref_Ruqaa } from "next/font/google";
+import { Geist, Geist_Mono, Caveat, Lemonada } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -17,9 +17,8 @@ const caveat = Caveat({
   subsets: ["latin"],
 });
 
-const arefRuqaa = Aref_Ruqaa({
-  variable: "--font-aref-ruqaa",
-  weight: ["400", "700"],
+const lemonada = Lemonada({
+  variable: "--font-lemonada",
   subsets: ["arabic"],
 });
 
@@ -62,7 +61,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           }}
         />
       </head>
-      <body className={`antialiased ${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${arefRuqaa.variable} bg-[#f8f9fa] text-gray-900 dark:bg-[#090b14] dark:text-gray-100 min-h-screen relative overflow-x-hidden transition-colors duration-500`}>
+      <body className={`antialiased ${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${lemonada.variable} bg-[#f8f9fa] text-gray-900 dark:bg-[#090b14] dark:text-gray-100 min-h-screen relative overflow-x-hidden transition-colors duration-500`}>
         {children}
       </body>
     </html>
