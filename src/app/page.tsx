@@ -1172,7 +1172,7 @@ export default function Home() {
                   }`}
                 >
                   <div className="w-8 h-8 flex items-center justify-center pointer-events-none">
-                    <BloubMascot size={32} state="idle" expression={mascotExpression} shape={mascotShape} color={mascotColor} isStatic={true} />
+                    <BloubMascot size={48} state="idle" expression={mascotExpression} shape={mascotShape} color={mascotColor} isStatic={true} />
                   </div>
                   <span className="text-[10px] font-bold mt-1 tracking-wide uppercase">Global</span>
                 </button>
@@ -1190,7 +1190,7 @@ export default function Home() {
                       }`}
                     >
                       <div className="w-8 h-8 flex items-center justify-center pointer-events-none">
-                        <BloubMascot size={32} state="idle" expression="neutre" shape={cShape} color={cColor} isStatic={true} />
+                        <BloubMascot size={48} state="idle" expression="neutre" shape={cShape} color={cColor} isStatic={true} />
                       </div>
                       <span className="text-[10px] font-bold mt-1 tracking-wide uppercase truncate w-12 text-center">{cat.name}</span>
                     </button>
@@ -1218,7 +1218,7 @@ export default function Home() {
                             : 'bg-white border-gray-200 hover:border-gray-300'
                       }`}
                     >
-                      <BloubMascot size={32} state="idle" expression="neutre" shape={s} color={targetColor} isStatic={true} />
+                      <BloubMascot size={56} state="idle" expression="neutre" shape={s} color={targetColor} isStatic={true} />
                     </button>
                   ))}
                 </div>
@@ -1244,7 +1244,7 @@ export default function Home() {
                       }`}
                       title={expr}
                     >
-                      <BloubMascot size={32} state="idle" expression={expr as any} shape={targetShape} color={targetColor} isStatic={true} />
+                      <BloubMascot size={56} state="idle" expression={expr as any} shape={targetShape} color={targetColor} isStatic={true} />
                     </button>
                   ))}
                 </div>
