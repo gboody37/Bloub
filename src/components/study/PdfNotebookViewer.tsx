@@ -47,15 +47,16 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
       const { data: currentNote } = await supabase.from('vault_notes').select('content').eq('id', noteId).single();
       if (!currentNote) return;
 
-      let content = currentNote.content;
+            let content = currentNote.content;
       // Replace or inject pdf_notes in frontmatter
-      const notesJson = JSON.stringify(notes).replace(/"/g, '\\"'); // escape quotes for yaml
+      const notesJson = JSON.stringify(notes).replace(/'/g, "''"); // SQL/YAML safe single quote escape
       
       if (content.includes('pdf_notes:')) {
-        content = content.replace(/pdf_notes:\s*'.*?'/, `pdf_notes: '${notesJson}'`);
+        content = content.replace(/pdf_notes:\s*'.*?'/g, `pdf_notes: '${notesJson}'`);
+      } else if (content.startsWith('---')) {
+        content = content.replace(/^---\r?\n/, `---\npdf_notes: '${notesJson}'\n`);
       } else {
-        // inject it right after pdf_url if possible
-        content = content.replace(/(pdf_url:.*?)\n/, `$1\npdf_notes: '${notesJson}'\n`);
+        content = `---\npdf_notes: '${notesJson}'\n---\n\n` + content;
       }
 
       await supabase.from('vault_notes').update({ content }).eq('id', noteId);

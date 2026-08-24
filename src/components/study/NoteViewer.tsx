@@ -721,19 +721,6 @@ export default function NoteViewer({
                   {renderMarkdownContent(editContent)}
                 </div>
               )}
-
-              {/* Extracted Text Accordion for AI Quizzing Verification */}
-              {pdfViewMode === 'pdf' && (
-                <details className={`p-3 rounded-xl border transition-all ${isDark ? 'bg-slate-900/30 border-slate-800 text-slate-400' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
-                  <summary className="cursor-pointer text-xs font-bold uppercase tracking-wider select-none outline-none flex items-center justify-between">
-                    <span>Show Extracted Text (For AI Quizzes & Search)</span>
-                    <span className="text-[10px] lowercase font-normal">{note.wordCount} words</span>
-                  </summary>
-                  <div className="mt-4 opacity-80 text-sm max-h-60 overflow-y-auto custom-scrollbar">
-                    {renderMarkdownContent(editContent)}
-                  </div>
-                </details>
-              )}
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto custom-scrollbar">
