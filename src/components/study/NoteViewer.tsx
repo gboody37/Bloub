@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createClient } from '@/lib/supabase/client';
 import { 
   BookOpen, 
   Sparkles, 
@@ -23,6 +24,8 @@ import {
   ChevronDown,
   ChevronRight,
   Maximize2,
+  Image as ImageIcon,
+  Loader2,
   Minimize2
 } from 'lucide-react';
 import type { ParsedObsidianNote, ObsidianHeading, ObsidianWikilink } from '@/types/obsidian';
@@ -52,11 +55,57 @@ export default function NoteViewer({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
+  
+  const [showScratchpad, setShowScratchpad] = useState(false);
+  const [scratchContent, setScratchContent] = useState('');
+
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const supabase = createClient();
 
   useEffect(() => {
     setEditContent(note?.bodyContent || '');
     setIsEditing(false);
+    
+    if (note) {
+      setScratchContent(localStorage.getItem(`scratch_${note.id}`) || '');
+    }
   }, [note?.id, note?.bodyContent]);
+
+  const handleScratchChange = (val: string) => {
+    setScratchContent(val);
+    if (note) localStorage.setItem(`scratch_${note.id}`, val);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const { data, error } = await supabase.storage.from('media').upload(fileName, file);
+
+      if (error) throw error;
+      
+      const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(fileName);
+      
+      // Insert markdown image syntax into editContent
+      const markdownImage = `\n![${file.name}](${publicUrl})\n`;
+      setEditContent(prev => prev + markdownImage);
+      
+      // Auto-save if possible
+      if (onUpdateNote) onUpdateNote(editContent + markdownImage);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert('Failed to upload image. Please check your connection.');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const copyMarkdown = async () => {
     if (!note) return;
@@ -464,6 +513,48 @@ export default function NoteViewer({
             </button>
           )}
 
+          {/* Image Upload */}
+          {isEditing && (
+            <>
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+              <button
+                type="button"
+                disabled={isUploading}
+                onClick={() => fileInputRef.current?.click()}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                  isDark 
+                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                } ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {isUploading ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
+                <span className="hidden sm:inline">Image</span>
+              </button>
+            </>
+          )}
+
+          {/* Scratchpad Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowScratchpad(!showScratchpad)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+              showScratchpad 
+                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30' 
+                : isDark 
+                  ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
+            <span className="hidden sm:inline">Scratchpad</span>
+          </button>
+
           {/* Copy Markdown */}
           <button
             type="button"
@@ -559,6 +650,23 @@ export default function NoteViewer({
 
       {/* Main Body + Outline Drawer Grid */}
       <div className="flex-1 flex flex-col md:flex-row gap-5 min-h-0">
+        {/* Scratchpad Panel */}
+        {showScratchpad && (
+          <div className={`w-full md:w-1/3 flex-shrink-0 flex flex-col p-4 rounded-3xl border transition-all ${isDark ? 'bg-amber-950/20 border-amber-500/30 text-amber-100' : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
+            <h4 className="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-1.5 opacity-70">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
+              Scratchpad
+            </h4>
+            <textarea
+              dir="auto"
+              placeholder="Jot down rough notes, translations, or ideas here... (Auto-saves to this note)"
+              value={scratchContent}
+              onChange={(e) => handleScratchChange(e.target.value)}
+              className="flex-1 w-full bg-transparent resize-none outline-none text-sm leading-relaxed custom-scrollbar"
+            />
+          </div>
+        )}
+
         {/* Rendered Markdown Body */}
         <div className="flex-1 overflow-y-auto custom-scrollbar" dir="auto">
           {isEditing ? (

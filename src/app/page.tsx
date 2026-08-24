@@ -157,7 +157,7 @@ export default function Home() {
   const [settingsTarget, setSettingsTarget] = useState<string>('global');
 
   // Settings
-  const [bgTheme, setBgTheme] = useState('bg-slate-900');
+  const [bgTheme, setBgTheme] = useState('bg-gray-100');
   const [catSettings, setCatSettings] = useState<Record<string, {shape: string, color: string}>>({});
 
   // Global Mascot
@@ -165,6 +165,7 @@ export default function Home() {
   const [mascotExpression, setMascotExpression] = useState<ExpressionId>('timide');
   const [mascotShape, setMascotShape] = useState('squircle');
   const [mascotColor, setMascotColor] = useState('bleu');
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -295,11 +296,37 @@ export default function Home() {
     if (savedColor) setMascotColor(savedColor);
     if (savedTheme) setBgTheme(savedTheme);
     if (savedCatSet) setCatSettings(savedCatSet);
+    
+    // Mark as loaded so the save effect can start syncing changes
+    setSettingsLoaded(true);
+  }, [session]);
+
+  // Cross-device settings sync on tab focus
+  useEffect(() => {
+    const handleVisibility = async () => {
+      if (document.visibilityState === 'visible' && session) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && user.user_metadata) {
+          const meta = user.user_metadata;
+          if (meta.mascotShape) setMascotShape(meta.mascotShape);
+          if (meta.mascotColor) setMascotColor(meta.mascotColor);
+          if (meta.bgTheme) setBgTheme(meta.bgTheme);
+          if (meta.catSettings) setCatSettings(meta.catSettings);
+          if (meta.geminiApiKey) setGeminiApiKey(meta.geminiApiKey);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
+    };
   }, [session]);
 
   // Save transient settings
   useEffect(() => {
-    if (!session) return;
+    if (!session || !settingsLoaded) return;
     const uid = session.user.id;
     localStorage.setItem(`${uid}_mascotExpression`, mascotExpression);
   }, [session, mascotExpression]);
