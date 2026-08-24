@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { ChevronLeft, ChevronRight, PenTool, Save, Check, Highlighter, Type, MousePointer2, Maximize, Minimize } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PenTool, Save, Check, Highlighter, Type, MousePointer2, ZoomIn, ZoomOut } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -23,7 +23,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [pdfTool, setPdfTool] = useState('cursor');
-  const [isFitWidth, setIsFitWidth] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1.0);
   const [notesWidth, setNotesWidth] = useState(450);
   const [isDragging, setIsDragging] = useState(false);
   
@@ -152,15 +152,19 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
     <div className={`flex w-full h-[650px] border rounded-2xl overflow-hidden shadow-inner ${isDark ? 'border-slate-800 bg-slate-950' : 'border-gray-200 bg-gray-100'}`}>
        
        {/* PDF Viewer Side */}
-       <div className="flex-1 h-full overflow-y-auto custom-scrollbar flex flex-col items-center py-6 relative bg-black/20">
+       <div className="flex-1 h-full overflow-auto custom-scrollbar flex flex-col items-center py-6 px-6 relative bg-black/20">
                   {/* PDF Toolbar */}
          <div className="sticky top-2 mb-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-slate-900/90 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-700 shadow-xl z-50">
            <button onClick={() => setPdfTool('cursor')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'cursor' ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`}><MousePointer2 size={16}/></button>
            <button onClick={() => setPdfTool('highlight')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'highlight' ? 'bg-yellow-500/20 text-yellow-400' : 'text-slate-400 hover:text-yellow-400'}`}><Highlighter size={16}/></button>
            <button onClick={() => setPdfTool('text')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'text' ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-purple-400'}`}><Type size={16}/></button>
            <div className="w-px h-4 bg-slate-700 mx-1"></div>
-           <button onClick={() => setIsFitWidth(!isFitWidth)} className={`p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white`}>
-             {isFitWidth ? <Minimize size={16}/> : <Maximize size={16}/>}
+           <button onClick={() => setZoomLevel(z => Math.max(z - 0.25, 0.5))} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white">
+             <ZoomOut size={16}/>
+           </button>
+           <div className="text-xs font-mono text-slate-400 font-bold min-w-[40px] text-center">{Math.round(zoomLevel * 100)}%</div>
+           <button onClick={() => setZoomLevel(z => Math.min(z + 0.25, 3.0))} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white">
+             <ZoomIn size={16}/>
            </button>
          </div>
 
@@ -207,8 +211,8 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
                pageNumber={pageNumber} 
                renderTextLayer={true} 
                renderAnnotationLayer={true} 
-               width={isFitWidth ? undefined : 450} scale={isFitWidth ? 1.5 : 1.0} 
-               className={`rounded-lg overflow-hidden transition-all duration-500 ${isFitWidth ? "w-full shadow-2xl" : ""}`}
+               scale={zoomLevel} 
+               className="rounded-lg overflow-hidden shadow-2xl transition-transform duration-300 transform-gpu"
              />
            </div>
 
