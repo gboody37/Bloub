@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { ChevronLeft, ChevronRight, PenTool, Save, Check, Highlighter, Type, MousePointer2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PenTool, Save, Check, Highlighter, Type, MousePointer2, Maximize, Minimize } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -23,6 +23,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [pdfTool, setPdfTool] = useState('cursor');
+  const [isFitWidth, setIsFitWidth] = useState(false);
   
   const supabase = createClient();
 
@@ -84,6 +85,10 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
            <button onClick={() => setPdfTool('cursor')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'cursor' ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`}><MousePointer2 size={16}/></button>
            <button onClick={() => setPdfTool('highlight')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'highlight' ? 'bg-yellow-500/20 text-yellow-400' : 'text-slate-400 hover:text-yellow-400'}`}><Highlighter size={16}/></button>
            <button onClick={() => setPdfTool('text')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'text' ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-purple-400'}`}><Type size={16}/></button>
+           <div className="w-px h-4 bg-slate-700 mx-1"></div>
+           <button onClick={() => setIsFitWidth(!isFitWidth)} className={`p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white`}>
+             {isFitWidth ? <Minimize size={16}/> : <Maximize size={16}/>}
+           </button>
          </div>
 
          <Document 
@@ -96,8 +101,8 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
              pageNumber={pageNumber} 
              renderTextLayer={true} 
              renderAnnotationLayer={true} 
-             width={450} 
-             className="rounded-lg overflow-hidden"
+             width={isFitWidth ? undefined : 450} scale={isFitWidth ? 1.5 : 1.0} 
+             className={`rounded-lg overflow-hidden transition-all duration-500 ${isFitWidth ? "w-full shadow-2xl" : ""}`}
            />
          </Document>
          
