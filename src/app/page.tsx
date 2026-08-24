@@ -1598,7 +1598,7 @@ export default function Home() {
                               userId: session?.user?.id,
                               notes: [{
                                 title: selectedNote.title,
-                                path: selectedNote.path || selectedNote.relativePath || selectedNote.id,
+                                path: (selectedNote as any).path || (selectedNote as any).relativePath || selectedNote.id,
                                 content: updatedContent,
                                 folder: selectedNote.folder,
                                 tags: selectedNote.tags,
