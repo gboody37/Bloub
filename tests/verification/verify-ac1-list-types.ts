@@ -49,7 +49,7 @@ export function createCategoryLogic(input: CategoryInput): CategoryRecord {
   const normalizedType: 'todo' | 'study' = input.type === 'study' ? 'study' : 'todo';
 
   return {
-    id: `cat_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    id: `cat_${Date.now()}_${Math.random().toString(36).slice(2, 10)}_${Math.random().toString(36).slice(2, 10)}`,
     name: input.name.trim(),
     type: normalizedType,
     vaultFolder: normalizedType === 'study' ? input.vaultFolder : undefined,

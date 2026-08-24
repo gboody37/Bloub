@@ -33,7 +33,7 @@ class MockDatabaseState {
       if (!name) return { todos: this.todos, categories: mapCategories(this.categories) };
 
       const newCat: Category = {
-        id: `cat_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        id: `cat_${Date.now()}_${Math.random().toString(36).slice(2, 10)}_${Math.random().toString(36).slice(2, 10)}`,
         name,
         type: categoryType
       };
@@ -56,7 +56,7 @@ class MockDatabaseState {
       }
     } else if (action === 'ADD_TODO') {
       this.todos.push({
-        id: `todo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        id: `todo_${Date.now()}_${Math.random().toString(36).slice(2, 10)}_${Math.random().toString(36).slice(2, 10)}`,
         text: body.text || 'Untitled',
         completed: false,
         categoryId: body.categoryId || 'default'

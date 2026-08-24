@@ -526,9 +526,7 @@ export default function NoteViewer({
       {/* Main Body + Outline Drawer Grid */}
       <div className="flex-1 flex flex-col md:flex-row gap-5 min-h-0">
         {/* Rendered Markdown Body */}
-        <div className={`flex-1 p-6 rounded-3xl border overflow-y-auto custom-scrollbar shadow-sm ${
-          isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-gray-200'
-        }`}>
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
           {renderMarkdownContent(note.bodyContent)}
 
           {/* Bidirectional Wikilinks Footer Section */}

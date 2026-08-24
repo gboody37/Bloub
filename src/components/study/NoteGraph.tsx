@@ -38,18 +38,37 @@ export default function NoteGraph({ userId, isDark = true, onNodeClick }: NoteGr
   }, [userId]);
 
   useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        setDimensions({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight
+        });
+      }
+    };
+
     const resizeObserver = new ResizeObserver(entries => {
-      if (entries[0]) {
+      if (entries[0] && entries[0].contentRect.width > 0) {
         setDimensions({
           width: entries[0].contentRect.width,
           height: entries[0].contentRect.height
         });
       }
     });
+
     if (containerRef.current) {
       resizeObserver.observe(containerRef.current);
+      updateDimensions();
     }
-    return () => resizeObserver.disconnect();
+    
+    const timeoutId = setTimeout(updateDimensions, 500); // Fallback for CSS animations
+
+    window.addEventListener('resize', updateDimensions);
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateDimensions);
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   const handleNodeClick = useCallback(

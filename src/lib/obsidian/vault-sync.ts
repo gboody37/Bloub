@@ -283,6 +283,9 @@ export async function syncNotesFromFileList(
       throw new Error('User must be logged in to sync vault notes.');
     }
 
+    // WIPE existing vault notes for this user so we completely replace the old vault
+    await supabase.from('vault_notes').delete().eq('user_id', effectiveUserId);
+
     const totalCount = discoveredNotes.length;
     let uploadedCount = 0;
     const batchSize = 50;

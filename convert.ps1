@@ -1,0 +1,1 @@
+Add-Type -AssemblyName System.Drawing; $img = [System.Drawing.Image]::FromFile("C:\Users\gbood\.gemini\antigravity\brain\9f2a3363-911a-4464-8f27-816c7776a25c\bloub_app_icon_1787526664020.jpg"); $img.Save("C:\Users\gbood\.gemini\antigravity\brain\9f2a3363-911a-4464-8f27-816c7776a25c\bloub_icon.png", [System.Drawing.Imaging.ImageFormat]::Png); $img.Dispose()
