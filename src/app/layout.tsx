@@ -31,15 +31,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                let theme = localStorage.getItem('vibe-theme');
-                let isDark = false;
-                if (theme) {
-                  isDark = theme !== 'minimal';
-                } else {
-                  isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                let theme = 'midnight';
+                for (let i = 0; i < localStorage.length; i++) {
+                  const key = localStorage.key(i);
+                  if (key && key.endsWith('_bgTheme')) {
+                    theme = localStorage.getItem(key) || 'midnight';
+                    break;
+                  }
                 }
+                let isDark = theme !== 'minimal';
                 if (isDark) {
                   document.documentElement.classList.add('dark');
+                  document.documentElement.setAttribute('data-theme', theme);
                 } else {
                   document.documentElement.classList.remove('dark');
                 }

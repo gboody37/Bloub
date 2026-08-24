@@ -360,6 +360,14 @@ export default function Home() {
     const activeTheme = THEMES.find(t => t.id === bgTheme);
     const themeColor = activeTheme ? activeTheme.color : '#0f172a';
     meta.setAttribute('content', themeColor);
+    
+    if (bgTheme !== 'minimal') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', bgTheme);
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.removeAttribute('data-theme');
+    }
   }, [bgTheme]);
 
   useEffect(() => {
@@ -974,14 +982,12 @@ export default function Home() {
       {activeTab === 'settings' && (
         <div className={`w-full max-w-md mx-auto h-full overflow-y-auto custom-scrollbar flex flex-col pb-32 animate-in fade-in zoom-in-95 duration-300`}>
           <div className="p-7 flex-1">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className={`text-2xl font-bold tracking-tight transition-colors ${t.textPrimary}`}>Stats</h2>
-            </div>
+            
 
             {/* Mascot Preview inside Settings */}
             <div className={`flex flex-col items-center mb-6 rounded-2xl p-4 ${isDark ? 'bg-slate-800/50' : 'bg-gray-50'}`}>
                <div className="w-24 h-24 mb-4">
-                 <BloubMascot size={96} state="idle" expression="heureux" shape={targetShape} color={targetColor} isStatic={true} />
+                 <BloubMascot size={96} state="idle" expression={mascotExpression} shape={targetShape} color={targetColor} isStatic={true} />
                </div>
                
                {/* Horizontal Category Scroller */}

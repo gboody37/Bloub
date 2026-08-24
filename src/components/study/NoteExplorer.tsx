@@ -133,7 +133,9 @@ export default function NoteExplorer({
         updated_at: new Date().toISOString()
       };
       
-      await supabase.from('vault_notes').upsert([newNote]);
+      const { error: dbError } = await supabase.from('vault_notes').upsert([newNote]);
+      if (dbError) throw new Error(dbError.message);
+      
       await fetchVault();
     } catch (err: any) {
       alert('Failed to upload document: ' + err.message);
