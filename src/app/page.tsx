@@ -970,7 +970,7 @@ export default function Home() {
       <main className={`w-full ${(!isListView && activeTab === 'lists' && activeCatObj?.type === 'study') ? 'max-w-7xl px-2 sm:px-6' : (activeTab === 'settings' ? 'max-w-5xl' : 'max-w-md')} mx-auto min-h-screen flex flex-col relative transition-all duration-500`}>
         {/* Header */}
         {activeTab !== 'settings' && (
-          <header className={`pt-12 pb-6 px-6 sticky top-0 z-30 flex justify-between items-center border-b transition-colors duration-500 ${bgTheme} ${isDark ? 'border-slate-800' : 'border-gray-200/30'}`}>
+          <header className={`pt-12 pb-6 px-6 relative z-30 flex justify-between items-center border-b transition-colors duration-500 ${bgTheme} ${isDark ? 'border-slate-800' : 'border-gray-200/30'}`}>
             <div className="flex-1">
               <h1 className={`text-3xl font-bold tracking-tight transition-colors ${t.textPrimary}`}>
                 {activeTab === 'lists' ? (isListView ? 'My Lists' : activeCatObj.name) : activeTab === 'today' ? 'Today' : 'Stats'}
