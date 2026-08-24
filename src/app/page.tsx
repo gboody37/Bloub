@@ -977,12 +977,13 @@ export default function Home() {
           </div>
         </header>
 
-      {/* Settings Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-50 flex items-center justify-center p-6"
-          onClick={() => setShowSettings(false)}>
-          <div className={`rounded-3xl p-7 max-w-sm w-full shadow-2xl animate-pop-in ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'}`}
-            onClick={e => e.stopPropagation()}>
+      {/* Settings Side Panel */}
+      <div className={`fixed inset-y-0 right-0 z-50 flex transform transition-transform duration-500 ease-out ${showSettings ? 'translate-x-0' : 'translate-x-full'}`}>
+        {showSettings && (
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm -z-10 md:hidden" onClick={() => setShowSettings(false)} />
+        )}
+        <div className={`w-full max-w-md h-full shadow-2xl overflow-y-auto custom-scrollbar flex flex-col border-l ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
+          <div className="p-7 flex-1" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
               <h2 className={`text-lg font-semibold ${t.textPrimary}`}>Customize</h2>
               <button onClick={() => setShowSettings(false)} className={`p-1.5 rounded-full ${isDark ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-gray-100 text-gray-400 hover:text-gray-700'}`}><X size={18}/></button>
@@ -1178,7 +1179,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Add Task Modal */}
       {showAddModal && (

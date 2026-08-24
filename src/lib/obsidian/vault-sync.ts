@@ -18,6 +18,8 @@ export interface DiscoveredMarkdownNote {
   folder: string;
   tags: string[];
   word_count: number;
+  lastModified: number;
+  fileHandle?: any;
 }
 
 /**
@@ -52,7 +54,9 @@ async function scanDirectoryHandleRecursively(
           content: text,
           folder: folderName,
           tags: parsed.tags,
-          word_count: parsed.wordCount
+          word_count: parsed.wordCount,
+          lastModified: file.lastModified,
+          fileHandle: entry
         });
 
         if (onProgress) {
@@ -101,7 +105,7 @@ export async function pickAndSyncObsidianVault(
 
     const dirHandle = await (window as any).showDirectoryPicker({
       id: 'obsidian_vault_picker',
-      mode: 'read',
+      mode: 'readwrite',
       startIn: 'documents'
     });
 
@@ -139,21 +143,60 @@ export async function pickAndSyncObsidianVault(
       throw new Error('User must be logged in to sync vault notes to Supabase.');
     }
 
-    for (let i = 0; i < totalCount; i += batchSize) {
-      const batch = discoveredNotes.slice(i, i + batchSize);
-      const payload = batch.map(n => {
-        const cleanPath = sanitizeRelativePath(n.path) || n.path.replace(/\\/g, '/');
-        return {
+    // 1. Fetch all existing cloud notes for this user to compare timestamps
+    const { data: cloudNotes } = await supabase
+      .from('vault_notes')
+      .select('path, updated_at, content')
+      .eq('user_id', effectiveUserId);
+      
+    const cloudMap = new Map((cloudNotes || []).map(n => [n.path, n]));
+    const payloadToUpload: any[] = [];
+
+    // 2. Iterate discovered local notes and perform 2-Way Merge
+    for (const localNote of discoveredNotes) {
+      const cleanPath = sanitizeRelativePath(localNote.path) || localNote.path.replace(/\\/g, '/');
+      const cloudNote = cloudMap.get(cleanPath);
+      let shouldUpload = true;
+
+      if (cloudNote) {
+        const cloudTime = new Date(cloudNote.updated_at).getTime();
+        const localTime = localNote.lastModified;
+
+        // If cloud is newer, WRITE to local disk!
+        if (cloudTime > localTime && localNote.fileHandle && localNote.fileHandle.createWritable) {
+          try {
+            const writable = await localNote.fileHandle.createWritable();
+            await writable.write(cloudNote.content);
+            await writable.close();
+            shouldUpload = false; // We pulled from cloud, no need to push back up
+            console.log(`[Sync] Pulled cloud changes down to local file: ${cleanPath}`);
+          } catch (e) {
+            console.error(`[Sync] Failed to write to local file ${cleanPath}`, e);
+          }
+        } else if (localTime <= cloudTime) {
+          // They are identical or roughly identical, don't waste bandwidth
+          shouldUpload = false;
+        }
+      }
+
+      if (shouldUpload) {
+        payloadToUpload.push({
           user_id: effectiveUserId,
-          title: n.title,
-          content: n.content,
+          title: localNote.title,
+          content: localNote.content,
           path: cleanPath,
-          folder: n.folder || 'Root',
-          tags: n.tags || [],
-          word_count: n.word_count || 0,
+          folder: localNote.folder || 'Root',
+          tags: localNote.tags || [],
+          word_count: localNote.word_count || 0,
           updated_at: new Date().toISOString()
-        };
-      });
+        });
+      }
+    }
+
+    // 3. Batch upload the local notes that were newer (or brand new)
+    const totalUploadCount = payloadToUpload.length;
+    for (let i = 0; i < totalUploadCount; i += batchSize) {
+      const batch = payloadToUpload.slice(i, i + batchSize);
 
       if (onProgress) {
         onProgress({
@@ -161,26 +204,21 @@ export async function pickAndSyncObsidianVault(
           currentFile: batch[batch.length - 1]?.path,
           scannedCount: totalCount,
           uploadedCount,
-          totalCount
+          totalCount: totalUploadCount
         });
       }
 
-      // Upsert into Supabase vault_notes
       const { error: upsertErr } = await supabase
         .from('vault_notes')
-        .upsert(payload, { onConflict: 'user_id,path' });
+        .upsert(batch, { onConflict: 'user_id,path' });
 
       if (upsertErr) {
-        console.error('Error during vault batch upsert:', upsertErr);
-        // Fallback to API route if direct upsert fails
         const res = await fetch('/api/obsidian/notes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ notes: payload })
+          body: JSON.stringify({ notes: batch })
         });
-        if (!res.ok) {
-          throw new Error(upsertErr.message || 'Failed to upload notes batch to Supabase');
-        }
+        if (!res.ok) throw new Error('Failed to upload notes batch to Supabase');
       }
 
       uploadedCount += batch.length;
@@ -263,7 +301,9 @@ export async function syncNotesFromFileList(
         content: text,
         folder: folderName,
         tags: parsed.tags,
-        word_count: parsed.wordCount
+        word_count: parsed.wordCount,
+        lastModified: file.lastModified,
+        fileHandle: undefined
       });
 
       if (onProgress) {
@@ -283,8 +323,7 @@ export async function syncNotesFromFileList(
       throw new Error('User must be logged in to sync vault notes.');
     }
 
-    // WIPE existing vault notes for this user so we completely replace the old vault
-    await supabase.from('vault_notes').delete().eq('user_id', effectiveUserId);
+    // Removed WIPE to prevent data loss during fallback sync
 
     const totalCount = discoveredNotes.length;
     let uploadedCount = 0;
