@@ -960,13 +960,6 @@ export default function Home() {
 
   return (
     <div className={`min-h-screen w-full ${bgTheme} transition-colors duration-500 font-sans`}>
-      {isDark && (
-        <div className="fixed inset-0 pointer-events-none z-[0] opacity-60 mix-blend-screen overflow-hidden">
-          <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-indigo-900/40 blur-[120px] animate-pulse" style={{ animationDuration: '8s' }} />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-purple-900/30 blur-[120px] animate-pulse" style={{ animationDuration: '12s' }} />
-          <div className="absolute top-[30%] left-[50%] w-[40%] h-[40%] rounded-full bg-blue-900/20 blur-[100px]" />
-        </div>
-      )}
       <main className={`w-full ${(!isListView && activeTab === 'lists' && activeCatObj?.type === 'study') ? 'max-w-7xl px-2 sm:px-6' : (activeTab === 'settings' ? 'max-w-5xl' : 'max-w-md')} mx-auto min-h-screen flex flex-col relative transition-all duration-500`}>
         {/* Header */}
         {activeTab !== 'settings' && (
