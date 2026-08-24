@@ -796,7 +796,7 @@ export default function Home() {
     card: tc.card + ' shadow-sm',
     cardMuted: tc.cardMuted,
     input: tc.input,
-    nav: tc.nav + ' backdrop-blur-xl',
+    nav: tc.nav + ' ',
     iconCircle: isDark ? 'bg-slate-700/50 text-slate-300' : 'bg-gray-100 text-gray-600',
     pillActive: isDark ? 'bg-slate-700 border-slate-500 text-white shadow-md scale-105' : 'bg-white border-gray-400 text-gray-900 shadow-md scale-105',
     pillInactive: isDark ? 'bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
@@ -830,7 +830,7 @@ export default function Home() {
 
         {/* Download Menu Modal (Login Page) */}
         {showDownloadMenu && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-6 text-left"
+          <div className="fixed inset-0 bg-black/40  z-50 flex items-center justify-center p-6 text-left"
             onClick={() => setShowDownloadMenu(false)}>
             <div className={`rounded-3xl p-7 max-w-sm w-full shadow-2xl animate-pop-in ${isDark ? 'bg-slate-900 border border-slate-800 text-slate-100' : 'bg-white text-gray-900'}`}
               onClick={e => e.stopPropagation()}>
@@ -903,7 +903,7 @@ export default function Home() {
 
         {/* PWA Install Guide Modal (Login Page) */}
         {showInstallGuide && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-6 text-left"
+          <div className="fixed inset-0 bg-black/40  z-50 flex items-center justify-center p-6 text-left"
             onClick={() => setShowInstallGuide(false)}>
             <div className={`rounded-3xl p-7 max-w-sm w-full shadow-2xl animate-pop-in ${isDark ? 'bg-slate-900 border border-slate-800 text-slate-100' : 'bg-white text-gray-900'}`}
               onClick={e => e.stopPropagation()}>
@@ -981,20 +981,20 @@ export default function Home() {
             {/* Mascot Preview inside Settings */}
             <div className={`flex flex-col items-center mb-6 rounded-2xl p-4 ${isDark ? 'bg-slate-800/50' : 'bg-gray-50'}`}>
                <div className="w-24 h-24 mb-4">
-                 <BloubMascot size={96} state="idle" expression="heureux" shape={targetShape} color={targetColor} />
+                 <BloubMascot size={96} state="idle" expression="heureux" shape={targetShape} color={targetColor} isStatic={true} />
                </div>
                
                {/* Horizontal Category Scroller */}
                <div className="w-full flex gap-3 overflow-x-auto pb-2 custom-scrollbar px-1">
                  <button onClick={() => setSettingsTarget('global')} className={`flex-shrink-0 flex flex-col items-center p-2 rounded-2xl border transition-all ${settingsTarget === 'global' ? t.pillActive : t.pillInactive}`}>
-                   <div className="w-8 h-8 flex items-center justify-center"><BloubMascot size={32} state="idle" expression="neutre" shape={mascotShape} color={mascotColor} /></div>
+                   <div className="w-8 h-8 flex items-center justify-center"><BloubMascot size={32} state="idle" expression="neutre" shape={mascotShape} color={mascotColor} isStatic={true} /></div>
                    <span className="text-[10px] font-semibold mt-1">Global</span>
                  </button>
                  {categories.map(c => {
                    const { shape, color } = getListMascot(c, catSettings);
                    return (
                      <button key={c.id} onClick={() => setSettingsTarget(c.id)} className={`flex-shrink-0 flex flex-col items-center p-2 rounded-2xl border transition-all ${settingsTarget === c.id ? t.pillActive : t.pillInactive}`}>
-                       <div className="w-8 h-8 flex items-center justify-center"><BloubMascot size={32} state="idle" expression="neutre" shape={shape} color={color} /></div>
+                       <div className="w-8 h-8 flex items-center justify-center"><BloubMascot size={32} state="idle" expression="neutre" shape={shape} color={color} isStatic={true} /></div>
                        <span className="text-[10px] font-semibold mt-1 truncate w-12 text-center">{c.name}</span>
                      </button>
                    );
@@ -1012,7 +1012,7 @@ export default function Home() {
                     <button key={s} onClick={() => updateTargetShape(s)}
                       className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${targetShape === s ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
                       <div className="w-8 h-8 flex items-center justify-center pointer-events-none drop-shadow-sm">
-                        <BloubMascot size={32} state="idle" expression="neutre" shape={s} color={targetColor} />
+                        <BloubMascot size={32} state="idle" expression="neutre" shape={s} color={targetColor} isStatic={true} />
                       </div>
                     </button>
                   ))}
@@ -1669,7 +1669,7 @@ export default function Home() {
                   </div>
                 ) : showGraphView ? (
                   <div className={`h-[600px] rounded-3xl overflow-hidden border transition-all animate-in fade-in zoom-in-95 duration-500 relative ${isDark ? 'border-slate-800' : 'border-gray-200'}`}>
-                    <button onClick={() => setShowGraphView(false)} className="absolute top-4 left-4 z-50 bg-black/60 hover:bg-black/80 px-3 py-1.5 flex items-center gap-2 rounded-xl text-white text-xs font-bold backdrop-blur transition-all shadow-xl">
+                    <button onClick={() => setShowGraphView(false)} className="absolute top-4 left-4 z-50 bg-black/60 hover:bg-black/80 px-3 py-1.5 flex items-center gap-2 rounded-xl text-white text-xs font-bold  transition-all shadow-xl">
                       <ChevronRight className="rotate-180" size={14} /> Back to Hub
                     </button>
                     <NoteGraph 
@@ -2043,7 +2043,7 @@ export default function Home() {
 
       {/* Install Guide Modal */}
       {showInstallGuide && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+        <div className="fixed inset-0 bg-black/40  z-50 flex items-center justify-center p-6"
           onClick={() => setShowInstallGuide(false)}>
           <div className={`rounded-3xl p-7 max-w-sm w-full shadow-2xl animate-pop-in ${isDark ? 'bg-slate-900 border border-slate-800 text-slate-100' : 'bg-white text-gray-900'}`}
             onClick={e => e.stopPropagation()}>
@@ -2090,7 +2090,7 @@ export default function Home() {
 
       {/* Download Menu Modal */}
       {showDownloadMenu && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+        <div className="fixed inset-0 bg-black/40  z-50 flex items-center justify-center p-6"
           onClick={() => setShowDownloadMenu(false)}>
           <div className={`rounded-3xl p-7 max-w-sm w-full shadow-2xl animate-pop-in ${isDark ? 'bg-slate-900 border border-slate-800 text-slate-100' : 'bg-white text-gray-900'}`}
             onClick={e => e.stopPropagation()}>

@@ -16,6 +16,7 @@ interface Props {
   shape?: string;
   expression?: ExpressionId;
   onInteract?: () => void;
+  isStatic?: boolean;
 }
 
 export default function BloubMascot({
@@ -25,6 +26,7 @@ export default function BloubMascot({
   shape = 'squircle',
   expression = 'neutre',
   onInteract,
+  isStatic = false,
 }: Props) {
   const uid = useId().replace(/:/g, '');
   const maskId = `bot-mask-${uid}`;
@@ -97,7 +99,7 @@ export default function BloubMascot({
       const now = clockRef.current;
 
       if (!engineRef.current || !svgRef.current) {
-        rafRef.current = requestAnimationFrame(tick);
+        if (!isStatic) rafRef.current = requestAnimationFrame(tick);
         return;
       }
 
@@ -184,12 +186,18 @@ export default function BloubMascot({
         }
       }
 
-      rafRef.current = requestAnimationFrame(tick);
+      if (!isStatic) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
     };
 
-    rafRef.current = requestAnimationFrame(tick);
+    if (isStatic) {
+      tick(performance.now());
+    } else {
+      rafRef.current = requestAnimationFrame(tick);
+    }
     return () => cancelAnimationFrame(rafRef.current);
-  }, [color, isVisible]);
+  }, [color, isVisible, isStatic]);
 
   // Pointer follow (window-wide)
   useEffect(() => {
