@@ -918,7 +918,7 @@ export default function Home() {
 
   return (
     <div className={`min-h-screen w-full ${bgTheme} transition-colors duration-500 font-sans`}>
-      <main className={`w-full max-w-md mx-auto min-h-screen flex flex-col relative transition-colors duration-500`}>
+      <main className={`w-full ${(!isListView && activeTab === 'lists' && activeCatObj?.type === 'study') ? 'max-w-7xl px-2 sm:px-6' : 'max-w-md'} mx-auto min-h-screen flex flex-col relative transition-all duration-500`}>
         {/* Header */}
         <header className={`pt-12 pb-6 px-6 sticky top-0 z-30 flex justify-between items-center border-b transition-colors duration-500 ${bgTheme} ${isDark ? 'border-slate-800' : 'border-gray-200/30'}`}>
           <div className="flex-1">
@@ -1668,19 +1668,66 @@ export default function Home() {
                       </div>
                     </button>
 
+                    {/* Upload Book Tile */}
+                    <label className={`text-left p-4 rounded-2xl border transition-all hover:scale-[1.02] active:scale-95 cursor-pointer ${t.card} flex flex-col justify-between group`}>
+                      <input 
+                        type="file" 
+                        accept=".txt,.md,.csv" 
+                        className="hidden" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          triggerMascot('thinking', 'curieux', true);
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const text = ev.target?.result as string;
+                            setSelectedNote({
+                              id: file.name,
+                              title: file.name.replace(/\.[^/.]+$/, ""),
+                              relativePath: file.name,
+                              absolutePath: file.name,
+                              folder: "Uploads",
+                              frontmatter: {},
+                              tags: [],
+                              headings: [],
+                              wikilinks: [],
+                              rawContent: text,
+                              bodyContent: text,
+                              wordCount: text.split(/\s+/).length,
+                              lastModifiedMs: file.lastModified
+                            });
+                            setShowStudyExplorer(false);
+                            triggerMascot('orbit', 'heureux');
+                          };
+                          reader.readAsText(file);
+                        }} 
+                      />
+                      <div>
+                        <div className="w-9 h-9 rounded-xl bg-green-500/10 text-green-600 dark:text-green-400 flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 group-hover:rotate-3 mb-2.5">
+                          <FileText size={18} />
+                        </div>
+                        <div>
+                          <h4 className={`text-sm font-bold mb-1 ${t.textPrimary}`}>Upload Book</h4>
+                          <p className={`text-[11px] leading-relaxed ${t.textMuted}`}>
+                            Upload any .txt or .md book.
+                          </p>
+                        </div>
+                      </div>
+                    </label>
+
                     {/* Visual Graph Tile */}
                     <button 
                       onClick={() => setShowGraphView(true)}
-                      className={`text-left p-4 rounded-2xl border transition-all hover:scale-[1.02] active:scale-95 cursor-pointer ${t.card} flex flex-col justify-between group sm:col-span-2`}
+                      className={`text-left p-4 rounded-2xl border transition-all hover:scale-[1.02] active:scale-95 cursor-pointer ${t.card} flex flex-col justify-between group`}
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="w-9 h-9 rounded-xl bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 group-hover:rotate-3">
+                      <div>
+                        <div className="w-9 h-9 rounded-xl bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 group-hover:rotate-3 mb-2.5">
                           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
                         </div>
                         <div>
-                          <h4 className={`text-sm font-bold mb-0.5 ${t.textPrimary}`}>Interactive Knowledge Graph</h4>
+                          <h4 className={`text-sm font-bold mb-1 ${t.textPrimary}`}>Visual Graph</h4>
                           <p className={`text-[11px] leading-relaxed ${t.textMuted}`}>
-                            Visualize the connections between all your notes in a 2D physics network.
+                            2D map of your Brain.
                           </p>
                         </div>
                       </div>
