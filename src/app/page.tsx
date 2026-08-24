@@ -975,7 +975,7 @@ export default function Home() {
         <div className={`w-full max-w-md mx-auto h-full overflow-y-auto custom-scrollbar flex flex-col pb-32 animate-in fade-in zoom-in-95 duration-300`}>
           <div className="p-7 flex-1">
             <div className="flex justify-between items-center mb-6">
-              <h2 className={`text-2xl font-bold tracking-tight transition-colors ${t.textPrimary}`}>Settings</h2>
+              <h2 className={`text-2xl font-bold tracking-tight transition-colors ${t.textPrimary}`}>Stats</h2>
             </div>
 
             {/* Mascot Preview inside Settings */}

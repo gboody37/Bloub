@@ -82,30 +82,54 @@ export default function NoteExplorer({
   const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    try {
-      setSyncProgress({ status: 'uploading', scannedCount: 1, uploadedCount: 0, totalCount: 1 } as any);
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const res = await fetch('/api/extract/pdf', { method: 'POST', body: formData });
-      const data = await res.json();
-      
-      if (!data.success) throw new Error(data.error);
-      
-      const title = file.name.replace(/\.[^/.]+$/, "");
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) throw new Error('Not logged in');
-      
-      const newNote = {
+        try {
+        setSyncProgress({ status: 'scanning', scannedCount: 1, uploadedCount: 0, totalCount: 1 } as any);
+        
+        const arrayBuffer = await file.arrayBuffer();
+        
+        let pdfjsLib = (window as any).pdfjsLib;
+        if (!pdfjsLib) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+          pdfjsLib = (window as any).pdfjsLib;
+          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+        
+        const loadingTask = pdfjsLib.getDocument(new Uint8Array(arrayBuffer));
+        const pdf = await loadingTask.promise;
+        let text = '';
+        const maxPages = Math.min(pdf.numPages, 50); // Extract up to 50 pages to prevent browser crash
+        
+        for (let i = 1; i <= maxPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const strings = content.items.map((item: any) => item.str);
+          text += strings.join(' ') + '\n';
+          setSyncProgress({ status: 'uploading', scannedCount: 1, uploadedCount: i, totalCount: maxPages } as any);
+        }
+        
+        if (pdf.numPages > 50) {
+          text += `\n\n... (Extracted first 50 pages of the book to prevent memory limits)`;
+        }
+        
+        const title = file.name.replace(/\.[^/.]+$/, "");
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) throw new Error('Not logged in');
+        
+        const newNote = {
         user_id: user.id,
         title: title,
-        content: data.text,
+        content: text,
         path: `Documents/${file.name}.md`,
         folder: 'Documents',
         tags: ['document', 'pdf'],
-        word_count: data.text.split(/\s+/).length,
+        word_count: text.split(/\s+/).length,
         updated_at: new Date().toISOString()
       };
       
