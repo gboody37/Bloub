@@ -7,8 +7,7 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { ChevronLeft, ChevronRight, PenTool, Save, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
-// Use the exact same version we installed
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface PdfNotebookViewerProps {
   pdfUrl: string;
