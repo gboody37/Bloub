@@ -1586,6 +1586,30 @@ export default function Home() {
                           setIsFetchingNote(false);
                         }
                       }}
+                      onUpdateNote={async (updatedContent) => {
+                        const updated = { ...selectedNote, bodyContent: updatedContent, rawContent: updatedContent };
+                        setSelectedNote(updated);
+                        
+                        try {
+                          await fetch('/api/obsidian/notes', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              userId: session?.user?.id,
+                              notes: [{
+                                title: selectedNote.title,
+                                path: selectedNote.path || selectedNote.relativePath || selectedNote.id,
+                                content: updatedContent,
+                                folder: selectedNote.folder,
+                                tags: selectedNote.tags,
+                                word_count: updatedContent.split(/\s+/).length
+                              }]
+                            })
+                          });
+                        } catch (e) {
+                          console.error('Failed to save note update', e);
+                        }
+                      }}
                     />
                   </div>
                 ) : showGraphView ? (

@@ -33,6 +33,7 @@ interface NoteViewerProps {
   onClose?: () => void;
   onWikilinkClick?: (target: string) => void;
   onStartQuiz?: (note: ParsedObsidianNote) => void;
+  onUpdateNote?: (updatedContent: string) => void;
   isDark?: boolean;
 }
 
@@ -42,12 +43,20 @@ export default function NoteViewer({
   onClose,
   onWikilinkClick,
   onStartQuiz,
+  onUpdateNote,
   isDark = true
 }: NoteViewerProps) {
   const [showOutline, setShowOutline] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedCodeBlockIdx, setCopiedCodeBlockIdx] = useState<number | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
+
+  useEffect(() => {
+    setEditContent(note?.bodyContent || '');
+    setIsEditing(false);
+  }, [note?.id, note?.bodyContent]);
 
   const copyMarkdown = async () => {
     if (!note) return;
@@ -430,6 +439,31 @@ export default function NoteViewer({
             </button>
           )}
 
+          {/* Edit / Save Action */}
+          {onUpdateNote && (
+            <button
+              type="button"
+              onClick={() => {
+                if (isEditing) {
+                  onUpdateNote(editContent);
+                  setIsEditing(false);
+                } else {
+                  setIsEditing(true);
+                }
+              }}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                isEditing 
+                  ? 'bg-green-600 hover:bg-green-500 text-white shadow-md shadow-green-600/30' 
+                  : isDark 
+                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {isEditing ? <Check size={14} /> : <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>}
+              <span>{isEditing ? 'Save Note' : 'Edit Note'}</span>
+            </button>
+          )}
+
           {/* Copy Markdown */}
           <button
             type="button"
@@ -527,7 +561,17 @@ export default function NoteViewer({
       <div className="flex-1 flex flex-col md:flex-row gap-5 min-h-0">
         {/* Rendered Markdown Body */}
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          {renderMarkdownContent(note.bodyContent)}
+          {isEditing ? (
+            <textarea
+              className={`w-full min-h-[500px] h-full resize-none bg-transparent outline-none p-4 rounded-2xl border ${isDark ? 'border-slate-700 text-slate-200' : 'border-gray-300 text-gray-800'}`}
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              placeholder="Start typing markdown..."
+              spellCheck={false}
+            />
+          ) : (
+            renderMarkdownContent(editContent)
+          )}
 
           {/* Bidirectional Wikilinks Footer Section */}
           {note.wikilinks && note.wikilinks.length > 0 && (
