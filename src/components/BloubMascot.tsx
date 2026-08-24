@@ -286,6 +286,14 @@ export default function BloubMascot({
         </g>
       )}
 
+      {/* Book bookmark ribbon */}
+      {shape === 'livre' && isBaseBodyActive && (
+        <g style={{ pointerEvents: 'none' }}>
+          {/* Bookmark Ribbon hanging from bottom center */}
+          <path d="M -5,40 L -8,68 L 4,65 L 2,40 Z" fill="#ef4444" />
+        </g>
+      )}
+
       {/* Arcs (rings, comet trails, swoosh) */}
       <g data-arcs="" />
 

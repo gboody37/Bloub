@@ -960,215 +960,26 @@ export default function Home() {
     <div className={`min-h-screen w-full ${bgTheme} transition-colors duration-500 font-sans`}>
       <main className={`w-full ${(!isListView && activeTab === 'lists' && activeCatObj?.type === 'study') ? 'max-w-7xl px-2 sm:px-6' : 'max-w-md'} mx-auto min-h-screen flex flex-col relative transition-all duration-500`}>
         {/* Header */}
-        <header className={`pt-12 pb-6 px-6 sticky top-0 z-30 flex justify-between items-center border-b transition-colors duration-500 ${bgTheme} ${isDark ? 'border-slate-800' : 'border-gray-200/30'}`}>
-          <div className="flex-1">
-            <h1 className={`text-3xl font-bold tracking-tight transition-colors ${t.textPrimary}`}>
-              {activeTab === 'lists' ? (isListView ? 'My Lists' : activeCatObj.name) : activeTab === 'today' ? 'Today' : 'Stats'}
-            </h1>
-            {!isListView && activeTab === 'lists' && (
-              <div className="flex items-center gap-2 mt-1">
-                {activeCatObj.type === 'study' ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                    <GraduationCap size={13} /> Study Workspace
-                  </span>
-                ) : (
-                  <p className={`text-sm font-medium transition-colors ${t.textSecondary}`}>{completedCount} of {totalCount} completed</p>
-                )}
-              </div>
-            )}
-          </div>
-        </header>
-
-      {activeTab === 'settings' && (
-        <div className={`w-full max-w-md mx-auto h-full overflow-y-auto custom-scrollbar flex flex-col pb-32 animate-in fade-in zoom-in-95 duration-300`}>
-          <div className="p-7 flex-1">
-            
-
-            {/* Mascot Preview inside Settings */}
-            <div className={`flex flex-col items-center mb-6 rounded-2xl p-4 ${isDark ? 'bg-slate-800/50' : 'bg-gray-50'}`}>
-               <div className="w-24 h-24 mb-4">
-                 <BloubMascot size={96} state="idle" expression={mascotExpression} shape={targetShape} color={targetColor} isStatic={true} />
-               </div>
-               
-               {/* Horizontal Category Scroller */}
-               <div className="w-full flex gap-3 overflow-x-auto pb-2 custom-scrollbar px-1">
-                 <button onClick={() => setSettingsTarget('global')} className={`flex-shrink-0 flex flex-col items-center p-2 rounded-2xl border transition-all ${settingsTarget === 'global' ? t.pillActive : t.pillInactive}`}>
-                   <div className="w-8 h-8 flex items-center justify-center"><BloubMascot size={32} state="idle" expression="neutre" shape={mascotShape} color={mascotColor} isStatic={true} /></div>
-                   <span className="text-[10px] font-semibold mt-1">Global</span>
-                 </button>
-                 {categories.map(c => {
-                   const { shape, color } = getListMascot(c, catSettings);
-                   return (
-                     <button key={c.id} onClick={() => setSettingsTarget(c.id)} className={`flex-shrink-0 flex flex-col items-center p-2 rounded-2xl border transition-all ${settingsTarget === c.id ? t.pillActive : t.pillInactive}`}>
-                       <div className="w-8 h-8 flex items-center justify-center"><BloubMascot size={32} state="idle" expression="neutre" shape={shape} color={color} isStatic={true} /></div>
-                       <span className="text-[10px] font-semibold mt-1 truncate w-12 text-center">{c.name}</span>
-                     </button>
-                   );
-                 })}
-               </div>
+        {activeTab !== 'settings' && (
+          <header className={`pt-12 pb-6 px-6 sticky top-0 z-30 flex justify-between items-center border-b transition-colors duration-500 ${bgTheme} ${isDark ? 'border-slate-800' : 'border-gray-200/30'}`}>
+            <div className="flex-1">
+              <h1 className={`text-3xl font-bold tracking-tight transition-colors ${t.textPrimary}`}>
+                {activeTab === 'lists' ? (isListView ? 'My Lists' : activeCatObj.name) : activeTab === 'today' ? 'Today' : 'Stats'}
+              </h1>
+              {!isListView && activeTab === 'lists' && (
+                <div className="flex items-center gap-2 mt-1">
+                  {activeCatObj.type === 'study' ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                      <GraduationCap size={13} /> Study Workspace
+                    </span>
+                  ) : (
+                    <p className={`text-sm font-medium transition-colors ${t.textSecondary}`}>{completedCount} of {totalCount} completed</p>
+                  )}
+                </div>
+              )}
             </div>
-
-            <div className="space-y-5">
-              <div>
-                <span className={`flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-3 transition-colors ${t.textMuted}`}>
-                  <Shapes size={14} /> Shape
-                </span>
-                <div className="flex flex-wrap gap-2 pt-1 pb-4">
-                  {['cercle', 'squircle', 'triangle', 'hexagone', 'nuage', 'goutte', 'galet', 'capsule', 'oeuf', 'soleil', 'fromage', 'livre'].map(s => (
-                    <button key={s} onClick={() => updateTargetShape(s)}
-                      className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${targetShape === s ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
-                      <div className="w-8 h-8 flex items-center justify-center pointer-events-none drop-shadow-sm">
-                        <BloubMascot size={32} state="idle" expression="neutre" shape={s} color={targetColor} isStatic={true} />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <span className={`flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-3 transition-colors ${t.textMuted}`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg> 
-                  Expression
-                </span>
-                <div className="flex flex-wrap gap-2 pt-1 pb-4">
-                  {['neutre', 'attentif', 'surpris', 'excite', 'heureux', 'hilare', 'colere', 'triste', 'effraye', 'mefiant'].map(expr => (
-                    <button key={expr} onClick={() => setMascotExpression(expr as any)}
-                      className={`flex flex-col items-center justify-center px-3 py-2 rounded-xl border transition-all ${mascotExpression === expr ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
-                      <span className="text-xs font-medium capitalize">{expr}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <span className={`flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-3 transition-colors ${t.textMuted}`}>
-                  <PaintBucket size={14} /> Colour
-                </span>
-                <div className="flex flex-wrap gap-2 pt-1 pb-4">
-                  {COLORS.map(c => (
-                    <button key={c.id} onClick={() => updateTargetColor(c.id)}
-                      className={`flex flex-col items-center justify-center p-2 rounded-full border transition-all ${targetColor === c.id ? 'bg-blue-500 border-blue-500 shadow-md scale-110' : isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 border-gray-200 hover:border-gray-400'}`}>
-                      <div className="w-5 h-5 rounded-full shadow-inner border border-black/10" style={{ backgroundColor: c.hex }} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <span className={`flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-3 transition-colors ${t.textMuted}`}>
-                  <Palette size={14} /> Theme
-                </span>
-                <div className="flex flex-wrap gap-2 pt-1 pb-4">
-                  {THEMES.map(theme => (
-                    <button key={theme.id} onClick={() => setBgTheme(theme.id)}
-                      className={`flex items-center gap-2 py-1.5 px-3 text-sm font-medium rounded-xl border transition-all ${bgTheme === theme.id ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-400'}`}>
-                      <div className="w-3 h-3 rounded-full border border-black/20 shadow-inner flex-shrink-0" style={{ backgroundColor: theme.color }} />
-                      {theme.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Push Notifications Section */}
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handlePushToggle}
-                  className={`w-full flex items-center justify-between py-3.5 px-4 rounded-2xl border transition-all font-semibold text-sm active:scale-95 ${
-                    isSubscribed 
-                      ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400' 
-                      : isDark
-                        ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
-                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <Bell size={16} />
-                    {isSubscribed ? 'Notifications Enabled' : 'Enable Mobile Notifications'}
-                  </span>
-                </button>
-                {isSubscribed && (
-                  <button
-                    type="button"
-                    onClick={sendTestPush}
-                    className="w-full mt-2 py-2 text-xs font-semibold text-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    <Smartphone size={12} />
-                    Send Test Push Notification
-                  </button>
-                )}
-              </div>
-
-              {/* AI Configuration Section */}
-              <div className="pt-2 border-t border-dashed border-gray-300 dark:border-slate-700 mt-2">
-                <span className={`flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-2 transition-colors ${t.textMuted}`}>
-                  <Sparkles size={14} className="text-purple-500" /> NotebookLM API
-                </span>
-                <div className="flex gap-2">
-                  <input
-                    type="password"
-                    placeholder="Gemini API Key..."
-                    value={geminiApiKey}
-                    onChange={(e) => setGeminiApiKey(e.target.value)}
-                    onBlur={() => {
-                      if (!session) return;
-                      const meta = session.user.user_metadata || {};
-                      meta.geminiApiKey = geminiApiKey;
-                      supabase.auth.updateUser({ data: meta }).catch(console.error);
-                    }}
-                    className={`flex-1 px-3 py-2 text-sm rounded-xl border outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-200 focus:border-purple-500' : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-purple-500'}`}
-                  />
-                </div>
-                <p className="text-[10px] opacity-50 mt-1.5 px-1 leading-tight">
-                  Required for AI Quizzes. Saved securely to your cloud profile.
-                </p>
-              </div>
-
-              {/* Antigravity CLI Skill Option */}
-              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-4`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-orange-500 flex items-center gap-1.5">
-                    <Cpu size={14} /> Antigravity /todo Skill
-                  </span>
-                  <a 
-                    href="/downloads/install-todo-skill.ps1" 
-                    download="install-todo-skill.ps1"
-                    className="text-xs font-semibold text-blue-500 hover:text-blue-600 flex items-center gap-1"
-                  >
-                    Download <Download size={10} />
-                  </a>
-                </div>
-                <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                  Control this app using <code className="font-mono text-[10px] font-semibold text-orange-400">/todo</code> inside Antigravity. Download the script, open PowerShell, and run:
-                  <code className={`block mt-1.5 p-1.5 rounded font-mono text-[10px] ${isDark ? 'bg-slate-900 text-orange-300' : 'bg-gray-100 text-orange-700'}`}>
-                    .\install-todo-skill.ps1
-                  </code>
-                </p>
-              </div>
-              
-              {/* Sign Out Button */}
-              <div className={`mt-6 pt-4 border-t ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
-                <button
-                  onClick={async () => {
-                    await supabase.auth.signOut();
-                    setTodos([]);
-                    setCategories([]);
-                    setShowSettings(false);
-                  }}
-                  className={`w-full py-3 px-4 font-semibold rounded-2xl transition-all active:scale-95 text-sm flex items-center justify-center gap-2 ${
-                    isDark 
-                      ? 'bg-red-950/30 hover:bg-red-950/50 text-red-400 border border-red-900/30' 
-                      : 'bg-red-50 hover:bg-red-100 text-red-600 border border-red-100'
-                  }`}
-                >
-                  <LogOut size={16} />
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          </header>
+        )}
 
       {/* Add Task Modal */}
       {showAddModal && (
@@ -1327,8 +1138,266 @@ export default function Home() {
         </div>
       )}
 
-      {/* Main Content Area */}
-      <div className="px-6 py-6 flex-1 relative">
+      {/* Main Content Area or Settings */}
+      {activeTab === 'settings' ? (
+        <div className="w-full max-w-md mx-auto px-6 pt-6 pb-32 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-300 flex flex-col">
+          {/* Mascot Preview inside Settings */}
+          <div className="bg-slate-900/90 dark:bg-slate-900 border border-slate-800/80 rounded-3xl p-6 shadow-xl shadow-black/20 flex flex-col items-center mb-6">
+            <div className="w-32 h-32 flex items-center justify-center mb-4 cursor-pointer hover:scale-105 transition-transform duration-300" onClick={() => triggerMascot('orbit', mascotExpression)}>
+              <BloubMascot size={120} state="idle" expression={mascotExpression} shape={targetShape} color={targetColor} isStatic={false} />
+            </div>
+            
+            {/* Horizontal Category Scroller */}
+            <div className="w-full flex gap-2.5 overflow-x-auto pb-1 pt-1 px-1 custom-scrollbar scroll-smooth">
+              <button
+                type="button"
+                onClick={() => setSettingsTarget('global')}
+                className={`flex-shrink-0 flex flex-col items-center py-2 px-3 rounded-2xl border transition-all ${
+                  settingsTarget === 'global'
+                    ? 'bg-slate-700/90 border-blue-500 text-white shadow-md scale-105 ring-1 ring-blue-500/30'
+                    : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+              >
+                <div className="w-8 h-8 flex items-center justify-center pointer-events-none">
+                  <BloubMascot size={32} state="idle" expression={mascotExpression} shape={mascotShape} color={mascotColor} isStatic={true} />
+                </div>
+                <span className="text-[10px] font-semibold mt-1">Global</span>
+              </button>
+              {categories.map(c => {
+                const { shape, color } = getListMascot(c, catSettings);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setSettingsTarget(c.id)}
+                    className={`flex-shrink-0 flex flex-col items-center py-2 px-3 rounded-2xl border transition-all ${
+                      settingsTarget === c.id
+                        ? 'bg-slate-700/90 border-blue-500 text-white shadow-md scale-105 ring-1 ring-blue-500/30'
+                        : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    }`}
+                  >
+                    <div className="w-8 h-8 flex items-center justify-center pointer-events-none">
+                      <BloubMascot size={32} state="idle" expression="neutre" shape={shape} color={color} isStatic={true} />
+                    </div>
+                    <span className="text-[10px] font-semibold mt-1 truncate max-w-[56px] text-center">{c.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {/* Shape Section */}
+            <div>
+              <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
+                <Shapes size={14} /> Shape
+              </span>
+              <div className="grid grid-cols-4 gap-2">
+                {['cercle', 'squircle', 'galet', 'capsule', 'triangle', 'hexagone', 'nuage', 'goutte', 'oeuf', 'soleil', 'fromage', 'livre'].map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => updateTargetShape(s)}
+                    className={`flex flex-col items-center justify-center p-2 rounded-2xl border transition-all ${
+                      targetShape === s
+                        ? 'bg-blue-600/20 border-blue-500 text-blue-400 shadow-md ring-1 ring-blue-500/40'
+                        : isDark
+                          ? 'bg-slate-800/80 text-slate-300 border-slate-700/60 hover:bg-slate-700/80 hover:border-slate-600'
+                          : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="w-8 h-8 flex items-center justify-center pointer-events-none drop-shadow-sm">
+                      <BloubMascot size={32} state="idle" expression="neutre" shape={s} color={targetColor} isStatic={true} />
+                    </div>
+                    <span className="text-[10px] font-medium capitalize mt-1 truncate max-w-full">{s}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Expression Section */}
+            <div>
+              <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+                Expression
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {['neutre', 'attentif', 'surpris', 'excite', 'heureux', 'hilare', 'colere', 'triste', 'effraye', 'mefiant', 'confus', 'curieux', 'fier', 'timide', 'blase', 'somnolent'].map(expr => (
+                  <button
+                    key={expr}
+                    type="button"
+                    onClick={() => setMascotExpression(expr as ExpressionId)}
+                    className={`px-3 py-2 rounded-xl text-xs font-medium capitalize border transition-all ${
+                      mascotExpression === expr
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-md scale-105 font-semibold'
+                        : isDark
+                          ? 'bg-slate-800/80 text-slate-300 border-slate-700/60 hover:bg-slate-700/80 hover:text-white'
+                          : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-400'
+                    }`}
+                  >
+                    {expr}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Colour Section */}
+            <div>
+              <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
+                <PaintBucket size={14} /> Colour
+              </span>
+              <div className="grid grid-cols-6 gap-2.5">
+                {COLORS.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => updateTargetColor(c.id)}
+                    className={`flex aspect-square items-center justify-center rounded-full border-2 transition-all cursor-pointer ${
+                      targetColor === c.id
+                        ? 'border-blue-500 scale-110 shadow-md ring-2 ring-blue-500/40'
+                        : isDark
+                          ? 'border-transparent hover:border-slate-600'
+                          : 'border-transparent hover:border-gray-300'
+                    }`}
+                    aria-label={c.id}
+                    title={c.id}
+                  >
+                    <span
+                      className="block w-6 h-6 rounded-full ring-1 ring-black/20 ring-inset shadow-inner"
+                      style={{ backgroundColor: c.hex }}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Theme Section */}
+            <div>
+              <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
+                <Palette size={14} /> Theme
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                {THEMES.map(theme => (
+                  <button
+                    key={theme.id}
+                    type="button"
+                    onClick={() => setBgTheme(theme.id)}
+                    className={`flex items-center gap-2 py-2 px-3 text-xs font-medium rounded-xl border transition-all ${
+                      bgTheme === theme.id
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-md font-semibold'
+                        : isDark
+                          ? 'bg-slate-800/80 text-slate-300 border-slate-700/60 hover:bg-slate-700/80 hover:text-white'
+                          : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-inner flex-shrink-0" style={{ backgroundColor: theme.color }} />
+                    <span className="truncate">{theme.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Push Notifications Section */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handlePushToggle}
+                className={`w-full flex items-center justify-between py-3.5 px-4 rounded-2xl border transition-all font-semibold text-sm active:scale-95 ${
+                  isSubscribed 
+                    ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400' 
+                    : isDark
+                      ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700'
+                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <Bell size={16} />
+                  {isSubscribed ? 'Notifications Enabled' : 'Enable Mobile Notifications'}
+                </span>
+              </button>
+              {isSubscribed && (
+                <button
+                  type="button"
+                  onClick={sendTestPush}
+                  className="w-full mt-2 py-2 text-xs font-semibold text-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Smartphone size={12} />
+                  Send Test Push Notification
+                </button>
+              )}
+            </div>
+
+            {/* AI Configuration Section */}
+            <div className="pt-2 border-t border-dashed border-gray-300 dark:border-slate-700 mt-2">
+              <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-2 transition-colors text-slate-400 dark:text-slate-500">
+                <Sparkles size={14} className="text-purple-500" /> NotebookLM API
+              </span>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  placeholder="Gemini API Key..."
+                  value={geminiApiKey}
+                  onChange={(e) => setGeminiApiKey(e.target.value)}
+                  onBlur={() => {
+                    if (!session) return;
+                    const meta = session.user.user_metadata || {};
+                    meta.geminiApiKey = geminiApiKey;
+                    supabase.auth.updateUser({ data: meta }).catch(console.error);
+                  }}
+                  className={`flex-1 px-3 py-2 text-sm rounded-xl border outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-200 focus:border-purple-500' : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-purple-500'}`}
+                />
+              </div>
+              <p className="text-[10px] opacity-50 mt-1.5 px-1 leading-tight text-slate-400">
+                Required for AI Quizzes. Saved securely to your cloud profile.
+              </p>
+            </div>
+
+            {/* Antigravity CLI Skill Option */}
+            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-4`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-orange-500 flex items-center gap-1.5">
+                  <Cpu size={14} /> Antigravity /todo Skill
+                </span>
+                <a 
+                  href="/downloads/install-todo-skill.ps1" 
+                  download="install-todo-skill.ps1"
+                  className="text-xs font-semibold text-blue-500 hover:text-blue-600 flex items-center gap-1"
+                >
+                  Download <Download size={10} />
+                </a>
+              </div>
+              <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                Control this app using <code className="font-mono text-[10px] font-semibold text-orange-400">/todo</code> inside Antigravity. Download the script, open PowerShell, and run:
+                <code className={`block mt-1.5 p-1.5 rounded font-mono text-[10px] ${isDark ? 'bg-slate-900 text-orange-300' : 'bg-gray-100 text-orange-700'}`}>
+                  .\install-todo-skill.ps1
+                </code>
+              </p>
+            </div>
+            
+            {/* Sign Out Button */}
+            <div className={`mt-6 pt-4 border-t ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
+              <button
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  setTodos([]);
+                  setCategories([]);
+                  setShowSettings(false);
+                }}
+                className={`w-full py-3 px-4 font-semibold rounded-2xl transition-all active:scale-95 text-sm flex items-center justify-center gap-2 ${
+                  isDark 
+                    ? 'bg-red-950/30 hover:bg-red-950/50 text-red-400 border border-red-900/30' 
+                    : 'bg-red-50 hover:bg-red-100 text-red-600 border border-red-100'
+                }`}
+              >
+                <LogOut size={16} />
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Main Content Area */
+        <div className="px-6 py-6 flex-1 relative">
         
         {/* Large Hero Mascot */}
         <div className={`flex justify-center transition-all duration-300 ${showAddModal ? 'mb-2 pt-1' : 'mb-8 pt-4'}`}>
@@ -2001,6 +2070,7 @@ export default function Home() {
           </div>
         ) : null}
       </div>
+      )}
       
       {/* Bottom Navigation */}
       {(() => {
