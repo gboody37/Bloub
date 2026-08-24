@@ -678,6 +678,20 @@ export default function NoteViewer({
               placeholder="Start typing markdown..."
               spellCheck={false}
             />
+          ) : note.frontmatter?.pdf_url ? (
+            <div className="flex flex-col w-full h-full space-y-4 p-2">
+              <iframe
+                src={note.frontmatter.pdf_url}
+                className={`w-full h-[75vh] rounded-2xl shadow-md border ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}
+                title="PDF Viewer"
+              />
+              <details className={`p-4 rounded-xl border transition-all ${isDark ? 'bg-slate-900/30 border-slate-800 text-slate-400' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                <summary className="cursor-pointer text-xs font-bold uppercase tracking-wider select-none outline-none">Show Extracted Text (For AI Quizzes)</summary>
+                <div className="mt-4 opacity-80 text-sm">
+                  {renderMarkdownContent(editContent)}
+                </div>
+              </details>
+            </div>
           ) : (
             renderMarkdownContent(editContent)
           )}

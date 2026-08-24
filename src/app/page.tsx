@@ -1347,8 +1347,8 @@ export default function Home() {
                   className={`flex-1 px-3 py-2 text-sm rounded-xl border outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-200 focus:border-purple-500' : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-purple-500'}`}
                 />
               </div>
-              <p className="text-[10px] opacity-50 mt-1.5 px-1 leading-tight text-slate-400">
-                Required for AI Quizzes. Saved securely to your cloud profile.
+              <p className="text-[10px] opacity-70 mt-1.5 px-1 leading-tight text-slate-400">
+                Gemini 1.5 is <strong className="text-purple-400">100% free with no limits</strong> for personal use. Get your free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-400 hover:underline">aistudio.google.com</a>.
               </p>
             </div>
 

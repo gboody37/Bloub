@@ -87,6 +87,20 @@ export default function NoteExplorer({
         
         const arrayBuffer = await file.arrayBuffer();
         
+        let pdfPublicUrl = '';
+        if (file.name.toLowerCase().endsWith('.pdf')) {
+          setSyncProgress({ status: 'uploading', scannedCount: 1, uploadedCount: 1, totalCount: 2 } as any);
+          const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('media')
+            .upload(`pdfs/${fileName}`, file);
+          
+          if (!uploadError && uploadData) {
+            const { data: urlData } = supabase.storage.from('media').getPublicUrl(`pdfs/${fileName}`);
+            pdfPublicUrl = urlData.publicUrl;
+          }
+        }
+        
         let pdfjsLib = (window as any).pdfjsLib;
         if (!pdfjsLib) {
           await new Promise((resolve, reject) => {
@@ -102,7 +116,7 @@ export default function NoteExplorer({
         
         const loadingTask = pdfjsLib.getDocument(new Uint8Array(arrayBuffer));
         const pdf = await loadingTask.promise;
-        let text = '';
+        let text = pdfPublicUrl ? `---\npdf_url: ${pdfPublicUrl}\n---\n\n` : '';
         const maxPages = Math.min(pdf.numPages, 50); // Extract up to 50 pages to prevent browser crash
         
         for (let i = 1; i <= maxPages; i++) {
