@@ -1343,71 +1343,77 @@ export default function Home() {
               </div>
   
               {/* AI Configuration Section */}
-              <div className="pt-2 border-t border-dashed border-gray-300 dark:border-slate-700 mt-2">
-                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-2 transition-colors text-slate-400 dark:text-slate-500">
-                  <Sparkles size={14} className="text-purple-500" /> NotebookLM API
-                </span>
-                <div className="flex gap-2">
-                  <input
-                    type="password"
-                    placeholder="Gemini API Key..."
-                    value={geminiApiKey}
-                    onChange={(e) => setGeminiApiKey(e.target.value)}
-                    onBlur={() => {
-                      if (!session) return;
-                      const meta = session.user.user_metadata || {};
-                      meta.geminiApiKey = geminiApiKey;
-                      supabase.auth.updateUser({ data: meta }).catch(console.error);
-                    }}
-                    className={`flex-1 px-3 py-2 text-sm rounded-xl border outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-200 focus:border-purple-500' : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-purple-500'}`}
-                  />
+                <div className="mt-8 flex flex-col gap-5 relative">
+                  
+                  {/* NotebookLM API */}
+                  <div className="flex flex-col gap-3">
+                    <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                      <Sparkles size={12} className="text-purple-400" /> NOTEBOOKLM API
+                    </span>
+                    <div className="relative group">
+                      <input
+                        type="password"
+                        placeholder="Paste your Gemini API Key..."
+                        value={geminiApiKey}
+                        onChange={(e) => setGeminiApiKey(e.target.value)}
+                        onBlur={() => {
+                          if (!session) return;
+                          const meta = session.user.user_metadata || {};
+                          meta.geminiApiKey = geminiApiKey;
+                          supabase.auth.updateUser({ data: meta }).catch(console.error);
+                        }}
+                        className={`w-full px-4 py-3.5 text-xs font-mono rounded-2xl border-2 outline-none transition-all shadow-inner ${isDark ? 'bg-[#0f111a] border-slate-800 text-slate-300 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 placeholder:text-slate-700' : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-purple-400 focus:ring-4 focus:ring-purple-500/10'}`}
+                      />
+                      <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/5 pointer-events-none"></div>
+                    </div>
+                    <p className="text-[10px] px-1 text-slate-500 font-medium">
+                      Gemini 1.5 is <strong className="text-purple-400 font-bold">100% free with no limits</strong> for personal use. Get your free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-400 hover:text-blue-300 transition-colors">aistudio.google.com</a>.
+                    </p>
+                  </div>
+      
+                  {/* Antigravity CLI Skill Option */}
+                  <div className={`p-4 rounded-2xl border-2 relative overflow-hidden group transition-all ${isDark ? 'bg-[#0f111a] border-slate-800 hover:border-orange-500/30' : 'bg-slate-50 border-gray-200 hover:border-orange-400/50'}`}>
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none transition-all group-hover:bg-orange-500/10"></div>
+                    <div className="flex items-center justify-between mb-3 relative z-10">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-orange-400 flex items-center gap-1.5">
+                        <Cpu size={12} /> ANTIGRAVITY /TODO SKILL
+                      </span>
+                      <a 
+                        href="/downloads/install-todo-skill.ps1" 
+                        download="install-todo-skill.ps1"
+                        className="text-[10px] font-bold uppercase tracking-wider text-blue-400 hover:text-blue-300 flex items-center gap-1 bg-blue-500/10 px-2 py-1 rounded-full transition-colors"
+                      >
+                        Download <Download size={10} />
+                      </a>
+                    </div>
+                    <p className={`text-[11px] leading-relaxed relative z-10 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                      Control this app using <code className="font-mono font-bold text-orange-400">/todo</code> inside Antigravity. Download the script, open PowerShell, and run:
+                      <code className={`block mt-2 p-2.5 rounded-xl font-mono text-[10px] border ${isDark ? 'bg-black/40 border-white/5 text-orange-300' : 'bg-white border-gray-200 text-orange-600 shadow-sm'}`}>
+                        .\install-todo-skill.ps1
+                      </code>
+                    </p>
+                  </div>
+                  
+                  {/* Sign Out Button */}
+                  <div className="pt-2 mt-2">
+                    <button
+                      onClick={async () => {
+                        await supabase.auth.signOut();
+                        setTodos([]);
+                        setCategories([]);
+                        setShowSettings(false);
+                      }}
+                      className={`w-full py-3.5 px-4 font-bold tracking-wide uppercase rounded-2xl transition-all active:scale-95 text-[11px] flex items-center justify-center gap-2 border-2 shadow-sm ${
+                        isDark 
+                          ? 'bg-[#0f111a] hover:bg-red-950/20 text-red-500 border-slate-800 hover:border-red-900/50 hover:shadow-red-900/20' 
+                          : 'bg-white hover:bg-red-50 text-red-600 border-gray-200 hover:border-red-200 hover:shadow-red-500/10'
+                      }`}
+                    >
+                      <LogOut size={14} />
+                      Sign Out
+                    </button>
+                  </div>
                 </div>
-                <p className="text-[10px] opacity-70 mt-1.5 px-1 leading-tight text-slate-400">
-                  Gemini 1.5 is <strong className="text-purple-400">100% free with no limits</strong> for personal use. Get your free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-400 hover:underline">aistudio.google.com</a>.
-                </p>
-              </div>
-  
-              {/* Antigravity CLI Skill Option */}
-              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-4`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-orange-500 flex items-center gap-1.5">
-                    <Cpu size={14} /> Antigravity /todo Skill
-                  </span>
-                  <a 
-                    href="/downloads/install-todo-skill.ps1" 
-                    download="install-todo-skill.ps1"
-                    className="text-xs font-semibold text-blue-500 hover:text-blue-600 flex items-center gap-1"
-                  >
-                    Download <Download size={10} />
-                  </a>
-                </div>
-                <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                  Control this app using <code className="font-mono text-[10px] font-semibold text-orange-400">/todo</code> inside Antigravity. Download the script, open PowerShell, and run:
-                  <code className={`block mt-1.5 p-1.5 rounded font-mono text-[10px] ${isDark ? 'bg-slate-900 text-orange-300' : 'bg-gray-100 text-orange-700'}`}>
-                    .\install-todo-skill.ps1
-                  </code>
-                </p>
-              </div>
-              
-              {/* Sign Out Button */}
-              <div className={`mt-6 pt-4 border-t ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
-                <button
-                  onClick={async () => {
-                    await supabase.auth.signOut();
-                    setTodos([]);
-                    setCategories([]);
-                    setShowSettings(false);
-                  }}
-                  className={`w-full py-3 px-4 font-semibold rounded-2xl transition-all active:scale-95 text-sm flex items-center justify-center gap-2 ${
-                    isDark 
-                      ? 'bg-red-950/30 hover:bg-red-950/50 text-red-400 border border-red-900/30' 
-                      : 'bg-red-50 hover:bg-red-100 text-red-600 border border-red-100'
-                  }`}
-                >
-                  <LogOut size={16} />
-                  Sign Out
-                </button>
-              </div>
             </div>
           </div>
 
