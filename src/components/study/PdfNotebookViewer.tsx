@@ -30,56 +30,51 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
   
   // Annotation State
   const [annotations, setAnnotations] = useState<Record<number, any[]>>({});
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [currentDraw, setCurrentDraw] = useState<any>(null);
+  const overlayRef = React.useRef<HTMLDivElement>(null);
   
-  const handleOverlayMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (pdfTool === 'cursor') return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+  const handleContainerMouseUp = (e: React.MouseEvent) => {
+    if (!overlayRef.current) return;
+    const containerRect = overlayRef.current.getBoundingClientRect();
     
     if (pdfTool === 'text') {
       const text = prompt('Enter text:');
       if (text) {
+        const x = (e.clientX - containerRect.left) / zoomLevel;
+        const y = (e.clientY - containerRect.top) / zoomLevel;
         setAnnotations(prev => ({
           ...prev,
           [pageNumber]: [...(prev[pageNumber] || []), { id: Date.now(), type: 'text', x, y, text }]
         }));
+        setPdfTool('cursor');
       }
-      setPdfTool('cursor');
       return;
     }
     
     if (pdfTool === 'highlight') {
-      setIsDrawing(true);
-      setCurrentDraw({ id: Date.now(), type: 'highlight', startX: x, startY: y, w: 0, h: 0 });
+      const selection = window.getSelection();
+      if (selection && !selection.isCollapsed) {
+        const range = selection.getRangeAt(0);
+        const rects = Array.from(range.getClientRects());
+        
+        const newHighlights = rects.map((rect, i) => ({
+          id: Date.now() + i,
+          type: 'highlight',
+          startX: (rect.left - containerRect.left) / zoomLevel,
+          startY: (rect.top - containerRect.top) / zoomLevel,
+          w: rect.width / zoomLevel,
+          h: rect.height / zoomLevel
+        }));
+
+        setAnnotations(prev => ({
+          ...prev,
+          [pageNumber]: [...(prev[pageNumber] || []), ...newHighlights]
+        }));
+        
+        selection.removeAllRanges();
+      }
     }
   };
 
-  const handleOverlayMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isDrawing || !currentDraw || pdfTool !== 'highlight') return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    setCurrentDraw((prev: any) => ({
-      ...prev,
-      w: x - prev.startX,
-      h: y - prev.startY
-    }));
-  };
-
-  const handleOverlayMouseUp = () => {
-    if (isDrawing && currentDraw) {
-      setAnnotations(prev => ({
-        ...prev,
-        [pageNumber]: [...(prev[pageNumber] || []), currentDraw]
-      }));
-    }
-    setIsDrawing(false);
-    setCurrentDraw(null);
-  };
 
   
   const handleParentMouseMove = (e: React.MouseEvent) => {
@@ -175,37 +170,22 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
             className="drop-shadow-2xl"
          >
            
-           <div className="relative inline-block shadow-2xl">
-             <div 
-               className="absolute inset-0 z-10" 
-               style={{ pointerEvents: pdfTool === 'cursor' ? 'none' : 'auto', cursor: pdfTool === 'text' ? 'text' : pdfTool === 'highlight' ? 'crosshair' : 'default' }}
-               onMouseDown={handleOverlayMouseDown}
-               onMouseMove={handleOverlayMouseMove}
-               onMouseUp={handleOverlayMouseUp}
-               onMouseLeave={handleOverlayMouseUp}
-             >
+           
+           <div className="relative inline-block shadow-2xl" ref={overlayRef} onMouseUp={handleContainerMouseUp} style={{ cursor: pdfTool === 'text' ? 'text' : pdfTool === 'highlight' ? 'text' : 'default' }}>
+             <div className="absolute inset-0 z-20 pointer-events-none">
                {(annotations[pageNumber] || []).map(ann => {
                  if (ann.type === 'highlight') {
-                   const w = Math.abs(ann.w);
-                   const h = Math.abs(ann.h);
-                   const left = ann.w < 0 ? ann.startX + ann.w : ann.startX;
-                   const top = ann.h < 0 ? ann.startY + ann.h : ann.startY;
+                   const w = Math.abs(ann.w) * zoomLevel;
+                   const h = Math.abs(ann.h) * zoomLevel;
+                   const left = ann.startX * zoomLevel;
+                   const top = ann.startY * zoomLevel;
                    return <div key={ann.id} className="absolute bg-yellow-400/40 mix-blend-multiply" style={{ left, top, width: w, height: h }} />;
                  }
                  if (ann.type === 'text') {
-                   return <div key={ann.id} className="absolute text-purple-600 font-bold text-lg bg-white/80 px-2 py-1 rounded shadow-sm border border-purple-200 whitespace-pre" style={{ left: ann.x, top: ann.y }}>{ann.text}</div>;
+                   return <div key={ann.id} className="absolute text-purple-600 font-bold text-lg bg-white/80 px-2 py-1 rounded shadow-sm border border-purple-200 whitespace-pre pointer-events-auto" style={{ left: ann.x * zoomLevel, top: ann.y * zoomLevel }}>{ann.text}</div>;
                  }
                  return null;
                })}
-               {currentDraw && currentDraw.type === 'highlight' && (
-                 <div className="absolute bg-yellow-400/40 mix-blend-multiply border border-yellow-400/50" 
-                      style={{ 
-                        left: currentDraw.w < 0 ? currentDraw.startX + currentDraw.w : currentDraw.startX, 
-                        top: currentDraw.h < 0 ? currentDraw.startY + currentDraw.h : currentDraw.startY, 
-                        width: Math.abs(currentDraw.w), 
-                        height: Math.abs(currentDraw.h) 
-                      }} />
-               )}
              </div>
              <Page 
                pageNumber={pageNumber} 
@@ -216,41 +196,6 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
              />
            </div>
 
-         </Document>
-         
-         {numPages && (
-           <div className="sticky bottom-6 mt-6 flex items-center gap-4 bg-slate-900/90 backdrop-blur px-6 py-3 rounded-full border border-slate-700 shadow-2xl z-50">
-               <button onClick={() => setPageNumber(p => Math.max(1, p - 1))} disabled={pageNumber <= 1} className="p-1.5 text-white disabled:opacity-30 hover:bg-slate-800 rounded-full transition-colors"><ChevronLeft size={20}/></button>
-               
-               <div className="flex items-center gap-2 text-white text-xs tracking-widest font-bold uppercase">
-                 <span>Page</span>
-                 <input 
-                   type="number" 
-                   min={1} 
-                   max={numPages || 1} 
-                   value={pageNumber} 
-                   onChange={(e) => {
-                     const val = parseInt(e.target.value);
-                     if (!isNaN(val)) setPageNumber(Math.min(Math.max(1, val), numPages || 1));
-                   }}
-                   className="w-12 text-center bg-slate-800/50 border border-slate-600 rounded py-0.5 outline-none focus:border-purple-400 focus:bg-slate-800 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                 />
-                 <span>/ {numPages}</span>
-               </div>
-
-               <button onClick={() => setPageNumber(p => Math.min(numPages || 1, p + 1))} disabled={pageNumber >= (numPages||1)} className="p-1.5 text-white disabled:opacity-30 hover:bg-slate-800 rounded-full transition-colors"><ChevronRight size={20}/></button>
-             </div>
-         )}
-       </div>
-
-       
-       {/* Draggable Resizer */}
-       <div 
-         className="w-1.5 cursor-col-resize bg-transparent hover:bg-blue-500/50 active:bg-blue-500 transition-colors z-20 relative flex-shrink-0"
-         onMouseDown={(e) => { e.preventDefault(); setIsDragging(true); }}
-       >
-         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-8 bg-slate-600 rounded-full opacity-50 pointer-events-none"></div>
-       </div>
 
        {/* Handwriting Notebook Side */}
        <div style={{ width: notesWidth }} className={`flex-shrink-0 h-full border-l flex flex-col ${isDark ? 'border-slate-800 bg-[#12141c]' : 'border-gray-200 bg-[#fffdf5]'}`}>
