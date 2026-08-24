@@ -24,7 +24,7 @@ export const EYE_W = 0.186
 export const EYE_H = 0.412
 
 /** Orientation de tete au repos, ajustee sur les frames de reference. */
-export const REST_GAZE: HeadGaze = { yaw: 28.49, pitch: 28.62, roll: -13 }
+export const REST_GAZE: HeadGaze = { yaw: 0, pitch: 0, roll: 0 }
 
 export interface EyePose {
   x: number

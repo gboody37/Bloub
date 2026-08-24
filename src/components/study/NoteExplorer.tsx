@@ -87,22 +87,14 @@ export default function NoteExplorer({
         
         const arrayBuffer = await file.arrayBuffer();
         
-        let pdfPublicUrl = '';
+        let pdfDataUrl = '';
         if (file.name.toLowerCase().endsWith('.pdf')) {
           setSyncProgress({ status: 'uploading', scannedCount: 1, uploadedCount: 1, totalCount: 2 } as any);
-          const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-            const { data: uploadData, error: uploadError } = await supabase.storage
-              .from('media')
-              .upload(`pdfs/${fileName}`, file);
-            
-            if (uploadError) {
-              throw new Error(`Storage upload failed: ${uploadError.message}`);
-            }
-
-            if (uploadData) {
-              const { data: urlData } = supabase.storage.from('media').getPublicUrl(`pdfs/${fileName}`);
-              pdfPublicUrl = urlData.publicUrl;
-            }
+          // Convert PDF to base64 data URL (no storage bucket needed)
+          const bytes = new Uint8Array(arrayBuffer);
+          let binary = '';
+          for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+          pdfDataUrl = `data:application/pdf;base64,${btoa(binary)}`;
         }
         
         let pdfjsLib = (window as any).pdfjsLib;
@@ -120,7 +112,7 @@ export default function NoteExplorer({
         
         const loadingTask = pdfjsLib.getDocument(new Uint8Array(arrayBuffer));
         const pdf = await loadingTask.promise;
-        let text = pdfPublicUrl ? `---\npdf_url: ${pdfPublicUrl}\n---\n\n` : '';
+        let text = pdfDataUrl ? `---\npdf_url: ${pdfDataUrl}\n---\n\n` : '';
         const maxPages = Math.min(pdf.numPages, 50); // Extract up to 50 pages to prevent browser crash
         
         for (let i = 1; i <= maxPages; i++) {
@@ -314,24 +306,6 @@ export default function NoteExplorer({
                                     e.stopPropagation();
                                     if (!confirm('Delete this note?')) return;
                                     try {
-                                      // If it's a PDF, try to delete the file from storage first
-                                      const { data: fullNote } = await supabase.from('vault_notes').select('content').eq('path', note.relativePath || note.id).single();
-                                      if (fullNote?.content?.includes('pdf_url:')) {
-                                        const urlMatch = fullNote.content.match(/pdf_url:\s*(.+)/);
-                                        if (urlMatch && urlMatch[1]) {
-                                          try {
-                                            const url = new URL(urlMatch[1].trim());
-                                            const pathParts = url.pathname.split('/');
-                                            const fileName = pathParts[pathParts.length - 1];
-                                            if (fileName) {
-                                              await supabase.storage.from('media').remove([`pdfs/${fileName}`]);
-                                            }
-                                          } catch (e) {
-                                            console.error('Failed to parse or delete PDF from storage:', e);
-                                          }
-                                        }
-                                      }
-
                                       const deleteQuery = supabase.from('vault_notes').delete().eq('path', note.relativePath || note.id);
                                       if (userId) deleteQuery.eq('user_id', userId);
                                       const { error: deleteError } = await deleteQuery;
