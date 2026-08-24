@@ -91,14 +91,18 @@ export default function NoteExplorer({
         if (file.name.toLowerCase().endsWith('.pdf')) {
           setSyncProgress({ status: 'uploading', scannedCount: 1, uploadedCount: 1, totalCount: 2 } as any);
           const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('media')
-            .upload(`pdfs/${fileName}`, file);
-          
-          if (!uploadError && uploadData) {
-            const { data: urlData } = supabase.storage.from('media').getPublicUrl(`pdfs/${fileName}`);
-            pdfPublicUrl = urlData.publicUrl;
-          }
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('media')
+              .upload(`pdfs/${fileName}`, file);
+            
+            if (uploadError) {
+              throw new Error(`Storage upload failed: ${uploadError.message}`);
+            }
+
+            if (uploadData) {
+              const { data: urlData } = supabase.storage.from('media').getPublicUrl(`pdfs/${fileName}`);
+              pdfPublicUrl = urlData.publicUrl;
+            }
         }
         
         let pdfjsLib = (window as any).pdfjsLib;
@@ -306,16 +310,35 @@ export default function NoteExplorer({
                                 <FileText size={18} className={isSelected ? 'text-indigo-500' : (isDark ? 'text-slate-400 group-hover:text-slate-300' : 'text-gray-400 group-hover:text-gray-600')} />
                               </div>
                               <button
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  if (!confirm('Delete this note?')) return;
-                                  try {
-                                    await supabase.from('vault_notes').delete().eq('id', note.id);
-                                    await fetchVault();
-                                  } catch (err) {
-                                    alert('Failed to delete');
-                                  }
-                                }}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (!confirm('Delete this note?')) return;
+                                    try {
+                                      // If it's a PDF, try to delete the file from storage first
+                                      const { data: fullNote } = await supabase.from('vault_notes').select('content').eq('id', note.id).single();
+                                      if (fullNote?.content?.includes('pdf_url:')) {
+                                        const urlMatch = fullNote.content.match(/pdf_url:\s*(.+)/);
+                                        if (urlMatch && urlMatch[1]) {
+                                          try {
+                                            const url = new URL(urlMatch[1].trim());
+                                            const pathParts = url.pathname.split('/');
+                                            const fileName = pathParts[pathParts.length - 1];
+                                            if (fileName) {
+                                              await supabase.storage.from('media').remove([`pdfs/${fileName}`]);
+                                            }
+                                          } catch (e) {
+                                            console.error('Failed to parse or delete PDF from storage:', e);
+                                          }
+                                        }
+                                      }
+
+                                      const { error: deleteError } = await supabase.from('vault_notes').delete().eq('id', note.id);
+                                      if (deleteError) throw new Error(deleteError.message);
+                                      await fetchVault();
+                                    } catch (err: any) {
+                                      alert('Failed to delete: ' + err.message);
+                                    }
+                                  }}
                                 className={`p-1.5 rounded-lg opacity-0 group-hover/note:opacity-100 transition-all ${isDark ? 'hover:bg-red-500/20 text-red-400' : 'hover:bg-red-100 text-red-500'}`}
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>

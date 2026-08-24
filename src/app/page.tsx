@@ -960,7 +960,14 @@ export default function Home() {
 
   return (
     <div className={`min-h-screen w-full ${bgTheme} transition-colors duration-500 font-sans`}>
-      <main className={`w-full ${(!isListView && activeTab === 'lists' && activeCatObj?.type === 'study') ? 'max-w-7xl px-2 sm:px-6' : 'max-w-md'} mx-auto min-h-screen flex flex-col relative transition-all duration-500`}>
+      {isDark && (
+        <div className="fixed inset-0 pointer-events-none z-[0] opacity-60 mix-blend-screen overflow-hidden">
+          <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-indigo-900/40 blur-[120px] animate-pulse" style={{ animationDuration: '8s' }} />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-purple-900/30 blur-[120px] animate-pulse" style={{ animationDuration: '12s' }} />
+          <div className="absolute top-[30%] left-[50%] w-[40%] h-[40%] rounded-full bg-blue-900/20 blur-[100px]" />
+        </div>
+      )}
+      <main className={`w-full ${(!isListView && activeTab === 'lists' && activeCatObj?.type === 'study') ? 'max-w-7xl px-2 sm:px-6' : (activeTab === 'settings' ? 'max-w-5xl' : 'max-w-md')} mx-auto min-h-screen flex flex-col relative transition-all duration-500`}>
         {/* Header */}
         {activeTab !== 'settings' && (
           <header className={`pt-12 pb-6 px-6 sticky top-0 z-30 flex justify-between items-center border-b transition-colors duration-500 ${bgTheme} ${isDark ? 'border-slate-800' : 'border-gray-200/30'}`}>
@@ -1142,9 +1149,9 @@ export default function Home() {
 
       {/* Main Content Area or Settings */}
       {activeTab === 'settings' ? (
-          <div className="w-full h-full flex flex-col md:flex-row overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+          <div className="flex-1 w-full flex flex-col md:flex-row overflow-hidden animate-in fade-in zoom-in-95 duration-300 md:shadow-2xl md:my-6 md:rounded-3xl md:border md:border-white/10">
             {/* Left side: HUGE MASCOT */}
-            <div className="hidden md:flex md:w-1/2 lg:w-3/5 h-full items-center justify-center bg-slate-900/40 relative">
+            <div className="hidden md:flex md:w-1/2 lg:w-3/5 flex-1 items-center justify-center bg-slate-900/40 relative">
                 <div className="cursor-pointer hover:scale-105 transition-transform duration-300" onClick={() => triggerMascot('orbit', mascotExpression)}>
                   <BloubMascot size={320} state="idle" expression={mascotExpression} shape={targetShape} color={targetColor} isStatic={false} />
                 </div>
@@ -1779,7 +1786,7 @@ export default function Home() {
                       >
                         <ChevronRight className="rotate-180" size={14} /> Back to Hub
                       </button>
-                      <span className={`text-xs font-bold uppercase tracking-wider opacity-50`}>Cloud Vault</span>
+                      <span className={`text-xs font-bold uppercase tracking-wider opacity-50 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Cloud Vault</span>
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <NoteExplorer 
