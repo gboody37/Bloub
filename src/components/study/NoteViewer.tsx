@@ -560,9 +560,10 @@ export default function NoteViewer({
       {/* Main Body + Outline Drawer Grid */}
       <div className="flex-1 flex flex-col md:flex-row gap-5 min-h-0">
         {/* Rendered Markdown Body */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 overflow-y-auto custom-scrollbar" dir="auto">
           {isEditing ? (
             <textarea
+              dir="auto"
               className={`w-full min-h-[500px] h-full resize-none bg-transparent outline-none p-4 rounded-2xl border ${isDark ? 'border-slate-700 text-slate-200' : 'border-gray-300 text-gray-800'}`}
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}

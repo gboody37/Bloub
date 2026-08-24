@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useId } from 'react';
+import { useEffect, useRef, useCallback, useId, useState } from 'react';
 import { BotEngine } from '@/lib/bot/engine';
 import { DEMI_VIEWBOX, RAYON } from '@/lib/bot/repere';
 import { SHAPE_BY_ID, COLOR_BY_ID } from '@/lib/bot/skins';
@@ -39,6 +39,20 @@ export default function BloubMascot({
   const clockRef = useRef<number>(0);
   const lastRef = useRef<number>(0);
   const stateRef = useRef(state);
+  const [isVisible, setIsVisible] = useState(true);
+
+  // Visibility Observer
+  useEffect(() => {
+    if (!svgRef.current) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      setIsVisible(entry.isIntersecting);
+      if (entry.isIntersecting) {
+        lastRef.current = 0; // Reset delta time to prevent physics explosions on wake
+      }
+    });
+    observer.observe(svgRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   // One-time init
   useEffect(() => {
@@ -73,6 +87,8 @@ export default function BloubMascot({
 
   // Animation loop
   useEffect(() => {
+    if (!isVisible) return;
+    
     const tick = (ts: number) => {
       if (lastRef.current === 0) lastRef.current = ts;
       const dt = Math.min((ts - lastRef.current) / 1000, 0.1);
@@ -173,7 +189,7 @@ export default function BloubMascot({
 
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [color]);
+  }, [color, isVisible]);
 
   // Pointer follow (window-wide)
   useEffect(() => {

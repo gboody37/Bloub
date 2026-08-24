@@ -18,6 +18,7 @@ import { VAPID_PUBLIC_KEY } from '@/lib/push-config';
 import type { Todo, Category, ListType, Subtask, Attachment } from '@/types/todo';
 import NoteExplorer from '@/components/study/NoteExplorer';
 import NoteViewer from '@/components/study/NoteViewer';
+import QuizSession from '@/components/study/QuizSession';
 import NoteGraph from '@/components/study/NoteGraph';
 import type { ObsidianNoteSummary, ParsedObsidianNote } from '@/types/obsidian';
 
@@ -115,6 +116,8 @@ export default function Home() {
   // Study Workflow State
   const [showStudyExplorer, setShowStudyExplorer] = useState(false);
     const [showGraphView, setShowGraphView] = useState(false);
+  const [showQuizSession, setShowQuizSession] = useState(false);
+  const [geminiApiKey, setGeminiApiKey] = useState('');
   const [selectedNote, setSelectedNote] = useState<ParsedObsidianNote | null>(null);
   const [isFetchingNote, setIsFetchingNote] = useState(false);
 
@@ -279,6 +282,8 @@ export default function Home() {
     const uid = session.user.id;
     const meta = session.user.user_metadata || {};
     
+    if (meta.geminiApiKey) setGeminiApiKey(meta.geminiApiKey);
+
     const savedExpr = localStorage.getItem(`${uid}_mascotExpression`) as ExpressionId;
     const savedShape = meta.mascotShape || localStorage.getItem(`${uid}_mascotShape`);
     const savedColor = meta.mascotColor || localStorage.getItem(`${uid}_mascotColor`);
@@ -1077,6 +1082,31 @@ export default function Home() {
                 )}
               </div>
 
+              {/* AI Configuration Section */}
+              <div className="pt-2 border-t border-dashed border-gray-300 dark:border-slate-700 mt-2">
+                <span className={`flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-2 transition-colors ${t.textMuted}`}>
+                  <Sparkles size={14} className="text-purple-500" /> NotebookLM API
+                </span>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    placeholder="Gemini API Key..."
+                    value={geminiApiKey}
+                    onChange={(e) => setGeminiApiKey(e.target.value)}
+                    onBlur={() => {
+                      if (!session) return;
+                      const meta = session.user.user_metadata || {};
+                      meta.geminiApiKey = geminiApiKey;
+                      supabase.auth.updateUser({ data: meta }).catch(console.error);
+                    }}
+                    className={`flex-1 px-3 py-2 text-sm rounded-xl border outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-200 focus:border-purple-500' : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-purple-500'}`}
+                  />
+                </div>
+                <p className="text-[10px] opacity-50 mt-1.5 px-1 leading-tight">
+                  Required for AI Quizzes. Saved securely to your cloud profile.
+                </p>
+              </div>
+
               {/* Antigravity CLI Skill Option */}
               <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-4`}>
                 <div className="flex items-center justify-between mb-2">
@@ -1136,6 +1166,7 @@ export default function Home() {
             
             <form onSubmit={addTodo}>
               <textarea
+                dir="auto"
                 autoFocus
                 value={inputText}
                 onChange={e => {
@@ -1563,13 +1594,24 @@ export default function Home() {
                 </div>
 
                 {/* Study UI: Viewer > Explorer > Tiles */}
-                {selectedNote ? (
+                {selectedNote && showQuizSession ? (
+                  <div className={`h-[800px] rounded-3xl overflow-hidden border shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-500 relative ${isDark ? 'border-purple-500/30 bg-slate-900/95' : 'border-purple-200 bg-white'}`}>
+                    <QuizSession
+                      note={selectedNote}
+                      apiKey={geminiApiKey}
+                      isDark={isDark}
+                      onClose={() => setShowQuizSession(false)}
+                      triggerMascot={triggerMascot}
+                    />
+                  </div>
+                ) : selectedNote ? (
                   <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <NoteViewer 
                       note={selectedNote} 
                       isDark={isDark} 
                       isLoading={isFetchingNote}
                       onClose={() => setSelectedNote(null)}
+                      onStartQuiz={() => setShowQuizSession(true)}
                       onWikilinkClick={async (target) => {
                         // Quick search for the wikilink target
                         try {
@@ -1840,7 +1882,7 @@ export default function Home() {
 
                             <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedTask(isExpanded ? null : todo.id)}>
                               <div className="flex items-center gap-2 flex-wrap">
-                                <p className={`text-sm font-medium ${isExpanded ? 'break-words whitespace-normal' : 'truncate'} ${todo.completed ? 'line-through ' + t.textMuted : isOverdue ? 'text-red-500' : t.textPrimary}`}>
+                                <p dir="auto" className={`text-sm font-medium ${isExpanded ? 'break-words whitespace-normal' : 'truncate'} ${todo.completed ? 'line-through ' + t.textMuted : isOverdue ? 'text-red-500' : t.textPrimary}`}>
                                   {todo.text}
                                 </p>
                                 {todo.attachments && todo.attachments.length > 0 && (
