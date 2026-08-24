@@ -1,29 +1,9 @@
 const fs = require('fs');
-
 let code = fs.readFileSync('src/components/study/NoteViewer.tsx', 'utf-8');
 
-// Add import
-if (!code.includes('PdfNotebookViewer')) {
-  code = code.replace(
-    "import type { ParsedObsidianNote } from '@/types/obsidian';",
-    "import type { ParsedObsidianNote } from '@/types/obsidian';\nimport PdfNotebookViewer from './PdfNotebookViewer';"
-  );
-}
-
-// Replace iframe block
-const regex = /\{\/\* Main Visual Frame or Reader Mode \*\/\}\s*\{pdfViewMode === 'pdf' \? \(\s*<div className="flex-1 w-full min-h-\[550px\].*?<iframe.*?<\/div>\s*\) : \(/s;
-
-const replacement = `{/* Main Visual Frame or Reader Mode */}
-              {pdfViewMode === 'pdf' ? (
-                <PdfNotebookViewer 
-                  pdfUrl={pdfUrl} 
-                  noteId={note.id} 
-                  initialNotesStr={note.frontmatter?.pdf_notes} 
-                  isDark={isDark} 
-                />
-              ) : (`;
-
-code = code.replace(regex, replacement);
+// The parent is: <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+// We need to add flex flex-col to it so its children can use h-full properly
+code = code.replace(/className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar"/, 'className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar flex flex-col"');
 
 fs.writeFileSync('src/components/study/NoteViewer.tsx', code);
-console.log('Updated NoteViewer.tsx');
+console.log('Fixed noteviewer layout');

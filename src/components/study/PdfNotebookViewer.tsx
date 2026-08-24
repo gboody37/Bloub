@@ -24,6 +24,8 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
   const [saved, setSaved] = useState(false);
   const [pdfTool, setPdfTool] = useState('cursor');
   const [isFitWidth, setIsFitWidth] = useState(false);
+  const [notesWidth, setNotesWidth] = useState(450);
+  const [isDragging, setIsDragging] = useState(false);
   
   
   // Annotation State
@@ -78,6 +80,17 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
     setIsDrawing(false);
     setCurrentDraw(null);
   };
+
+  
+  const handleParentMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    // Calculate new width from right edge of screen minus some padding
+    const rect = e.currentTarget.getBoundingClientRect();
+    const rightEdge = rect.right;
+    const newWidth = rightEdge - e.clientX;
+    setNotesWidth(Math.max(200, Math.min(newWidth, 800)));
+  };
+  const handleParentMouseUp = () => setIsDragging(false);
 
   const supabase = createClient();
 
@@ -226,8 +239,17 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
          )}
        </div>
 
+       
+       {/* Draggable Resizer */}
+       <div 
+         className="w-1.5 cursor-col-resize bg-transparent hover:bg-blue-500/50 active:bg-blue-500 transition-colors z-20 relative flex-shrink-0"
+         onMouseDown={(e) => { e.preventDefault(); setIsDragging(true); }}
+       >
+         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-8 bg-slate-600 rounded-full opacity-50 pointer-events-none"></div>
+       </div>
+
        {/* Handwriting Notebook Side */}
-       <div className={`w-[450px] h-full border-l flex flex-col ${isDark ? 'border-slate-800 bg-[#12141c]' : 'border-gray-200 bg-[#fffdf5]'}`}>
+       <div style={{ width: notesWidth }} className={`flex-shrink-0 h-full border-l flex flex-col ${isDark ? 'border-slate-800 bg-[#12141c]' : 'border-gray-200 bg-[#fffdf5]'}`}>
          
          <div className={`p-4 border-b flex justify-between items-center ${isDark ? 'border-slate-800 bg-slate-900' : 'border-gray-200 bg-white'}`}>
            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-purple-400">
