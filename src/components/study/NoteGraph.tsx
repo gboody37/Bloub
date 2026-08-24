@@ -24,7 +24,9 @@ export default function NoteGraph({ userId, isDark = true, onNodeClick }: NoteGr
     const fetchGraph = async () => {
       try {
         setLoading(true);
-        const res = await fetch('/api/obsidian/graph');
+        const params = new URLSearchParams();
+        if (userId) params.set('userId', userId);
+        const res = await fetch(`/api/obsidian/graph?${params.toString()}`);
         const data = await res.json();
         if (!data.success) throw new Error(data.error);
         setGraphData(data.graph);

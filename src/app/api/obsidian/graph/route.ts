@@ -1,16 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { supabase as anonSupabase } from '@/lib/supabase';
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    const { searchParams } = new URL(req.url);
+    let supabase = anonSupabase;
+    let userId = searchParams.get('userId') || req.headers.get('x-user-id');
 
-    if (authError || !session) {
+    try {
+      const serverClient = await createClient();
+      const { data: { user } } = await serverClient.auth.getUser();
+      if (user) {
+        supabase = serverClient;
+        userId = user.id;
+      }
+    } catch {}
+
+    if (!userId) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-
-    const userId = session.user.id;
 
     const { data: notes, error } = await supabase
       .from('vault_notes')
