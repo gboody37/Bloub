@@ -92,12 +92,27 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
            />
          </Document>
          
-         {numPages && (
-           <div className="sticky bottom-6 mt-6 flex items-center gap-6 bg-slate-900/90 backdrop-blur px-6 py-3 rounded-full border border-slate-700 shadow-2xl z-50">
-             <button onClick={() => setPageNumber(p => Math.max(1, p - 1))} disabled={pageNumber <= 1} className="p-1.5 text-white disabled:opacity-30 hover:bg-slate-800 rounded-full transition-colors"><ChevronLeft size={20}/></button>
-             <span className="text-white text-xs tracking-widest font-bold uppercase">Page {pageNumber} / {numPages}</span>
-             <button onClick={() => setPageNumber(p => Math.min(numPages || 1, p + 1))} disabled={pageNumber >= (numPages||1)} className="p-1.5 text-white disabled:opacity-30 hover:bg-slate-800 rounded-full transition-colors"><ChevronRight size={20}/></button>
-           </div>
+         {numPages && <div className="sticky bottom-6 mt-6 flex items-center gap-4 bg-slate-900/90 backdrop-blur px-6 py-3 rounded-full border border-slate-700 shadow-2xl z-50">
+               <button onClick={() => setPageNumber(p => Math.max(1, p - 1))} disabled={pageNumber <= 1} className="p-1.5 text-white disabled:opacity-30 hover:bg-slate-800 rounded-full transition-colors"><ChevronLeft size={20}/></button>
+               
+               <div className="flex items-center gap-2 text-white text-xs tracking-widest font-bold uppercase">
+                 <span>Page</span>
+                 <input 
+                   type="number" 
+                   min={1} 
+                   max={numPages || 1} 
+                   value={pageNumber} 
+                   onChange={(e) => {
+                     const val = parseInt(e.target.value);
+                     if (!isNaN(val)) setPageNumber(Math.min(Math.max(1, val), numPages || 1));
+                   }}
+                   className="w-12 text-center bg-slate-800/50 border border-slate-600 rounded py-0.5 outline-none focus:border-purple-400 focus:bg-slate-800 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                 />
+                 <span>/ {numPages}</span>
+               </div>
+
+               <button onClick={() => setPageNumber(p => Math.min(numPages || 1, p + 1))} disabled={pageNumber >= (numPages||1)} className="p-1.5 text-white disabled:opacity-30 hover:bg-slate-800 rounded-full transition-colors"><ChevronRight size={20}/></button>
+             </div>
          )}
        </div>
 
