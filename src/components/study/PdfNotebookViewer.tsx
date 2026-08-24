@@ -92,7 +92,8 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
            />
          </Document>
          
-         {numPages && <div className="sticky bottom-6 mt-6 flex items-center gap-4 bg-slate-900/90 backdrop-blur px-6 py-3 rounded-full border border-slate-700 shadow-2xl z-50">
+         {numPages && (
+           <div className="sticky bottom-6 mt-6 flex items-center gap-4 bg-slate-900/90 backdrop-blur px-6 py-3 rounded-full border border-slate-700 shadow-2xl z-50">
                <button onClick={() => setPageNumber(p => Math.max(1, p - 1))} disabled={pageNumber <= 1} className="p-1.5 text-white disabled:opacity-30 hover:bg-slate-800 rounded-full transition-colors"><ChevronLeft size={20}/></button>
                
                <div className="flex items-center gap-2 text-white text-xs tracking-widest font-bold uppercase">

@@ -62,16 +62,21 @@ const getDynamicMascotProps = (shape: string, baseColor: string, pendingCount: n
 };
 
 const THEMES = [
-  { id: 'bg-gray-100', name: 'Minimal', color: '#f3f4f6' },
-  { id: 'bg-slate-900', name: 'Midnight', color: '#0f172a' },
-  { id: 'bg-zinc-950', name: 'Abyss', color: '#09090b' },
-  { id: 'bg-blue-950', name: 'Dark Blue', color: '#172554' },
-  { id: 'bg-gradient-to-br from-stone-200 to-stone-300', name: 'Sand', color: '#d6d3d1' },
-  { id: 'bg-gradient-to-br from-rose-100 to-pink-200', name: 'Blush', color: '#fbcfe8' },
-  { id: 'bg-gradient-to-br from-blue-100 to-cyan-100', name: 'Ocean', color: '#cffafe' },
-  { id: 'bg-gradient-to-br from-emerald-100 to-teal-100', name: 'Mint', color: '#ccfbf1' },
-  { id: 'bg-gradient-to-br from-violet-100 to-purple-200', name: 'Lavender', color: '#e9d5ff' },
-  { id: 'bg-gradient-to-br from-amber-100 to-yellow-200', name: 'Sunlight', color: '#fde68a' }
+  { id: 'bg-[#1e1e2e]', name: 'Mocha (Dark)', color: '#1e1e2e' },
+  { id: 'bg-[#24273a]', name: 'Macchiato', color: '#24273a' },
+  { id: 'bg-[#303446]', name: 'Frappé', color: '#303446' },
+  { id: 'bg-[#0f291e]', name: 'Forest Green', color: '#0f291e' },
+  { id: 'bg-[#2a1708]', name: 'Cozy Orange', color: '#2a1708' },
+  { id: 'bg-[#2a0808]', name: 'Samurai Red', color: '#2a0808' },
+  { id: 'bg-[#081e2a]', name: 'Sky Blue', color: '#081e2a' },
+  { id: 'bg-[#080d2a]', name: 'Dark Blue', color: '#080d2a' },
+  { id: 'bg-[#090514]', name: 'Cyberpunk Neon', color: '#090514' },
+  { id: 'bg-[#282a36]', name: 'Dracula Dark', color: '#282a36' },
+  { id: 'bg-[#2e3440]', name: 'Nordic Frost', color: '#2e3440' },
+  { id: 'bg-[#1e1525]', name: 'Sakura Rose Gold', color: '#1e1525' },
+  { id: 'bg-[#2a081a]', name: 'Hot Pink', color: '#2a081a' },
+  { id: 'bg-[#082a13]', name: 'Toxic Poison', color: '#082a13' },
+  { id: 'bg-[#1a1525]', name: 'Midnight Lavender', color: '#1a1525' }
 ];
 
 const SHAPE_IDS = ['squircle', 'cercle', 'galet', 'hexagone', 'capsule', 'soleil', 'nuage', 'goutte', 'oeuf'];
@@ -122,6 +127,27 @@ export default function Home() {
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [selectedNote, setSelectedNote] = useState<ParsedObsidianNote | null>(null);
   const [isFetchingNote, setIsFetchingNote] = useState(false);
+  const [isNavVisible, setIsNavVisible] = useState(true);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY.current + 10) {
+        setIsNavVisible(false);
+      } else if (currentScrollY < lastScrollY.current - 10) {
+        setIsNavVisible(true);
+      }
+      // Keep it visible if near the top
+      if (currentScrollY < 50) {
+        setIsNavVisible(true);
+      }
+      lastScrollY.current = currentScrollY;
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
 
   // Auth Effect
   useEffect(() => {
@@ -2136,7 +2162,7 @@ export default function Home() {
       {(() => {
         const activeColorHex = COLORS.find(c => c.id === mascotColor)?.hex;
         return (
-          <nav className={`fixed bottom-0 left-0 right-0 border-t pb-safe z-40 px-6 py-2 ${t.nav}`}>
+          <nav className={`fixed left-0 right-0 border-t pb-safe z-40 px-6 py-2 transition-all duration-300 ${t.nav} ${isNavVisible ? "bottom-0" : "-bottom-24"}`}>
             <div className="max-w-md mx-auto flex justify-between items-center text-xs font-medium text-gray-400">
               <button 
                 onClick={() => { setActiveTab('lists'); setIsListView(true); }}
