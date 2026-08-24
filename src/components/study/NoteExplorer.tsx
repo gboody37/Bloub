@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import type { ObsidianNoteSummary, VaultScanSummary } from '@/types/obsidian';
 import { pickAndSyncObsidianVault, syncNotesFromFileList, type SyncProgress } from '@/lib/obsidian/vault-sync';
+import { createClient } from '@/lib/supabase/client';
 
 interface NoteExplorerProps {
   userId?: string;
@@ -38,6 +39,7 @@ export default function NoteExplorer({
   isDark = true,
   onRefresh
 }: NoteExplorerProps) {
+  const supabase = createClient();
   const [notes, setNotes] = useState<ObsidianNoteSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +76,48 @@ export default function NoteExplorer({
   }, [userId]);
 
   useEffect(() => { fetchVault(); }, [fetchVault]);
+
+  const docInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      setSyncProgress({ status: 'uploading', scannedCount: 1, uploadedCount: 0, totalCount: 1 } as any);
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await fetch('/api/extract/pdf', { method: 'POST', body: formData });
+      const data = await res.json();
+      
+      if (!data.success) throw new Error(data.error);
+      
+      const title = file.name.replace(/\.[^/.]+$/, "");
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('Not logged in');
+      
+      const newNote = {
+        user_id: user.id,
+        title: title,
+        content: data.text,
+        path: `Documents/${file.name}.md`,
+        folder: 'Documents',
+        tags: ['document', 'pdf'],
+        word_count: data.text.split(/\s+/).length,
+        updated_at: new Date().toISOString()
+      };
+      
+      await supabase.from('vault_notes').upsert([newNote]);
+      await fetchVault();
+    } catch (err: any) {
+      alert('Failed to upload document: ' + err.message);
+    } finally {
+      setSyncProgress(null);
+      if (docInputRef.current) docInputRef.current.value = '';
+    }
+  };
 
   const handleConnectVault = async () => {
     if (!(window as any).showDirectoryPicker) {
@@ -147,15 +191,20 @@ export default function NoteExplorer({
             Cloud Vault
           </span>
         </div>
-        <div className="flex items-center gap-1">
-          <button onClick={fetchVault} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-gray-100 text-gray-500'}`} title="Refresh Vault">
-            <RotateCw size={14} className={loading ? 'animate-spin' : ''} />
-          </button>
-          <button onClick={handleConnectVault} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-600/10 hover:bg-purple-600/20 text-purple-500 transition-colors text-xs font-bold" title="Sync local folder to cloud">
-            <UploadCloud size={14} />
-            <span>Sync</span>
-          </button>
-        </div>
+          <div className="flex items-center gap-1.5">
+            <button onClick={fetchVault} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-gray-100 text-gray-500'}`} title="Refresh Vault">
+              <RotateCw size={14} className={loading ? 'animate-spin' : ''} />
+            </button>
+            <input type="file" accept=".pdf,.doc,.docx" ref={docInputRef} className="hidden" onChange={handleDocumentUpload} />
+            <button onClick={() => docInputRef.current?.click()} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 transition-colors text-xs font-bold" title="Upload PDF/Doc">
+              <UploadCloud size={14} />
+              <span>PDF</span>
+            </button>
+            <button onClick={handleConnectVault} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-600/10 hover:bg-purple-600/20 text-purple-500 transition-colors text-xs font-bold" title="Sync local folder to cloud">
+              <RotateCw size={14} />
+              <span>Sync</span>
+            </button>
+          </div>
       </div>
 
       {/* Syncing Progress Alert */}

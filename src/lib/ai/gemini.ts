@@ -126,7 +126,7 @@ export class GeminiClient {
     systemInstruction?: string,
     jsonMode: boolean = false
   ): Promise<string> {
-    const selectedModel = model || 'gemini-2.5-flash';
+    const selectedModel = model || 'gemini-2.0-flash';
     const url = `${GEMINI_API_BASE}/${selectedModel}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
     const bodyPayload: GeminiRequestBody = {
@@ -203,7 +203,7 @@ export class GeminiClient {
    * Generates a structured quiz using Gemini.
    */
   static async generateQuiz(request: QuizGenerateRequest): Promise<QuizResponse> {
-    const { apiKey, model = 'gemini-2.5-flash', noteTitle, noteContent, config } = request;
+    const { apiKey, model = 'gemini-2.0-flash', noteTitle, noteContent, config } = request;
 
     if (!apiKey || apiKey.trim() === '') {
       const err: CustomHttpError = new Error('API_KEY_REQUIRED: An external LLM API key must be provided.');
@@ -312,7 +312,7 @@ Required JSON Output Schema:
    * Generates a Socratic hint without spoiling the answer.
    */
   static async generateHint(request: HintRequest): Promise<HintResponse> {
-    const { apiKey, model = 'gemini-2.5-flash', question, noteContext } = request;
+    const { apiKey, model = 'gemini-2.0-flash', question, noteContext } = request;
 
     if (!apiKey || apiKey.trim() === '') {
       const err: CustomHttpError = new Error('API_KEY_REQUIRED: Missing API key for hint generation.');
@@ -342,7 +342,7 @@ DO NOT reveal the answer, correct option index, or exact option text. Guide the 
    * Evaluates a free-text response against the source note context.
    */
   static async evaluateAnswer(request: EvaluateRequest): Promise<EvaluationResponse> {
-    const { apiKey, model = 'gemini-2.5-flash', question, userAnswer, expectedAnswer, noteContext } = request;
+    const { apiKey, model = 'gemini-2.0-flash', question, userAnswer, expectedAnswer, noteContext } = request;
 
     if (!apiKey || apiKey.trim() === '') {
       const err: CustomHttpError = new Error('API_KEY_REQUIRED: Missing API key.');
@@ -391,7 +391,7 @@ Note Context: ${(noteContext || '').slice(0, 3000)}`;
   /**
    * Tests API key validity with a lightweight ping.
    */
-  static async testConnection(apiKey: string, model: string = 'gemini-2.5-flash'): Promise<ConnectionTestResult> {
+  static async testConnection(apiKey: string, model: string = 'gemini-2.0-flash'): Promise<ConnectionTestResult> {
     if (!apiKey || apiKey.trim() === '') {
       return { valid: false, message: 'API key cannot be empty.' };
     }

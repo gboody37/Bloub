@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
 
     const quiz = await QuizService.generateQuiz({
       apiKey,
-      model: body.model || 'gemini-2.5-flash',
+      model: body.model || 'gemini-2.0-flash',
       noteTitle: body.noteTitle || 'Study Note',
       noteContent,
       config: body.config,

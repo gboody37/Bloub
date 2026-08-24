@@ -1015,69 +1015,63 @@ export default function Home() {
 
             <div className="space-y-5">
               <div>
-                <button onClick={() => setShowThemePicker(!showThemePicker)} className={`w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wider mb-2 transition-colors ${t.textMuted} hover:text-gray-700`}>
-                  <span className="flex items-center gap-1.5"><Palette size={14} /> App Theme ({THEMES.find(th => th.id === bgTheme)?.name || 'Minimal'})</span>
-                  {showThemePicker ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                </button>
-                <AnimatePresence>
-                  {showThemePicker && (
-                    <motion.div initial={{height: 0, opacity: 0}} animate={{height: 'auto', opacity: 1}} exit={{height: 0, opacity: 0}} className="overflow-hidden">
-                      <div className="grid grid-cols-2 gap-2 pt-1 pb-2">
-                        {THEMES.map(theme => (
-                          <button key={theme.id} onClick={() => setBgTheme(theme.id)}
-                            className={`flex items-center gap-2 py-2 px-3 text-sm font-medium rounded-xl border transition-all ${bgTheme === theme.id ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-400'}`}>
-                            <div className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-inner flex-shrink-0" style={{ backgroundColor: theme.color }} />
-                            {theme.name}
-                          </button>
-                        ))}
+                <span className={`flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-3 transition-colors ${t.textMuted}`}>
+                  <Shapes size={14} /> Shape
+                </span>
+                <div className="flex flex-wrap gap-2 pt-1 pb-4">
+                  {['cercle', 'squircle', 'triangle', 'hexagone', 'nuage', 'goutte', 'galet', 'capsule', 'oeuf', 'soleil', 'fromage', 'livre'].map(s => (
+                    <button key={s} onClick={() => updateTargetShape(s)}
+                      className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${targetShape === s ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+                      <div className="w-8 h-8 flex items-center justify-center pointer-events-none drop-shadow-sm">
+                        <BloubMascot size={32} state="idle" expression="neutre" shape={s} color={targetColor} />
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
-                <button onClick={() => setShowShapePicker(!showShapePicker)} className={`w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wider mb-2 transition-colors ${t.textMuted} hover:text-gray-700`}>
-                  <span className="flex items-center gap-1.5"><Shapes size={14} /> Mascot Shape</span>
-                  {showShapePicker ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                </button>
-                <AnimatePresence>
-                  {showShapePicker && (
-                    <motion.div initial={{height: 0, opacity: 0}} animate={{height: 'auto', opacity: 1}} exit={{height: 0, opacity: 0}} className="overflow-hidden">
-                      <div className="grid grid-cols-5 gap-2 pt-1 pb-2">
-                        {['cercle', 'squircle', 'triangle', 'hexagone', 'nuage', 'goutte', 'galet', 'capsule', 'oeuf', 'soleil', 'fromage', 'livre'].map(s => (
-                          <button key={s} onClick={() => updateTargetShape(s)}
-                            className={`flex flex-col items-center justify-center py-2 rounded-xl border transition-all ${targetShape === s ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
-                            <div className="w-8 h-8 flex items-center justify-center pointer-events-none drop-shadow-sm">
-                              <BloubMascot size={32} state="idle" expression="neutre" shape={s} color={targetColor} />
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <span className={`flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-3 transition-colors ${t.textMuted}`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg> 
+                  Expression
+                </span>
+                <div className="flex flex-wrap gap-2 pt-1 pb-4">
+                  {['neutre', 'attentif', 'surpris', 'excite', 'heureux', 'hilare', 'colere', 'triste', 'effraye', 'mefiant'].map(expr => (
+                    <button key={expr} onClick={() => setMascotExpression(expr as any)}
+                      className={`flex flex-col items-center justify-center px-3 py-2 rounded-xl border transition-all ${mascotExpression === expr ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+                      <span className="text-xs font-medium capitalize">{expr}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
-                <button onClick={() => setShowColorPicker(!showColorPicker)} className={`w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wider mb-2 transition-colors ${t.textMuted} hover:text-gray-700`}>
-                  <span className="flex items-center gap-1.5"><PaintBucket size={14} /> Mascot Color</span>
-                  {showColorPicker ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                </button>
-                <AnimatePresence>
-                  {showColorPicker && (
-                    <motion.div initial={{height: 0, opacity: 0}} animate={{height: 'auto', opacity: 1}} exit={{height: 0, opacity: 0}} className="overflow-hidden">
-                      <div className="grid grid-cols-4 gap-2 pt-1 pb-2">
-                        {COLORS.map(c => (
-                          <button key={c.id} onClick={() => updateTargetColor(c.id)}
-                            className={`flex flex-col items-center justify-center py-2 rounded-xl border transition-all ${targetColor === c.id ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-400'}`}>
-                            <div className="w-5 h-5 rounded-full shadow-inner border border-black/10" style={{ backgroundColor: c.hex }} />
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <span className={`flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-3 transition-colors ${t.textMuted}`}>
+                  <PaintBucket size={14} /> Colour
+                </span>
+                <div className="flex flex-wrap gap-2 pt-1 pb-4">
+                  {COLORS.map(c => (
+                    <button key={c.id} onClick={() => updateTargetColor(c.id)}
+                      className={`flex flex-col items-center justify-center p-2 rounded-full border transition-all ${targetColor === c.id ? 'bg-blue-500 border-blue-500 shadow-md scale-110' : isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 border-gray-200 hover:border-gray-400'}`}>
+                      <div className="w-5 h-5 rounded-full shadow-inner border border-black/10" style={{ backgroundColor: c.hex }} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className={`flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-3 transition-colors ${t.textMuted}`}>
+                  <Palette size={14} /> Theme
+                </span>
+                <div className="flex flex-wrap gap-2 pt-1 pb-4">
+                  {THEMES.map(theme => (
+                    <button key={theme.id} onClick={() => setBgTheme(theme.id)}
+                      className={`flex items-center gap-2 py-1.5 px-3 text-sm font-medium rounded-xl border transition-all ${bgTheme === theme.id ? 'bg-blue-500 text-white border-transparent shadow-md' : isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-400'}`}>
+                      <div className="w-3 h-3 rounded-full border border-black/20 shadow-inner flex-shrink-0" style={{ backgroundColor: theme.color }} />
+                      {theme.name}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Push Notifications Section */}
