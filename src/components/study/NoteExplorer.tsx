@@ -147,8 +147,8 @@ export default function NoteExplorer({
         updated_at: new Date().toISOString()
       };
       
-      const { error: dbError } = await supabase.from('vault_notes').upsert([newNote]);
-      if (dbError) throw new Error(dbError.message);
+            const { error: dbError } = await supabase.from('vault_notes').upsert([newNote], { onConflict: 'user_id,path' });
+        if (dbError) throw new Error(dbError.message);
       
       await fetchVault();
     } catch (err: any) {
@@ -287,31 +287,48 @@ export default function NoteExplorer({
                   {folderNotes.map(note => {
                     const isSelected = selectedNoteId === note.id || selectedNoteId === note.relativePath;
                     return (
-                      <button
-                        key={note.id}
-                        onClick={() => onSelectNote(note)}
-                        className={`group flex flex-col items-start text-left p-3.5 rounded-2xl transition-all duration-300 border ${
-                          isSelected 
-                            ? (isDark ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'bg-indigo-50 border-indigo-200 shadow-sm scale-[0.98]') 
-                            : (isDark ? 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800 hover:border-slate-600' : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm')
-                        }`}
-                      >
-                        <div className={`w-10 h-10 rounded-xl mb-3 flex items-center justify-center transition-colors ${
-                          isSelected 
-                            ? (isDark ? 'bg-indigo-500/30' : 'bg-indigo-100')
-                            : (isDark ? 'bg-slate-700/50 group-hover:bg-slate-700' : 'bg-gray-50 group-hover:bg-gray-100')
-                        }`}>
-                          <FileText size={18} className={isSelected ? 'text-indigo-500' : (isDark ? 'text-slate-400 group-hover:text-slate-300' : 'text-gray-400 group-hover:text-gray-600')} />
+                        <div className="relative group/note w-full">
+                          <button
+                            key={note.id}
+                            onClick={() => onSelectNote(note)}
+                            className={`w-full flex flex-col items-start text-left p-3.5 rounded-2xl transition-all duration-300 border ${
+                              isSelected 
+                                ? (isDark ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'bg-indigo-50 border-indigo-200 shadow-sm scale-[0.98]') 
+                                : (isDark ? 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800 hover:border-slate-600' : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm')
+                            }`}
+                          >
+                            <div className="w-full flex justify-between items-start mb-3">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                                isSelected 
+                                  ? (isDark ? 'bg-indigo-500/30' : 'bg-indigo-100')
+                                  : (isDark ? 'bg-slate-700/50 group-hover:bg-slate-700' : 'bg-gray-50 group-hover:bg-gray-100')
+                              }`}>
+                                <FileText size={18} className={isSelected ? 'text-indigo-500' : (isDark ? 'text-slate-400 group-hover:text-slate-300' : 'text-gray-400 group-hover:text-gray-600')} />
+                              </div>
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (!confirm('Delete this note?')) return;
+                                  try {
+                                    await supabase.from('vault_notes').delete().eq('id', note.id);
+                                    await fetchVault();
+                                  } catch (err) {
+                                    alert('Failed to delete');
+                                  }
+                                }}
+                                className={`p-1.5 rounded-lg opacity-0 group-hover/note:opacity-100 transition-all ${isDark ? 'hover:bg-red-500/20 text-red-400' : 'hover:bg-red-100 text-red-500'}`}
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                              </button>
+                            </div>
+                            <h5 className={`text-xs font-bold truncate w-full mb-1 ${isSelected ? (isDark ? 'text-indigo-300' : 'text-indigo-700') : (isDark ? 'text-slate-300 group-hover:text-white' : 'text-gray-800')}`}>{note.title}</h5>
+                            {note.tags && note.tags.length > 0 && (
+                              <span className={`text-[9px] font-bold uppercase tracking-wider truncate w-full mt-auto ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
+                                {note.tags.join(', ')}
+                              </span>
+                            )}
+                          </button>
                         </div>
-                        <span className={`font-bold text-xs leading-snug line-clamp-2 w-full ${isSelected ? (isDark ? 'text-indigo-300' : 'text-indigo-700') : (isDark ? 'text-slate-300' : 'text-gray-700')}`}>
-                          {note.title}
-                        </span>
-                        {note.tags && note.tags.length > 0 && (
-                          <span className={`text-[9px] font-semibold truncate w-full mt-2 pt-2 border-t ${isSelected ? (isDark ? 'border-indigo-500/20 text-indigo-400/80' : 'border-indigo-200/50 text-indigo-500/80') : (isDark ? 'border-slate-700/50 text-slate-500' : 'border-gray-100 text-gray-400')}`}>
-                            {note.tags.join(', ')}
-                          </span>
-                        )}
-                      </button>
                     );
                   })}
                 </div>

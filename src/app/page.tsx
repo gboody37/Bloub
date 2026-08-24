@@ -8,7 +8,7 @@ import {
   Flag, Calendar, BarChart3, ListTodo, Edit2, MoreVertical, Palette, Shapes, 
   PaintBucket, LogOut, Download, Smartphone, Repeat, Bell, Monitor, Flame, 
   Cpu, AlertCircle, Mic, Camera, GraduationCap, BookOpen, Sparkles, Brain, 
-  CheckSquare, Layers, FileText 
+  CheckSquare, Layers, FileText, Smile 
 } from 'lucide-react';
 import type { StateId } from '@/lib/bot/states';
 import type { ExpressionId } from '@/lib/bot/expressions';
@@ -73,6 +73,8 @@ const THEMES = [
   { id: 'bg-gradient-to-br from-violet-100 to-purple-200', name: 'Lavender', color: '#e9d5ff' },
   { id: 'bg-gradient-to-br from-amber-100 to-yellow-200', name: 'Sunlight', color: '#fde68a' }
 ];
+
+const SHAPE_IDS = ['squircle', 'cercle', 'galet', 'hexagone', 'capsule', 'soleil', 'nuage', 'goutte', 'oeuf'];
 
 export default function Home() {
   const supabase = createClient();
@@ -158,7 +160,7 @@ export default function Home() {
 
   // Settings
   const [bgTheme, setBgTheme] = useState('bg-gray-100');
-  const [catSettings, setCatSettings] = useState<Record<string, {shape: string, color: string}>>({});
+  const [catSettings, setCatSettings] = useState<Record<string, {shape: string, color: string, expression?: string}>>({});
 
   // Global Mascot
   const [mascotState, setMascotState] = useState<StateId>('idle');
@@ -329,12 +331,6 @@ export default function Home() {
     if (!session || !settingsLoaded) return;
     const uid = session.user.id;
     localStorage.setItem(`${uid}_mascotExpression`, mascotExpression);
-  }, [session, mascotExpression]);
-
-  // Save persistent settings (Local + Cloud Sync)
-  useEffect(() => {
-    if (!session) return;
-    const uid = session.user.id;
     localStorage.setItem(`${uid}_mascotShape`, mascotShape);
     localStorage.setItem(`${uid}_mascotColor`, mascotColor);
     localStorage.setItem(`${uid}_bgTheme`, bgTheme);
@@ -342,13 +338,14 @@ export default function Home() {
     
     supabase.auth.updateUser({
       data: {
+        mascotExpression,
         mascotShape,
         mascotColor,
         bgTheme,
         catSettings
       }
     }).catch(console.error);
-  }, [session, mascotShape, mascotColor, bgTheme, catSettings]);
+  }, [session, settingsLoaded, mascotExpression, mascotShape, mascotColor, bgTheme, catSettings]);
 
   useEffect(() => {
     let meta = document.querySelector('meta[name="theme-color"]');
@@ -758,12 +755,17 @@ export default function Home() {
 
   const updateTargetShape = (s: string) => {
     if (isGlobalTarget) setMascotShape(s);
-    else setCatSettings(prev => ({ ...prev, [settingsTarget]: { shape: s, color: targetColor } }));
+    else setCatSettings(prev => ({ ...prev, [settingsTarget]: { ...prev[settingsTarget], shape: s, color: targetColor } }));
   };
 
   const updateTargetColor = (c: string) => {
     if (isGlobalTarget) setMascotColor(c);
-    else setCatSettings(prev => ({ ...prev, [settingsTarget]: { shape: targetShape, color: c } }));
+    else setCatSettings(prev => ({ ...prev, [settingsTarget]: { ...prev[settingsTarget], shape: targetShape, color: c } }));
+  };
+
+  const updateTargetExpr = (expr: string) => {
+    if (isGlobalTarget) setMascotExpression(expr as any);
+    else setCatSettings(prev => ({ ...prev, [settingsTarget]: { ...prev[settingsTarget], expression: expr } }));
   };
 
   // Theme Logic
@@ -1140,263 +1142,270 @@ export default function Home() {
 
       {/* Main Content Area or Settings */}
       {activeTab === 'settings' ? (
-        <div className="w-full max-w-md mx-auto px-6 pt-6 pb-32 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-300 flex flex-col">
-          {/* Mascot Preview inside Settings */}
-          <div className="bg-slate-900/90 dark:bg-slate-900 border border-slate-800/80 rounded-3xl p-6 shadow-xl shadow-black/20 flex flex-col items-center mb-6">
-            <div className="w-32 h-32 flex items-center justify-center mb-4 cursor-pointer hover:scale-105 transition-transform duration-300" onClick={() => triggerMascot('orbit', mascotExpression)}>
-              <BloubMascot size={120} state="idle" expression={mascotExpression} shape={targetShape} color={targetColor} isStatic={false} />
-            </div>
-            
-            {/* Horizontal Category Scroller */}
-            <div className="w-full flex gap-2.5 overflow-x-auto pb-1 pt-1 px-1 custom-scrollbar scroll-smooth">
-              <button
-                type="button"
-                onClick={() => setSettingsTarget('global')}
-                className={`flex-shrink-0 flex flex-col items-center py-2 px-3 rounded-2xl border transition-all ${
-                  settingsTarget === 'global'
-                    ? 'bg-slate-700/90 border-blue-500 text-white shadow-md scale-105 ring-1 ring-blue-500/30'
-                    : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                }`}
-              >
-                <div className="w-8 h-8 flex items-center justify-center pointer-events-none">
-                  <BloubMascot size={32} state="idle" expression={mascotExpression} shape={mascotShape} color={mascotColor} isStatic={true} />
+          <div className="w-full h-full flex flex-col md:flex-row overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+            {/* Left side: HUGE MASCOT */}
+            <div className="hidden md:flex md:w-1/2 lg:w-3/5 h-full items-center justify-center bg-slate-900/40 relative">
+                <div className="cursor-pointer hover:scale-105 transition-transform duration-300" onClick={() => triggerMascot('orbit', mascotExpression)}>
+                  <BloubMascot size={320} state="idle" expression={mascotExpression} shape={targetShape} color={targetColor} isStatic={false} />
                 </div>
-                <span className="text-[10px] font-semibold mt-1">Global</span>
-              </button>
-              {categories.map(c => {
-                const { shape, color } = getListMascot(c, catSettings);
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => setSettingsTarget(c.id)}
-                    className={`flex-shrink-0 flex flex-col items-center py-2 px-3 rounded-2xl border transition-all ${
-                      settingsTarget === c.id
-                        ? 'bg-slate-700/90 border-blue-500 text-white shadow-md scale-105 ring-1 ring-blue-500/30'
-                        : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                    }`}
-                  >
-                    <div className="w-8 h-8 flex items-center justify-center pointer-events-none">
-                      <BloubMascot size={32} state="idle" expression="neutre" shape={shape} color={color} isStatic={true} />
-                    </div>
-                    <span className="text-[10px] font-semibold mt-1 truncate max-w-[56px] text-center">{c.name}</span>
-                  </button>
-                );
-              })}
             </div>
-          </div>
 
-          <div className="space-y-6">
-            {/* Shape Section */}
-            <div>
-              <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
-                <Shapes size={14} /> Shape
-              </span>
-              <div className="grid grid-cols-4 gap-2">
-                {['cercle', 'squircle', 'galet', 'capsule', 'triangle', 'hexagone', 'nuage', 'goutte', 'oeuf', 'soleil', 'fromage', 'livre'].map(s => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => updateTargetShape(s)}
-                    className={`flex flex-col items-center justify-center p-2 rounded-2xl border transition-all ${
-                      targetShape === s
-                        ? 'bg-blue-600/20 border-blue-500 text-blue-400 shadow-md ring-1 ring-blue-500/40'
-                        : isDark
-                          ? 'bg-slate-800/80 text-slate-300 border-slate-700/60 hover:bg-slate-700/80 hover:border-slate-600'
-                          : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-400'
-                    }`}
-                  >
-                    <div className="w-8 h-8 flex items-center justify-center pointer-events-none drop-shadow-sm">
-                      <BloubMascot size={32} state="idle" expression="neutre" shape={s} color={targetColor} isStatic={true} />
-                    </div>
-                    <span className="text-[10px] font-medium capitalize mt-1 truncate max-w-full">{s}</span>
-                  </button>
-                ))}
+            {/* Right side: Settings controls */}
+            <div className="w-full md:w-1/2 lg:w-2/5 h-full overflow-y-auto custom-scrollbar pb-32 pt-6 px-6 bg-slate-900/90 dark:bg-slate-900 border-l border-slate-800">
+              
+              {/* Mobile Mascot Preview (Hidden on Desktop) */}
+              <div className="md:hidden w-full flex flex-col items-center mb-6">
+                <div className="w-32 h-32 flex items-center justify-center mb-4 cursor-pointer hover:scale-105 transition-transform duration-300" onClick={() => triggerMascot('orbit', mascotExpression)}>
+                  <BloubMascot size={120} state="idle" expression={mascotExpression} shape={targetShape} color={targetColor} isStatic={false} />
+                </div>
               </div>
-            </div>
 
-            {/* Expression Section */}
-            <div>
-              <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
-                Expression
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {['neutre', 'attentif', 'surpris', 'excite', 'heureux', 'hilare', 'colere', 'triste', 'effraye', 'mefiant', 'confus', 'curieux', 'fier', 'timide', 'blase', 'somnolent'].map(expr => (
-                  <button
-                    key={expr}
-                    type="button"
-                    onClick={() => setMascotExpression(expr as ExpressionId)}
-                    className={`px-3 py-2 rounded-xl text-xs font-medium capitalize border transition-all ${
-                      mascotExpression === expr
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-md scale-105 font-semibold'
-                        : isDark
-                          ? 'bg-slate-800/80 text-slate-300 border-slate-700/60 hover:bg-slate-700/80 hover:text-white'
-                          : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-400'
-                    }`}
-                  >
-                    {expr}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Colour Section */}
-            <div>
-              <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
-                <PaintBucket size={14} /> Colour
-              </span>
-              <div className="grid grid-cols-6 gap-2.5">
-                {COLORS.map(c => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => updateTargetColor(c.id)}
-                    className={`flex aspect-square items-center justify-center rounded-full border-2 transition-all cursor-pointer ${
-                      targetColor === c.id
-                        ? 'border-blue-500 scale-110 shadow-md ring-2 ring-blue-500/40'
-                        : isDark
-                          ? 'border-transparent hover:border-slate-600'
-                          : 'border-transparent hover:border-gray-300'
-                    }`}
-                    aria-label={c.id}
-                    title={c.id}
-                  >
-                    <span
-                      className="block w-6 h-6 rounded-full ring-1 ring-black/20 ring-inset shadow-inner"
-                      style={{ backgroundColor: c.hex }}
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Theme Section */}
-            <div>
-              <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
-                <Palette size={14} /> Theme
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                {THEMES.map(theme => (
-                  <button
-                    key={theme.id}
-                    type="button"
-                    onClick={() => setBgTheme(theme.id)}
-                    className={`flex items-center gap-2 py-2 px-3 text-xs font-medium rounded-xl border transition-all ${
-                      bgTheme === theme.id
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-md font-semibold'
-                        : isDark
-                          ? 'bg-slate-800/80 text-slate-300 border-slate-700/60 hover:bg-slate-700/80 hover:text-white'
-                          : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-400'
-                    }`}
-                  >
-                    <div className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-inner flex-shrink-0" style={{ backgroundColor: theme.color }} />
-                    <span className="truncate">{theme.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Push Notifications Section */}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handlePushToggle}
-                className={`w-full flex items-center justify-between py-3.5 px-4 rounded-2xl border transition-all font-semibold text-sm active:scale-95 ${
-                  isSubscribed 
-                    ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400' 
-                    : isDark
-                      ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700'
-                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <Bell size={16} />
-                  {isSubscribed ? 'Notifications Enabled' : 'Enable Mobile Notifications'}
-                </span>
-              </button>
-              {isSubscribed && (
+              {/* Horizontal Category Scroller */}
+              <div className="w-full flex gap-2.5 overflow-x-auto pb-4 pt-1 px-1 custom-scrollbar scroll-smooth mb-4 border-b border-slate-800">
                 <button
                   type="button"
-                  onClick={sendTestPush}
-                  className="w-full mt-2 py-2 text-xs font-semibold text-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-1.5"
+                  onClick={() => setSettingsTarget('global')}
+                  className={`flex-shrink-0 flex flex-col items-center py-2 px-3 rounded-2xl border transition-all ${
+                    settingsTarget === 'global'
+                      ? 'bg-slate-700/90 border-blue-500 text-white shadow-md scale-105 ring-1 ring-blue-500/30'
+                      : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  }`}
                 >
-                  <Smartphone size={12} />
-                  Send Test Push Notification
+                  <div className="w-8 h-8 flex items-center justify-center pointer-events-none">
+                    <BloubMascot size={32} state="idle" expression={mascotExpression} shape={mascotShape} color={mascotColor} isStatic={true} />
+                  </div>
+                  <span className="text-[10px] font-bold mt-1 tracking-wide uppercase">Global</span>
                 </button>
-              )}
-            </div>
-
-            {/* AI Configuration Section */}
-            <div className="pt-2 border-t border-dashed border-gray-300 dark:border-slate-700 mt-2">
-              <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-2 transition-colors text-slate-400 dark:text-slate-500">
-                <Sparkles size={14} className="text-purple-500" /> NotebookLM API
-              </span>
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  placeholder="Gemini API Key..."
-                  value={geminiApiKey}
-                  onChange={(e) => setGeminiApiKey(e.target.value)}
-                  onBlur={() => {
-                    if (!session) return;
-                    const meta = session.user.user_metadata || {};
-                    meta.geminiApiKey = geminiApiKey;
-                    supabase.auth.updateUser({ data: meta }).catch(console.error);
-                  }}
-                  className={`flex-1 px-3 py-2 text-sm rounded-xl border outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-200 focus:border-purple-500' : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-purple-500'}`}
-                />
+                {categories.map(cat => {
+                  const { shape: cShape, color: cColor } = getListMascot(cat, catSettings);
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setSettingsTarget(cat.id)}
+                      className={`flex-shrink-0 flex flex-col items-center py-2 px-3 rounded-2xl border transition-all ${
+                        settingsTarget === cat.id
+                          ? 'bg-slate-700/90 border-blue-500 text-white shadow-md scale-105 ring-1 ring-blue-500/30'
+                          : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                      }`}
+                    >
+                      <div className="w-8 h-8 flex items-center justify-center pointer-events-none">
+                        <BloubMascot size={32} state="idle" expression="neutre" shape={cShape} color={cColor} isStatic={true} />
+                      </div>
+                      <span className="text-[10px] font-bold mt-1 tracking-wide uppercase truncate w-12 text-center">{cat.name}</span>
+                    </button>
+                  );
+                })}
               </div>
-              <p className="text-[10px] opacity-70 mt-1.5 px-1 leading-tight text-slate-400">
-                Gemini 1.5 is <strong className="text-purple-400">100% free with no limits</strong> for personal use. Get your free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-400 hover:underline">aistudio.google.com</a>.
-              </p>
-            </div>
 
-            {/* Antigravity CLI Skill Option */}
-            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-4`}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-orange-500 flex items-center gap-1.5">
-                  <Cpu size={14} /> Antigravity /todo Skill
+              {/* Shape Section */}
+              <div className="mb-6">
+                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> 
+                  Shape
                 </span>
-                <a 
-                  href="/downloads/install-todo-skill.ps1" 
-                  download="install-todo-skill.ps1"
-                  className="text-xs font-semibold text-blue-500 hover:text-blue-600 flex items-center gap-1"
-                >
-                  Download <Download size={10} />
-                </a>
+                <div className="grid grid-cols-4 gap-2">
+                  {SHAPE_IDS.map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => updateTargetShape(s)}
+                      className={`flex aspect-square flex-col items-center justify-center rounded-2xl border-2 transition-all cursor-pointer ${
+                        targetShape === s
+                          ? 'bg-slate-800 border-blue-500 shadow-md ring-2 ring-blue-500/30 ring-offset-1 ring-offset-slate-900 scale-105'
+                          : isDark
+                            ? 'bg-slate-800/50 border-slate-700/50 hover:bg-slate-800 hover:border-slate-600'
+                            : 'bg-white border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <BloubMascot size={32} state="idle" expression="neutre" shape={s} color={targetColor} isStatic={true} />
+                    </button>
+                  ))}
+                </div>
               </div>
-              <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                Control this app using <code className="font-mono text-[10px] font-semibold text-orange-400">/todo</code> inside Antigravity. Download the script, open PowerShell, and run:
-                <code className={`block mt-1.5 p-1.5 rounded font-mono text-[10px] ${isDark ? 'bg-slate-900 text-orange-300' : 'bg-gray-100 text-orange-700'}`}>
-                  .\install-todo-skill.ps1
-                </code>
-              </p>
-            </div>
-            
-            {/* Sign Out Button */}
-            <div className={`mt-6 pt-4 border-t ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
-              <button
-                onClick={async () => {
-                  await supabase.auth.signOut();
-                  setTodos([]);
-                  setCategories([]);
-                  setShowSettings(false);
-                }}
-                className={`w-full py-3 px-4 font-semibold rounded-2xl transition-all active:scale-95 text-sm flex items-center justify-center gap-2 ${
-                  isDark 
-                    ? 'bg-red-950/30 hover:bg-red-950/50 text-red-400 border border-red-900/30' 
-                    : 'bg-red-50 hover:bg-red-100 text-red-600 border border-red-100'
-                }`}
-              >
-                <LogOut size={16} />
-                Sign Out
-              </button>
+
+              {/* Expression Section */}
+              <div className="mb-6">
+                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
+                  <Smile size={14} /> Expression
+                </span>
+                <div className="grid grid-cols-4 gap-2">
+                  {['neutre', 'attentif', 'surpris', 'excite', 'heureux', 'hilare', 'colere', 'triste', 'effraye', 'mefiant'].map(expr => (
+                    <button
+                      key={expr}
+                      type="button"
+                      onClick={() => updateTargetExpr(expr)}
+                      className={`flex aspect-square flex-col items-center justify-center rounded-2xl border-2 transition-all cursor-pointer ${
+                        (settingsTarget === 'global' ? mascotExpression : (catSettings[settingsTarget]?.expression || 'neutre')) === expr
+                          ? 'bg-slate-800 border-blue-500 shadow-md ring-2 ring-blue-500/30 ring-offset-1 ring-offset-slate-900 scale-105'
+                          : isDark
+                            ? 'bg-slate-800/50 border-slate-700/50 hover:bg-slate-800 hover:border-slate-600'
+                            : 'bg-white border-gray-200 hover:border-gray-300'
+                      }`}
+                      title={expr}
+                    >
+                      <BloubMascot size={32} state="idle" expression={expr as any} shape={targetShape} color={targetColor} isStatic={true} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Color Section */}
+              <div className="mb-6">
+                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+                  Colour
+                </span>
+                <div className="flex flex-wrap gap-3">
+                  {COLORS.map(c => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => updateTargetColor(c.id)}
+                      className={`flex aspect-square items-center justify-center rounded-full transition-all cursor-pointer ${
+                        targetColor === c.id
+                          ? 'ring-2 ring-blue-500 ring-offset-[3px] ring-offset-[#0f172a] scale-110 shadow-md'
+                          : 'hover:scale-110 hover:ring-2 hover:ring-slate-500 hover:ring-offset-[2px] hover:ring-offset-[#0f172a]'
+                      }`}
+                      aria-label={c.id}
+                      title={c.id}
+                    >
+                      <span
+                        className="block w-6 h-6 rounded-full ring-1 ring-black/20 ring-inset shadow-inner"
+                        style={{ backgroundColor: c.hex }}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Theme Section */}
+              <div className="mb-6">
+                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
+                  <Palette size={14} /> Theme
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  {THEMES.map(theme => (
+                    <button
+                      key={theme.id}
+                      type="button"
+                      onClick={() => setBgTheme(theme.id)}
+                      className={`flex items-center gap-2 py-2 px-3 text-xs font-medium rounded-xl border transition-all ${
+                        bgTheme === theme.id
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-md font-semibold'
+                          : isDark
+                            ? 'bg-slate-800/80 text-slate-300 border-slate-700/60 hover:bg-slate-700/80 hover:text-white'
+                            : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      <div className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-inner flex-shrink-0" style={{ backgroundColor: theme.color }} />
+                      <span className="truncate">{theme.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Push Notifications Section */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handlePushToggle}
+                  className={`w-full flex items-center justify-between py-3.5 px-4 rounded-2xl border transition-all font-semibold text-sm active:scale-95 ${
+                    isSubscribed 
+                      ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400' 
+                      : isDark
+                        ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700'
+                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Bell size={16} />
+                    {isSubscribed ? 'Notifications Enabled' : 'Enable Mobile Notifications'}
+                  </span>
+                </button>
+                {isSubscribed && (
+                  <button
+                    type="button"
+                    onClick={sendTestPush}
+                    className="w-full mt-2 py-2 text-xs font-semibold text-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Smartphone size={12} />
+                    Send Test Push Notification
+                  </button>
+                )}
+              </div>
+  
+              {/* AI Configuration Section */}
+              <div className="pt-2 border-t border-dashed border-gray-300 dark:border-slate-700 mt-2">
+                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-2 transition-colors text-slate-400 dark:text-slate-500">
+                  <Sparkles size={14} className="text-purple-500" /> NotebookLM API
+                </span>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    placeholder="Gemini API Key..."
+                    value={geminiApiKey}
+                    onChange={(e) => setGeminiApiKey(e.target.value)}
+                    onBlur={() => {
+                      if (!session) return;
+                      const meta = session.user.user_metadata || {};
+                      meta.geminiApiKey = geminiApiKey;
+                      supabase.auth.updateUser({ data: meta }).catch(console.error);
+                    }}
+                    className={`flex-1 px-3 py-2 text-sm rounded-xl border outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-200 focus:border-purple-500' : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-purple-500'}`}
+                  />
+                </div>
+                <p className="text-[10px] opacity-70 mt-1.5 px-1 leading-tight text-slate-400">
+                  Gemini 1.5 is <strong className="text-purple-400">100% free with no limits</strong> for personal use. Get your free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-400 hover:underline">aistudio.google.com</a>.
+                </p>
+              </div>
+  
+              {/* Antigravity CLI Skill Option */}
+              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/50 border-gray-100'} mt-4`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-orange-500 flex items-center gap-1.5">
+                    <Cpu size={14} /> Antigravity /todo Skill
+                  </span>
+                  <a 
+                    href="/downloads/install-todo-skill.ps1" 
+                    download="install-todo-skill.ps1"
+                    className="text-xs font-semibold text-blue-500 hover:text-blue-600 flex items-center gap-1"
+                  >
+                    Download <Download size={10} />
+                  </a>
+                </div>
+                <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                  Control this app using <code className="font-mono text-[10px] font-semibold text-orange-400">/todo</code> inside Antigravity. Download the script, open PowerShell, and run:
+                  <code className={`block mt-1.5 p-1.5 rounded font-mono text-[10px] ${isDark ? 'bg-slate-900 text-orange-300' : 'bg-gray-100 text-orange-700'}`}>
+                    .\install-todo-skill.ps1
+                  </code>
+                </p>
+              </div>
+              
+              {/* Sign Out Button */}
+              <div className={`mt-6 pt-4 border-t ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
+                <button
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    setTodos([]);
+                    setCategories([]);
+                    setShowSettings(false);
+                  }}
+                  className={`w-full py-3 px-4 font-semibold rounded-2xl transition-all active:scale-95 text-sm flex items-center justify-center gap-2 ${
+                    isDark 
+                      ? 'bg-red-950/30 hover:bg-red-950/50 text-red-400 border border-red-900/30' 
+                      : 'bg-red-50 hover:bg-red-100 text-red-600 border border-red-100'
+                  }`}
+                >
+                  <LogOut size={16} />
+                  Sign Out
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      ) : (
-        /* Main Content Area */
+
+        ) : (
+          /* Main Content Area */
         <div className="px-6 py-6 flex-1 relative">
         
         {/* Large Hero Mascot */}
@@ -1406,8 +1415,10 @@ export default function Home() {
               const pendingContextCount = showListHero ? todos.filter(t => !t.completed && t.categoryId === activeCategory).length : todos.filter(t => !t.completed).length;
               const dyn = getDynamicMascotProps(heroShape, heroColor, pendingContextCount);
               const isAnim = mascotState !== 'idle';
+              const catExpr = showListHero ? (catSettings[activeCategory]?.expression) : null;
+              const heroExpr = catExpr || mascotExpression || dyn.expr;
               return (
-                <BloubMascot size={showAddModal ? 96 : 160} state={mascotState} expression={isAnim ? mascotExpression : dyn.expr} shape={heroShape} color={dyn.color} />
+                <BloubMascot size={showAddModal ? 96 : 160} state={mascotState} expression={isAnim ? mascotExpression : (heroExpr as ExpressionId)} shape={heroShape} color={dyn.color} />
               );
             })()}
           </div>
