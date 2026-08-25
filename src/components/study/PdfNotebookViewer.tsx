@@ -11,6 +11,12 @@ import { updateFrontmatterField } from '@/lib/obsidian/parser';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
+const options = {
+  cMapUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/cmaps/`,
+  cMapPacked: true,
+  standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
+};
+
 interface PdfNotebookViewerProps {
   pdfUrl: string;
   noteId: string;
@@ -372,12 +378,6 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
       document.removeEventListener('touchend', handleGlobalMouseUp);
     };
   }, [pdfTool, highlightMode, annotations, pageNumber, zoomLevel, highlightColor]);
-
-  const options = {
-    cMapUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/cmaps/`,
-    cMapPacked: true,
-    standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
-  };
 
   const toolsPortal = typeof document !== 'undefined' ? document.getElementById('pdf-tools-portal') : null;
 
