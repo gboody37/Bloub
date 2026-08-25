@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -324,6 +325,8 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
 
   const currentNote = notes[pageNumber] || { text: "", lang: "en" };
 
+  const toolsPortal = typeof document !== 'undefined' ? document.getElementById('pdf-tools-portal') : null;
+
   return (
     <div ref={containerRef} className={`flex w-full flex-1 h-full min-h-[500px] border rounded-2xl overflow-hidden shadow-inner ${isDark ? 'border-slate-800 bg-slate-950' : 'border-gray-200 bg-gray-100'}`}>
        
@@ -354,55 +357,40 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
           }}
           style={{ cursor: pdfTool === 'pan' ? 'grab' : 'default' }}
         >
-                  {/* PDF Toolbar */}
-         {showPdfUi ? (
-         <div className="sticky top-2 mb-4 left-1/2 -translate-x-1/2 w-max flex items-center gap-2 bg-slate-900/90 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-700 shadow-xl z-50">
-           <button onClick={() => setShowPdfUi(false)} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-red-400" title="Hide UI"><EyeOff size={16}/></button>
-           <div className="w-px h-6 bg-slate-700/50 mx-1"></div>
-           <button onClick={() => setPdfTool('pan')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'pan' ? 'text-purple-400 bg-purple-500/20' : 'text-slate-400 hover:text-white'}`} title="Pan Tool"><Hand size={16}/></button>
-           <button onClick={() => setPdfTool('cursor')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'cursor' ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`} title="Pointer Tool"><MousePointer2 size={16}/></button>
-           <button onClick={() => setPdfTool('highlight')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'highlight' ? 'bg-yellow-500/20 text-yellow-400' : 'text-slate-400 hover:text-yellow-400'}`} title="Highlighter Tool"><Highlighter size={16}/></button>
-           
-             <button onClick={() => setPdfTool('text')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'text' ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-purple-400'}`} title="Text Note Tool"><Type size={16}/></button>
-             {pdfTool === 'text' && (
-                 <div className="flex items-center gap-1 mx-1 bg-slate-800 rounded-lg p-1">
-                   {['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#9333ea', '#ec4899', '#ffffff', '#000000'].map(c => (
-                     <button key={c} onPointerDown={(e) => e.preventDefault()} onClick={() => { setTextColor(c); if (pendingText) setPendingText({ ...pendingText, color: c }); }} className={`w-4 h-4 rounded-full border ${textColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
-                   ))}
-                 </div>
+          {/* PDF Toolbar rendered in portal */}
+          {toolsPortal && createPortal(
+             <div className="flex items-center gap-1.5">
+               <button onClick={() => setPdfTool('pan')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'pan' ? 'text-purple-400 bg-purple-500/20' : 'text-slate-400 hover:text-white'}`} title="Pan Tool"><Hand size={16}/></button>
+               <button onClick={() => setPdfTool('cursor')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'cursor' ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`} title="Pointer Tool"><MousePointer2 size={16}/></button>
+               <button onClick={() => setPdfTool('highlight')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'highlight' ? 'bg-yellow-500/20 text-yellow-400' : 'text-slate-400 hover:text-yellow-400'}`} title="Highlighter Tool"><Highlighter size={16}/></button>
+               
+               <button onClick={() => setPdfTool('text')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'text' ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-purple-400'}`} title="Text Note Tool"><Type size={16}/></button>
+               {pdfTool === 'text' && (
+                   <div className="flex items-center gap-1 mx-1 bg-slate-800 rounded-lg p-1">
+                     {['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#9333ea', '#ec4899', '#ffffff', '#000000'].map(c => (
+                       <button key={c} onPointerDown={(e) => e.preventDefault()} onClick={() => { setTextColor(c); if (pendingText) setPendingText({ ...pendingText, color: c }); }} className={`w-4 h-4 rounded-full border ${textColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
+                     ))}
+                   </div>
                )}
-               {pdfTool === 'highlight' && (
-                 <div className="flex items-center gap-1 mx-1 bg-slate-800 rounded-lg p-1">
-                   {['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#fed7aa', '#e9d5ff'].map(c => (
-                     <button key={c} onPointerDown={(e) => e.preventDefault()} onClick={() => setHighlightColor(c)} className={`w-4 h-4 rounded-full border ${highlightColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
-                   ))}
-                 </div>
-               )}
+               
+               <button onClick={() => setPdfTool('eraser')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'eraser' ? 'bg-pink-500/20 text-pink-400' : 'text-slate-400 hover:text-pink-400'}`} title="Eraser Tool"><Eraser size={16}/></button>
+               <button onClick={handleUndo} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white" title="Undo Annotation"><Undo2 size={16}/></button>
+               
+               <div className="w-px h-4 bg-slate-700/50 mx-1"></div>
+               <button onClick={() => setShowNotes(!showNotes)} className={`p-1.5 rounded-lg transition-colors ${showNotes ? 'text-blue-400 bg-blue-500/20' : 'text-slate-400 hover:text-white'}`} title="Toggle Notes Panel"><Sidebar size={16}/></button>
+               <div className="w-px h-4 bg-slate-700/50 mx-1"></div>
+               
+               <button onClick={() => setZoomLevel(z => Math.max(z - 0.25, 0.5))} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white" title="Zoom Out">
+                 <ZoomOut size={16}/>
+               </button>
+               <div className="text-xs font-mono text-slate-400 font-bold min-w-[40px] text-center">{Math.round(zoomLevel * 100)}%</div>
+               <button onClick={() => setZoomLevel(z => Math.min(z + 0.25, 3.0))} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white" title="Zoom In">
+                 <ZoomIn size={16}/>
+               </button>
+             </div>,
+             toolsPortal
+          )}
 
-
-           <button onClick={() => setPdfTool('eraser')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'eraser' ? 'bg-pink-500/20 text-pink-400' : 'text-slate-400 hover:text-pink-400'}`} title="Eraser Tool"><Eraser size={16}/></button>
-           <button onClick={handleUndo} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white" title="Undo Annotation"><Undo2 size={16}/></button>
-
-           <div className="w-px h-6 bg-slate-700/50 mx-1"></div>
-           
-
-           <div className="w-px h-6 bg-slate-700/50 mx-1"></div>
-           <button onClick={() => setShowNotes(!showNotes)} className={`p-1.5 rounded-lg transition-colors ${showNotes ? 'text-blue-400 bg-blue-500/20' : 'text-slate-400 hover:text-white'}`} title="Toggle Notes Panel"><Sidebar size={16}/></button>
-
-           <div className="w-px h-4 bg-slate-700 mx-1"></div>
-           <button onClick={() => setZoomLevel(z => Math.max(z - 0.25, 0.5))} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white" title="Zoom Out">
-             <ZoomOut size={16}/>
-           </button>
-           <div className="text-xs font-mono text-slate-400 font-bold min-w-[40px] text-center">{Math.round(zoomLevel * 100)}%</div>
-           <button onClick={() => setZoomLevel(z => Math.min(z + 0.25, 3.0))} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white" title="Zoom In">
-             <ZoomIn size={16}/>
-           </button>
-         </div>
-         ) : (
-           <button onClick={() => setShowPdfUi(true)} className="absolute top-4 left-4 p-2 rounded-full bg-slate-900/50 backdrop-blur text-slate-400 hover:text-white hover:bg-slate-800 z-50 transition-all shadow-lg border border-slate-700/50" title="Show UI">
-             <Eye size={20}/>
-           </button>
-         )}
          <div className="w-fit mx-auto relative flex flex-col items-center">
            <Document 
             file={pdfUrl} 

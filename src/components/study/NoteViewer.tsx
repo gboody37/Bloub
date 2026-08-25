@@ -641,6 +641,7 @@ export default function NoteViewer({
                 </div>
 
                 <div className="flex items-center gap-1 sm:gap-2">
+                  <div id="pdf-tools-portal" className="flex items-center mr-2 pr-2 border-r border-slate-700/50 overflow-x-auto hide-scrollbar max-w-[150px] sm:max-w-none"></div>
                   {/* View Mode Toggle: Visual PDF vs Extracted Text */}
                   <button
                     type="button"
