@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -23,11 +23,12 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [pdfTool, setPdfTool] = useState('cursor');
+    const [textColor, setTextColor] = useState('#9333ea'); // default purple-600
   const [zoomLevel, setZoomLevel] = useState(1.0);
   const [notesWidth, setNotesWidth] = useState(450);
   const [isDragging, setIsDragging] = useState(false);
     const [showNotes, setShowNotes] = useState(true);
-    const [pendingText, setPendingText] = useState<{x: number, y: number, text: string} | null>(null);
+    const [pendingText, setPendingText] = useState<{x: number, y: number, text: string, color?: string} | null>(null);
   
   
   // Annotation State
@@ -52,9 +53,11 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
     
     
     if (pdfTool === 'text') {
+      if (pendingText) return; // Don't create a new box if they are just clicking to blur the current one
+
       const x = (e.clientX - containerRect.left) / zoomLevel;
       const y = (e.clientY - containerRect.top) / zoomLevel;
-      setPendingText({ x, y, text: '' });
+      setPendingText({ x, y, text: '', color: textColor });
       return;
     }
 
@@ -144,7 +147,9 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
     setPageNumber(1);
   }
 
-  const handleSave = async () => {
+  const handleSave = async (forceNotes?: any, forceAnnotations?: any) => {
+    const saveNotes = forceNotes || notes;
+    const saveAnnotations = forceAnnotations || annotations;
     setIsSaving(true);
     try {
       // We fetch the latest frontmatter to not overwrite other things
@@ -153,7 +158,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
 
             let content = currentNote.content;
       // Replace or inject pdf_notes in frontmatter
-      const notesJson = JSON.stringify({ notes, annotations }).replace(/'/g, "''"); // SQL/YAML safe single quote escape
+      const notesJson = JSON.stringify({ notes: saveNotes, annotations: saveAnnotations }).replace(/'/g, "''"); // SQL/YAML safe single quote escape
       
       if (content.includes('pdf_notes:')) {
         content = content.replace(/pdf_notes:\s*'.*?'/g, `pdf_notes: '${notesJson}'`);
@@ -187,6 +192,26 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
     return () => clearTimeout(timer);
   }, [notes, annotations]);
 
+  
+  const notesRef = useRef(notes);
+  const annotationsRef = useRef(annotations);
+  const isDirtyRef = useRef(false);
+
+  useEffect(() => {
+    notesRef.current = notes;
+    annotationsRef.current = annotations;
+    isDirtyRef.current = true;
+  }, [notes, annotations]);
+
+  useEffect(() => {
+    // Unmount save
+    return () => {
+      if (isDirtyRef.current) {
+        handleSave(notesRef.current, annotationsRef.current);
+      }
+    };
+  }, []);
+
   const currentNote = notes[pageNumber] || { text: "", lang: "en" };
 
   return (
@@ -198,7 +223,16 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
          <div className="sticky top-2 mb-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-slate-900/90 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-700 shadow-xl z-50">
            <button onClick={() => setPdfTool('cursor')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'cursor' ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`}><MousePointer2 size={16}/></button>
            <button onClick={() => setPdfTool('highlight')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'highlight' ? 'bg-yellow-500/20 text-yellow-400' : 'text-slate-400 hover:text-yellow-400'}`}><Highlighter size={16}/></button>
-           <button onClick={() => setPdfTool('text')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'text' ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-purple-400'}`}><Type size={16}/></button>
+           
+             <button onClick={() => setPdfTool('text')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'text' ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-purple-400'}`}><Type size={16}/></button>
+             {pdfTool === 'text' && (
+               <div className="flex items-center gap-1 mx-1 bg-slate-800 rounded-lg p-1">
+                 {['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#9333ea', '#ec4899', '#ffffff', '#000000'].map(c => (
+                   <button key={c} onClick={() => setTextColor(c)} className={`w-4 h-4 rounded-full border ${textColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
+                 ))}
+               </div>
+             )}
+
 
            <button onClick={() => setPdfTool('eraser')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'eraser' ? 'bg-pink-500/20 text-pink-400' : 'text-slate-400 hover:text-pink-400'}`}><Eraser size={16}/></button>
            <button onClick={handleUndo} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white"><Undo2 size={16}/></button>
@@ -232,7 +266,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
                    const h = Math.abs(ann.h) * zoomLevel;
                    const left = ann.startX * zoomLevel;
                    const top = ann.startY * zoomLevel;
-                   return <div key={ann.id} onMouseDown={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} onTouchStart={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} className="absolute text-purple-600 font-bold text-3xl bg-transparent px-2 py-1 whitespace-pre pointer-events-auto" style={{ left: ann.x * zoomLevel, top: ann.y * zoomLevel, fontFamily: ann.text.match(/[\u0600-\u06FF]/) ? 'var(--font-lemonada)' : 'var(--font-caveat)' }} dir="auto">{ann.text}</div>;
+                   return <div key={ann.id} onMouseDown={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} onTouchStart={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} className="absolute font-bold text-3xl bg-transparent px-2 py-1 whitespace-pre pointer-events-auto" style={{ left: ann.x * zoomLevel, top: ann.y * zoomLevel, fontFamily: ann.text.match(/[\u0600-\u06FF]/) ? 'var(--font-lemonada)' : 'var(--font-caveat)', color: ann.color || '#9333ea' }} dir="auto">{ann.text}</div>;
                  }
                  return null;
                  })}
@@ -264,7 +298,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
                          setPdfTool('cursor');
                        }
                      }}
-                     className="absolute text-purple-600 font-bold text-3xl bg-transparent px-2 py-1 border-2 border-dashed border-purple-500/50 outline-none pointer-events-auto min-w-[200px]"
+                     className="absolute font-bold text-3xl bg-transparent px-2 py-1 border-2 border-dashed border-purple-500/50 outline-none pointer-events-auto min-w-[200px]"
                      style={{ 
                        left: pendingText.x * zoomLevel, 
                        top: pendingText.y * zoomLevel,
