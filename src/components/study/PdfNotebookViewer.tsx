@@ -42,6 +42,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
   const [showPdfUi, setShowPdfUi] = useState(true);
   const [showNotes, setShowNotes] = useState(true);
   const [pendingText, setPendingText] = useState<{x: number, y: number, text: string, color?: string, fontSize?: number, id?: number} | null>(null);
+  const [viewerEngine, setViewerEngine] = useState<'pdfjs' | 'native'>('native');
   const [highlightMode, setHighlightMode] = useState<'box' | 'text'>('box');
   const [highlightStart, setHighlightStart] = useState<{x: number, y: number} | null>(null);
   const [highlightCurrent, setHighlightCurrent] = useState<{x: number, y: number} | null>(null);
@@ -430,39 +431,54 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
           {/* PDF Toolbar rendered in portal */}
           {toolsPortal && createPortal(
              <div className="flex items-center gap-1.5">
-               <button onClick={() => setPdfTool('pan')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'pan' ? 'text-purple-400 bg-purple-500/20' : 'text-slate-400 hover:text-white'}`} title="Pan Tool"><Hand size={16}/></button>
-               <button onClick={() => setPdfTool('cursor')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'cursor' ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`} title="Pointer Tool"><MousePointer2 size={16}/></button>
-               <button onClick={() => setPdfTool('highlight')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'highlight' ? 'bg-yellow-500/20 text-yellow-400' : 'text-slate-400 hover:text-yellow-400'}`} title="Highlighter Tool"><Highlighter size={16}/></button>
-               
-               <button onClick={() => setPdfTool('text')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'text' ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-purple-400'}`} title="Text Note Tool"><Type size={16}/></button>
-               {pdfTool === 'highlight' && (
-                   <div className="flex items-center gap-1 mx-1 bg-slate-800 rounded-lg p-1">
-                     <button 
-                       onPointerDown={(e) => e.preventDefault()} 
-                       onClick={() => setHighlightMode(m => m === 'box' ? 'text' : 'box')} 
-                       className={`flex items-center gap-1 px-2 py-0.5 mr-1 rounded border border-slate-700 bg-slate-900 text-xs font-bold text-white transition-colors hover:bg-slate-700`}
-                       title={highlightMode === 'box' ? "Switch to Text Selection Mode" : "Switch to Box Drawing Mode"}
-                     >
-                       {highlightMode === 'box' ? <Square size={12}/> : <Baseline size={12}/>}
-                       <span className="hidden sm:inline">{highlightMode === 'box' ? 'Box' : 'Text'}</span>
-                     </button>
-                     {['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#fed7aa', '#e9d5ff'].map(c => (
-                       <button key={c} onPointerDown={(e) => e.preventDefault()} onClick={() => setHighlightColor(c)} className={`w-4 h-4 rounded-full border ${highlightColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
-                     ))}
-                   </div>
+               {viewerEngine === 'pdfjs' && (
+                 <>
+                   <button onClick={() => setPdfTool('pan')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'pan' ? 'text-purple-400 bg-purple-500/20' : 'text-slate-400 hover:text-white'}`} title="Pan Tool"><Hand size={16}/></button>
+                   <button onClick={() => setPdfTool('cursor')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'cursor' ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`} title="Pointer Tool"><MousePointer2 size={16}/></button>
+                   <button onClick={() => setPdfTool('highlight')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'highlight' ? 'bg-yellow-500/20 text-yellow-400' : 'text-slate-400 hover:text-yellow-400'}`} title="Highlighter Tool"><Highlighter size={16}/></button>
+                   
+                   <button onClick={() => setPdfTool('text')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'text' ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-purple-400'}`} title="Text Note Tool"><Type size={16}/></button>
+                   {pdfTool === 'highlight' && (
+                       <div className="flex items-center gap-1 mx-1 bg-slate-800 rounded-lg p-1">
+                         <button 
+                           onPointerDown={(e) => e.preventDefault()} 
+                           onClick={() => setHighlightMode(m => m === 'box' ? 'text' : 'box')} 
+                           className={`flex items-center gap-1 px-2 py-0.5 mr-1 rounded border border-slate-700 bg-slate-900 text-xs font-bold text-white transition-colors hover:bg-slate-700`}
+                           title={highlightMode === 'box' ? "Switch to Text Selection Mode" : "Switch to Box Drawing Mode"}
+                         >
+                           {highlightMode === 'box' ? <Square size={12}/> : <Baseline size={12}/>}
+                           <span className="hidden sm:inline">{highlightMode === 'box' ? 'Box' : 'Text'}</span>
+                         </button>
+                         {['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#fed7aa', '#e9d5ff'].map(c => (
+                           <button key={c} onPointerDown={(e) => e.preventDefault()} onClick={() => setHighlightColor(c)} className={`w-4 h-4 rounded-full border ${highlightColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
+                         ))}
+                       </div>
+                   )}
+                   {pdfTool === 'text' && (
+                       <div className="flex items-center gap-1 mx-1 bg-slate-800 rounded-lg p-1">
+                         {['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#9333ea', '#ec4899', '#ffffff', '#000000'].map(c => (
+                           <button key={c} onPointerDown={(e) => e.preventDefault()} onClick={() => { setTextColor(c); if (pendingText) setPendingText({ ...pendingText, color: c }); }} className={`w-4 h-4 rounded-full border ${textColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
+                         ))}
+                       </div>
+                   )}
+                   
+                   <button onClick={() => setPdfTool('eraser')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'eraser' ? 'bg-pink-500/20 text-pink-400' : 'text-slate-400 hover:text-pink-400'}`} title="Eraser Tool"><Eraser size={16}/></button>
+                   <button onClick={handleUndo} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white" title="Undo Annotation"><Undo2 size={16}/></button>
+                 </>
                )}
-               {pdfTool === 'text' && (
-                   <div className="flex items-center gap-1 mx-1 bg-slate-800 rounded-lg p-1">
-                     {['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#9333ea', '#ec4899', '#ffffff', '#000000'].map(c => (
-                       <button key={c} onPointerDown={(e) => e.preventDefault()} onClick={() => { setTextColor(c); if (pendingText) setPendingText({ ...pendingText, color: c }); }} className={`w-4 h-4 rounded-full border ${textColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
-                     ))}
-                   </div>
-               )}
-               
-               <button onClick={() => setPdfTool('eraser')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'eraser' ? 'bg-pink-500/20 text-pink-400' : 'text-slate-400 hover:text-pink-400'}`} title="Eraser Tool"><Eraser size={16}/></button>
-               <button onClick={handleUndo} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white" title="Undo Annotation"><Undo2 size={16}/></button>
-               
                <div className="w-px h-4 bg-slate-700/50 mx-1"></div>
+
+                 <button 
+                   onClick={() => setViewerEngine(v => v === 'pdfjs' ? 'native' : 'pdfjs')} 
+                   className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors border ${viewerEngine === 'native' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-white'}`} 
+                   title="Toggle PDF Engine (Native Browser vs Interactive)"
+                 >
+                   <Eye size={14}/>
+                   <span className="text-xs font-bold hidden sm:inline">{viewerEngine === 'native' ? 'Native Viewer' : 'Interactive Viewer'}</span>
+                 </button>
+
+                 <div className="w-px h-4 bg-slate-700/50 mx-1"></div>
+
                <button onClick={() => setShowNotes(!showNotes)} className={`p-1.5 rounded-lg transition-colors ${showNotes ? 'text-blue-400 bg-blue-500/20' : 'text-slate-400 hover:text-white'}`} title="Toggle Notes Panel"><Sidebar size={16}/></button>
                <div className="w-px h-4 bg-slate-700/50 mx-1"></div>
                
@@ -477,6 +493,9 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
              toolsPortal
           )}
 
+         {viewerEngine === 'native' ? (
+           <iframe src={`${pdfUrl}#toolbar=0`} className="w-full h-full flex-1 border-0 bg-transparent rounded-xl" title="PDF Native Viewer" />
+         ) : (
          <div className="w-fit mx-auto relative flex flex-col items-center">
            <Document 
               file={pdfUrl} 
@@ -691,8 +710,9 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
    
           </Document>
           </div>
-         
-         {numPages && (
+         )}
+           
+         {viewerEngine === 'pdfjs' && numPages && (
            <div className="sticky bottom-6 mt-6 left-1/2 -translate-x-1/2 w-max flex items-center gap-4 bg-slate-900/90 backdrop-blur px-6 py-3 rounded-full border border-slate-700 shadow-2xl z-50">
                <button onClick={() => setPageNumber(p => Math.max(1, p - 1))} disabled={pageNumber <= 1} className="p-1.5 text-white disabled:opacity-30 hover:bg-slate-800 rounded-full transition-colors"><ChevronLeft size={20}/></button>
                
