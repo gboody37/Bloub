@@ -499,12 +499,11 @@ export function processPageTextContent(textContent: any, viewport: any): Process
       // Prevent merging items across large horizontal gaps (e.g. columns)
       const lastItem = currentLineItems[currentLineItems.length - 1];
         
-      // Horizontal distance between the edges of the two items
-      const hGap = Math.abs(lastItem.left - (item.left + item.width));
-      const ltrGap = Math.abs(item.left - (lastItem.left + lastItem.width));
-      const maxGap = Math.max(20, item.fontSize * 3.5);
+      // Horizontal distance between the start coordinates of the two items
+      const absoluteGap = Math.abs(lastItem.left - item.left);
+      const isNewColumn = absoluteGap > 50; // 50px is a solid heuristic for a column gap
         
-      if (hGap > maxGap && ltrGap > maxGap) {
+      if (isNewColumn) {
         // Break line due to large horizontal gap (it's a new column!)
         lines.push(buildProcessedLine(currentLineItems));
         currentLineItems = [item];
@@ -531,22 +530,21 @@ export function processPageTextContent(textContent: any, viewport: any): Process
   }
 
   // 3. Final DOM Reading Order Sorting (Column Detection)
-  // To prevent text selection from jumping horizontally between columns on every line,
-  // we sort the finalized lines primarily into vertical columns (Right-to-Left),
-  // and secondarily top-to-bottom within the column.
-  lines.sort((a, b) => {
-    // Check if lines overlap horizontally
-    const overlap = Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
-    
-    if (overlap === 0) {
-      // No horizontal overlap = they are in different columns.
-      // For Arabic (RTL), the right-most column should come FIRST in the DOM.
-      return b.left - a.left;
-    }
-    
-    // They overlap horizontally (same column), sort top-to-bottom
-    return a.top - b.top;
-  });
+    // To prevent text selection from jumping horizontally, we must sort transitively.
+    // We bin the lines into 150px wide vertical columns, and sort primarily by column (Right-to-Left).
+    lines.sort((a, b) => {
+      // For Arabic RTL, rightmost coordinates should be grouped first
+      // Assuming a standard max page width of ~1000px, we bin by 150px chunks
+      const colA = Math.floor(a.left / 150);
+      const colB = Math.floor(b.left / 150);
+      
+      if (colA !== colB) {
+        return colB - colA; // Sort columns Right-to-Left
+      }
+      
+      // If they are in the same vertical column bin, sort Top-to-Bottom
+      return a.top - b.top;
+    });
 
   return lines;
 }
