@@ -120,30 +120,3 @@ git grep -n "darkBlue" src/app/globals.css
 # 5. Run test suite to verify tests pass
 npm test
 ```
-
-
----
-
-## 3. Caveats
-
-- **Storage Bucket Privileges**: The Supabase publishable anon key cannot create storage buckets via client SDK if RLS is enabled on `storage.buckets`. Bucket creation and storage RLS policies must be applied via SQL migration or Postgres connection script (`INSERT INTO storage.buckets ...`).
-- **Existing Base64 Notes**: Existing notes stored with base64 data URLs will still render in the UI, but an automated migration script should be provided to extract their base64 blobs into Supabase Storage to recover database performance.
-- **Browser Memory on pdf.js**: Client-side text extraction of large documents (>100 pages) should retain a page cap (e.g. 50 pages) to avoid client memory exhaustion during text extraction.
-
----
-
-## 4. Conclusion
-
-The PDF upload architecture can be completely fixed without breaking existing study workflows:
-1. Execute an automated setup script (`scripts/verify-storage.js`) creating bucket `media` with public access and RLS policies.
-2. Refactor `NoteExplorer.tsx:handleDocumentUpload` to upload PDF binaries directly to `media/pdfs/<user_id>/...` and store the public URL in frontmatter.
-3. Optimize `scanner.ts:scanVaultDirectory` to omit `content` in list queries.
-4. Maintain `NoteViewer.tsx` and `QuizSession.tsx` compatibility with clean body content.
-
----
-
-## 5. Verification Method
-
-- **Storage Infrastructure**: Run `node scripts/verify-storage.js` to ensure the `media` bucket exists and accepts uploads.
-- **Upload & DB Size Check**: Upload a sample PDF via the UI / API test; verify in `vault_notes` that `content` contains `pdf_url: https://...` and no base64 string.
-- **Automated Tests**: Run `npm run test` and `node --experimental-strip-types tests/verification/run-all-verifications.ts`.
