@@ -630,7 +630,7 @@ export default function NoteViewer({
               spellCheck={false}
             />
           ) : pdfUrl ? (
-            <div className={`flex flex-col w-full h-full space-y-3 ${isPdfFullscreen ? 'fixed inset-0 z-50 p-6 bg-slate-950/95 backdrop-blur-xl' : ''}`}>
+            <div className={`flex flex-col w-full h-full min-h-0 flex-1 gap-3 ${isPdfFullscreen ? 'fixed inset-0 z-50 p-6 bg-slate-950/95 backdrop-blur-xl' : ''}`}>
               {/* PDF Toolbar Header */}
               <div className={`flex items-center justify-between px-4 py-2.5 rounded-2xl border shadow-sm ${
                 isDark ? 'bg-slate-900/90 border-slate-800 text-slate-300' : 'bg-white border-gray-200 text-gray-700'
@@ -711,10 +711,13 @@ export default function NoteViewer({
               {/* Main Visual Frame or Reader Mode */}
               {pdfViewMode === 'pdf' ? (
                 <PdfNotebookViewer 
+                  key={note.id}
                   pdfUrl={pdfUrl} 
                   noteId={note.id} 
+                  notePath={note.relativePath || note.id}
                   initialNotesStr={note.frontmatter?.pdf_notes} 
                   isDark={isDark} 
+                  onUpdateNote={onUpdateNote}
                 />
               ) : (
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-6 rounded-2xl border border-slate-800 bg-slate-900/60 text-slate-200">

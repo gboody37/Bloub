@@ -6,40 +6,66 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { ChevronLeft, ChevronRight, PenTool, Save, Check, Highlighter, Type, MousePointer2, ZoomIn, ZoomOut, Eraser, Undo2, Sidebar } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { updateFrontmatterField } from '@/lib/obsidian/parser';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface PdfNotebookViewerProps {
   pdfUrl: string;
   noteId: string;
+  notePath?: string;
   initialNotesStr?: string;
   isDark?: boolean;
+  onUpdateNote?: (updatedContent: string) => void;
 }
 
-export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isDark = true }: PdfNotebookViewerProps) {
+export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNotesStr, isDark = true, onUpdateNote }: PdfNotebookViewerProps) {
   const [numPages, setNumPages] = useState<number>();
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [notes, setNotes] = useState<Record<number, { text: string, lang: 'en' | 'ar' }>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [pdfTool, setPdfTool] = useState('cursor');
-    const [textColor, setTextColor] = useState('#9333ea'); // default purple-600
+  const [textColor, setTextColor] = useState('#9333ea'); // default purple-600
   const [zoomLevel, setZoomLevel] = useState(1.0);
   const [notesWidth, setNotesWidth] = useState(450);
   const [isDragging, setIsDragging] = useState(false);
-    const [showNotes, setShowNotes] = useState(true);
-    const [pendingText, setPendingText] = useState<{x: number, y: number, text: string, color?: string} | null>(null);
+  const [showNotes, setShowNotes] = useState(true);
+  const [pendingText, setPendingText] = useState<{x: number, y: number, text: string, color?: string} | null>(null);
   
   
   // Annotation State
   const [annotations, setAnnotations] = useState<Record<number, any[]>>({});
   const overlayRef = React.useRef<HTMLDivElement>(null);
-  
+  const notesRef = useRef(notes);
+  const annotationsRef = useRef(annotations);
+  const pendingTextRef = useRef(pendingText);
+  const isDirtyRef = useRef(false);
+
+  useEffect(() => {
+    notesRef.current = notes;
+    annotationsRef.current = annotations;
+    pendingTextRef.current = pendingText;
+  }, [notes, annotations, pendingText]);
+
+  const getEventClientCoords = (e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
+    if ('touches' in e && e.touches.length > 0) {
+      return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+    }
+    if ('changedTouches' in e && e.changedTouches.length > 0) {
+      return { clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY };
+    }
+    if ('clientX' in e) {
+      return { clientX: (e as React.MouseEvent).clientX, clientY: (e as React.MouseEvent).clientY };
+    }
+    return null;
+  };
   
   const handleUndo = () => {
     setAnnotations(prev => {
       const pageAnns = prev[pageNumber] || [];
       if (pageAnns.length === 0) return prev;
+      isDirtyRef.current = true;
       return {
         ...prev,
         [pageNumber]: pageAnns.slice(0, -1)
@@ -47,21 +73,21 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
     });
   };
 
-  const handleContainerMouseUp = (e: React.MouseEvent) => {
+  const handleContainerMouseUp = (e: React.MouseEvent | React.TouchEvent) => {
     if (!overlayRef.current) return;
     const containerRect = overlayRef.current.getBoundingClientRect();
-    
+    const coords = getEventClientCoords(e);
+    if (!coords) return;
     
     if (pdfTool === 'text') {
       if (pendingText) return; // Don't create a new box if they are just clicking to blur the current one
 
-      const x = (e.clientX - containerRect.left) / zoomLevel;
-      const y = (e.clientY - containerRect.top) / zoomLevel;
+      const x = (coords.clientX - containerRect.left) / zoomLevel;
+      const y = (coords.clientY - containerRect.top) / zoomLevel;
       setPendingText({ x, y, text: '', color: textColor });
       return;
     }
 
-    
     if (pdfTool === 'highlight') {
       const selection = window.getSelection();
       if (selection && !selection.isCollapsed) {
@@ -77,6 +103,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
           h: rect.height / zoomLevel
         }));
 
+        isDirtyRef.current = true;
         setAnnotations(prev => ({
           ...prev,
           [pageNumber]: [...(prev[pageNumber] || []), ...newHighlights]
@@ -86,10 +113,6 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
       }
     }
   };
-
-
-  
-  
   
   const containerRef = React.useRef<HTMLDivElement>(null);
   
@@ -99,10 +122,10 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
       const rect = containerRef.current.getBoundingClientRect();
       const rightEdge = rect.right;
       let clientX = 0;
-      if ('touches' in e) {
+      if ('touches' in e && e.touches.length > 0) {
         clientX = e.touches[0].clientX;
-      } else {
-        clientX = e.clientX;
+      } else if ('clientX' in e) {
+        clientX = (e as MouseEvent).clientX;
       }
       const newWidth = rightEdge - clientX;
       setNotesWidth(Math.max(200, Math.min(newWidth, Math.max(200, rect.width - 300))));
@@ -123,108 +146,212 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
     };
   }, [isDragging]);
 
-
   const supabase = createClient();
+  const prevNoteIdRef = useRef<string>(noteId);
+  const prevNotePathRef = useRef<string | undefined>(notePath);
 
+  // Reset or load annotations whenever noteId or initialNotesStr changes
   useEffect(() => {
-    if (initialNotesStr) {
-      try {
-        const parsed = JSON.parse(initialNotesStr);
-        if (parsed.notes) {
-          setNotes(parsed.notes);
-          setAnnotations(parsed.annotations || {});
-        } else {
-          setNotes(parsed);
+    // If switching notes and previous note had dirty changes, flush save for previous note
+    if (prevNoteIdRef.current && prevNoteIdRef.current !== noteId) {
+      if (isDirtyRef.current) {
+        handleSave(notesRef.current, annotationsRef.current, prevNoteIdRef.current, prevNotePathRef.current);
+      }
+      prevNoteIdRef.current = noteId;
+      prevNotePathRef.current = notePath;
+
+      if (initialNotesStr) {
+        try {
+          let parsed = typeof initialNotesStr === 'string' ? JSON.parse(initialNotesStr) : initialNotesStr;
+          if (typeof parsed === 'string') {
+            try {
+              parsed = JSON.parse(parsed);
+            } catch {}
+          }
+          if (parsed && typeof parsed === 'object') {
+            setNotes(parsed.notes || (!parsed.annotations ? parsed : {}));
+            setAnnotations(parsed.annotations || {});
+          } else {
+            setNotes({});
+            setAnnotations({});
+          }
+        } catch (e) {
+          console.error("Failed to parse initial pdf notes", e);
+          setNotes({});
+          setAnnotations({});
         }
-      } catch (e) {
-        console.error("Failed to parse initial pdf notes", e);
+      } else {
+        setNotes({});
+        setAnnotations({});
+      }
+      isDirtyRef.current = false;
+    } else {
+      // Same note: only update if not dirty to prevent race condition clobbering active edits
+      prevNotePathRef.current = notePath;
+      if (!isDirtyRef.current && initialNotesStr) {
+        try {
+          let parsed = typeof initialNotesStr === 'string' ? JSON.parse(initialNotesStr) : initialNotesStr;
+          if (typeof parsed === 'string') {
+            try {
+              parsed = JSON.parse(parsed);
+            } catch {}
+          }
+          if (parsed && typeof parsed === 'object') {
+            const newNotes = parsed.notes || (!parsed.annotations ? parsed : {});
+            const newAnnotations = parsed.annotations || {};
+            if (JSON.stringify(newNotes) !== JSON.stringify(notesRef.current)) {
+              setNotes(newNotes);
+            }
+            if (JSON.stringify(newAnnotations) !== JSON.stringify(annotationsRef.current)) {
+              setAnnotations(newAnnotations);
+            }
+          }
+        } catch {}
       }
     }
-  }, [initialNotesStr]);
+  }, [noteId, initialNotesStr, notePath]);
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }): void {
     setNumPages(numPages);
     setPageNumber(1);
   }
 
-  const handleSave = async (forceNotes?: any, forceAnnotations?: any) => {
-    const saveNotes = forceNotes || notes;
-    const saveAnnotations = forceAnnotations || annotations;
+  const handleSave = async (forceNotes?: any, forceAnnotations?: any, targetNoteId?: string, targetNotePath?: string) => {
+    let saveAnnotations = forceAnnotations !== undefined ? forceAnnotations : annotationsRef.current;
+    
+    // Commit any active pending text annotation before persisting
+    if (pendingTextRef.current && pendingTextRef.current.text.trim()) {
+      const pending = pendingTextRef.current;
+      const newAnn = { id: Date.now(), type: 'text', ...pending };
+      saveAnnotations = {
+        ...saveAnnotations,
+        [pageNumber]: [...(saveAnnotations[pageNumber] || []), newAnn]
+      };
+      setAnnotations(saveAnnotations);
+      setPendingText(null);
+      setPdfTool('cursor');
+    }
+
+    const saveNotes = forceNotes !== undefined ? forceNotes : notesRef.current;
+    const effNoteId = targetNoteId || noteId;
+    const effNotePath = targetNotePath || notePath || effNoteId;
     setIsSaving(true);
     try {
-      // We fetch the latest frontmatter to not overwrite other things
-      const { data: currentNote } = await supabase.from('vault_notes').select('content').eq('id', noteId).single();
-      if (!currentNote) return;
+      let currentNote: { id: string; content: string; path: string } | null = null;
 
-            let content = currentNote.content;
-      // Replace or inject pdf_notes in frontmatter
-      const notesJson = JSON.stringify({ notes: saveNotes, annotations: saveAnnotations }).replace(/'/g, "''"); // SQL/YAML safe single quote escape
-      
-      if (content.includes('pdf_notes:')) {
-        content = content.replace(/pdf_notes:\s*'([\\s\\S]*?)'/g, `pdf_notes: '${notesJson}'`);
-      } else if (content.startsWith('---')) {
-        content = content.replace(/^---\r?\n/, `---\npdf_notes: '${notesJson}'\n`);
+      // 1. Try querying by id
+      const { data: byId } = await supabase
+        .from('vault_notes')
+        .select('id, content, path')
+        .eq('id', effNoteId)
+        .maybeSingle();
+
+      if (byId) {
+        currentNote = byId;
       } else {
-        content = `---\npdf_notes: '${notesJson}'\n---\n\n` + content;
+        // 2. Try querying by path
+        const { data: byPath } = await supabase
+          .from('vault_notes')
+          .select('id, content, path')
+          .eq('path', effNotePath)
+          .maybeSingle();
+        if (byPath) {
+          currentNote = byPath;
+        }
       }
 
-      await supabase.from('vault_notes').update({ content }).eq('id', noteId);
+      const notesJson = JSON.stringify({ notes: saveNotes, annotations: saveAnnotations });
+      const baseContent = currentNote?.content || (pdfUrl ? `---\npdf_url: '${pdfUrl}'\n---\n` : '');
+      const updatedContent = updateFrontmatterField(baseContent, 'pdf_notes', notesJson);
+
+      if (currentNote) {
+        const { error: updateError } = await supabase
+          .from('vault_notes')
+          .update({ 
+            content: updatedContent, 
+            updated_at: new Date().toISOString() 
+          })
+          .eq('id', currentNote.id);
+
+        if (updateError) {
+          throw updateError;
+        }
+      }
+
+      if (onUpdateNote) {
+        onUpdateNote(updatedContent);
+      }
       
+      isDirtyRef.current = false;
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e) {
-      console.error(e);
-      alert('Failed to save notebook');
+      console.error('Failed to save PDF notebook:', e);
     } finally {
       setIsSaving(false);
     }
   };
 
-  
   useEffect(() => {
-    // Only auto-save if there's actually something to save
-    if (Object.keys(notes).length === 0 && Object.keys(annotations).length === 0) return;
+    if (!isDirtyRef.current) return;
     
-    // Auto-save debounce
+    // Auto-save debounce (runs on any user mutation, including deletions)
     const timer = setTimeout(() => {
       handleSave();
     }, 1500);
     return () => clearTimeout(timer);
   }, [notes, annotations]);
 
-  
-  const notesRef = useRef(notes);
-  const annotationsRef = useRef(annotations);
-  const isDirtyRef = useRef(false);
-
   useEffect(() => {
-    notesRef.current = notes;
-    annotationsRef.current = annotations;
-    isDirtyRef.current = true;
-  }, [notes, annotations]);
-
-  useEffect(() => {
-    // Unmount save
-    return () => {
-      if (isDirtyRef.current) {
-        handleSave(notesRef.current, annotationsRef.current);
+    // Unmount & visibility change save
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && isDirtyRef.current && prevNoteIdRef.current) {
+        handleSave(notesRef.current, annotationsRef.current, prevNoteIdRef.current, prevNotePathRef.current);
       }
     };
+    const handleBeforeUnload = () => {
+      if (isDirtyRef.current && prevNoteIdRef.current) {
+        handleSave(notesRef.current, annotationsRef.current, prevNoteIdRef.current, prevNotePathRef.current);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      if (isDirtyRef.current && prevNoteIdRef.current) {
+        handleSave(notesRef.current, annotationsRef.current, prevNoteIdRef.current, prevNotePathRef.current);
+      }
+    };
+  }, []);
+
+  // Keyboard shortcut Ctrl+S / Cmd+S to immediately save
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   const currentNote = notes[pageNumber] || { text: "", lang: "en" };
 
   return (
-    <div className={`flex w-full h-[650px] border rounded-2xl overflow-hidden shadow-inner ${isDark ? 'border-slate-800 bg-slate-950' : 'border-gray-200 bg-gray-100'}`}>
+    <div ref={containerRef} className={`flex w-full flex-1 h-full min-h-[500px] border rounded-2xl overflow-hidden shadow-inner ${isDark ? 'border-slate-800 bg-slate-950' : 'border-gray-200 bg-gray-100'}`}>
        
        {/* PDF Viewer Side */}
        <div className="flex-1 h-full overflow-auto custom-scrollbar flex flex-col items-center py-6 px-6 relative bg-black/20">
                   {/* PDF Toolbar */}
          <div className="sticky top-2 mb-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-slate-900/90 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-700 shadow-xl z-50">
-           <button onClick={() => setPdfTool('cursor')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'cursor' ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`}><MousePointer2 size={16}/></button>
-           <button onClick={() => setPdfTool('highlight')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'highlight' ? 'bg-yellow-500/20 text-yellow-400' : 'text-slate-400 hover:text-yellow-400'}`}><Highlighter size={16}/></button>
+           <button onClick={() => setPdfTool('cursor')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'cursor' ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`} title="Pointer Tool"><MousePointer2 size={16}/></button>
+           <button onClick={() => setPdfTool('highlight')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'highlight' ? 'bg-yellow-500/20 text-yellow-400' : 'text-slate-400 hover:text-yellow-400'}`} title="Highlighter Tool"><Highlighter size={16}/></button>
            
-             <button onClick={() => setPdfTool('text')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'text' ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-purple-400'}`}><Type size={16}/></button>
+             <button onClick={() => setPdfTool('text')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'text' ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-purple-400'}`} title="Text Note Tool"><Type size={16}/></button>
              {pdfTool === 'text' && (
                <div className="flex items-center gap-1 mx-1 bg-slate-800 rounded-lg p-1">
                  {['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#9333ea', '#ec4899', '#ffffff', '#000000'].map(c => (
@@ -234,18 +361,33 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
              )}
 
 
-           <button onClick={() => setPdfTool('eraser')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'eraser' ? 'bg-pink-500/20 text-pink-400' : 'text-slate-400 hover:text-pink-400'}`}><Eraser size={16}/></button>
-           <button onClick={handleUndo} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white"><Undo2 size={16}/></button>
+           <button onClick={() => setPdfTool('eraser')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'eraser' ? 'bg-pink-500/20 text-pink-400' : 'text-slate-400 hover:text-pink-400'}`} title="Eraser Tool"><Eraser size={16}/></button>
+           <button onClick={handleUndo} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white" title="Undo Annotation"><Undo2 size={16}/></button>
+
+           <div className="w-px h-6 bg-slate-700/50 mx-1"></div>
+           <button 
+             onClick={() => handleSave()} 
+             disabled={isSaving} 
+             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all text-xs font-semibold ${
+               saved 
+                 ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                 : 'bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 border border-purple-500/30'
+             }`} 
+             title="Save Annotations (Ctrl+S)"
+           >
+             {saved ? <Check size={14} className="text-green-400" /> : <Save size={14} />}
+             <span>{saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}</span>
+           </button>
 
            <div className="w-px h-6 bg-slate-700/50 mx-1"></div>
            <button onClick={() => setShowNotes(!showNotes)} className={`p-1.5 rounded-lg transition-colors ${showNotes ? 'text-blue-400 bg-blue-500/20' : 'text-slate-400 hover:text-white'}`} title="Toggle Notes Panel"><Sidebar size={16}/></button>
 
            <div className="w-px h-4 bg-slate-700 mx-1"></div>
-           <button onClick={() => setZoomLevel(z => Math.max(z - 0.25, 0.5))} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white">
+           <button onClick={() => setZoomLevel(z => Math.max(z - 0.25, 0.5))} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white" title="Zoom Out">
              <ZoomOut size={16}/>
            </button>
            <div className="text-xs font-mono text-slate-400 font-bold min-w-[40px] text-center">{Math.round(zoomLevel * 100)}%</div>
-           <button onClick={() => setZoomLevel(z => Math.min(z + 0.25, 3.0))} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white">
+           <button onClick={() => setZoomLevel(z => Math.min(z + 0.25, 3.0))} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white" title="Zoom In">
              <ZoomIn size={16}/>
            </button>
          </div>
@@ -258,67 +400,122 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
          >
            
            
-           <div className="relative inline-block shadow-2xl" ref={overlayRef} onMouseUp={handleContainerMouseUp} onTouchEnd={(e) => { e.preventDefault(); handleContainerMouseUp(e as any); }} style={{ cursor: pdfTool === 'text' ? 'text' : pdfTool === 'highlight' ? 'text' : pdfTool === 'eraser' ? 'crosshair' : 'default' }}>
-             <div className="absolute inset-0 z-20" style={{ pointerEvents: pdfTool === "eraser" ? "auto" : "none" }}>
-                              {(annotations[pageNumber] || []).map(ann => {
-                 if (ann.type === 'highlight') {
-                   const w = Math.abs(ann.w) * zoomLevel;
-                   const h = Math.abs(ann.h) * zoomLevel;
-                   const left = ann.startX * zoomLevel;
-                   const top = ann.startY * zoomLevel;
-                   return <div key={ann.id} onMouseDown={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} onTouchStart={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} className="absolute mix-blend-multiply bg-yellow-400/50 pointer-events-auto cursor-pointer" style={{ left, top, width: w, height: h }} title={ann.text} />;
-                 }
-                 if (ann.type === 'text') {
-                   return <div key={ann.id} onMouseDown={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} onTouchStart={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} className="absolute font-bold text-3xl bg-transparent px-2 py-1 whitespace-pre pointer-events-auto" style={{ left: ann.x * zoomLevel, top: ann.y * zoomLevel, fontFamily: (ann.text || '').match(/[\u0600-\u06FF]/) ? 'var(--font-lemonada)' : 'var(--font-caveat)', color: ann.color || '#9333ea' }} dir="auto">{ann.text}</div>;
-                 }
-                 return null;
-               })}
+            <div className="relative inline-block shadow-2xl" ref={overlayRef} onMouseUp={handleContainerMouseUp} onTouchEnd={(e) => { e.preventDefault(); handleContainerMouseUp(e as any); }} style={{ cursor: pdfTool === 'text' ? 'text' : pdfTool === 'highlight' ? 'text' : pdfTool === 'eraser' ? 'crosshair' : 'default' }}>
+              <div className="absolute inset-0 z-20" style={{ pointerEvents: pdfTool === "eraser" ? "auto" : "none" }}>
+                {(annotations[pageNumber] || []).map(ann => {
+                  if (ann.type === 'highlight') {
+                    const w = Math.abs(ann.w) * zoomLevel;
+                    const h = Math.abs(ann.h) * zoomLevel;
+                    const left = ann.startX * zoomLevel;
+                    const top = ann.startY * zoomLevel;
+                    return (
+                      <div 
+                        key={ann.id} 
+                        onMouseDown={(e) => { 
+                          if (pdfTool === 'eraser') { 
+                            e.stopPropagation(); 
+                            isDirtyRef.current = true;
+                            setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); 
+                          } 
+                        }} 
+                        onTouchStart={(e) => { 
+                          if (pdfTool === 'eraser') { 
+                            e.stopPropagation(); 
+                            isDirtyRef.current = true;
+                            setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); 
+                          } 
+                        }} 
+                        className={`absolute mix-blend-multiply bg-yellow-400/50 ${pdfTool === 'eraser' ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`} 
+                        style={{ left, top, width: w, height: h, pointerEvents: pdfTool === 'eraser' ? 'auto' : 'none' }} 
+                        title={ann.text} 
+                      />
+                    );
+                  }
+                  if (ann.type === 'text') {
+                    return (
+                      <div 
+                        key={ann.id} 
+                        onMouseDown={(e) => { 
+                          if (pdfTool === 'eraser') { 
+                            e.stopPropagation(); 
+                            isDirtyRef.current = true;
+                            setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); 
+                          } 
+                        }} 
+                        onTouchStart={(e) => { 
+                          if (pdfTool === 'eraser') { 
+                            e.stopPropagation(); 
+                            isDirtyRef.current = true;
+                            setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); 
+                          } 
+                        }} 
+                        className={`absolute font-bold bg-transparent px-2 py-1 whitespace-pre select-none ${pdfTool === 'eraser' ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`} 
+                        style={{ 
+                          left: ann.x * zoomLevel, 
+                          top: ann.y * zoomLevel, 
+                          fontSize: `${Math.max(12, Math.round(24 * zoomLevel))}px`,
+                          lineHeight: 1.2,
+                          fontFamily: (ann.text || '').match(/[\u0600-\u06FF]/) ? 'var(--font-lemonada)' : 'var(--font-caveat)', 
+                          color: ann.color || '#9333ea',
+                          pointerEvents: pdfTool === 'eraser' ? 'auto' : 'none'
+                        }} 
+                        dir="auto"
+                      >
+                        {ann.text}
+                      </div>
+                    );
+                  }
+                  return null;
+                })}
 
-                 
-                 {pendingText && (
-                   <input
-                     autoFocus
-                     type="text"
-                     dir="auto"
-                     value={pendingText.text}
-                     onChange={(e) => setPendingText({ ...pendingText, text: e.target.value })}
-                     onBlur={() => {
-                       if (pendingText.text.trim()) {
-                         setAnnotations(prev => ({
-                           ...prev,
-                           [pageNumber]: [...(prev[pageNumber] || []), { id: Date.now(), type: 'text', ...pendingText }]
-                         }));
-                       }
-                       setPendingText(null);
-                       setPdfTool('cursor');
-                     }}
-                     onKeyDown={(e) => {
-                       if (e.key === 'Enter') {
-                         e.currentTarget.blur();
-                       }
-                       if (e.key === 'Escape') {
-                         setPendingText(null);
-                         setPdfTool('cursor');
-                       }
-                     }}
-                     className="absolute font-bold text-3xl bg-transparent px-2 py-1 border-2 border-dashed border-purple-500/50 outline-none pointer-events-auto min-w-[200px]"
-                     style={{ 
-                       left: pendingText.x * zoomLevel, 
-                       top: pendingText.y * zoomLevel,
-                       fontFamily: pendingText.text.match(/[\u0600-\u06FF]/) ? 'var(--font-lemonada)' : 'var(--font-caveat)'
-                     }}
-                   />
-                 )}
-               </div>
-               <Page 
-               pageNumber={pageNumber} 
-               renderTextLayer={true} 
-               renderAnnotationLayer={true} 
-               scale={zoomLevel} 
-               className="rounded-lg overflow-hidden shadow-2xl transition-transform duration-300 transform-gpu"
-             />
-           </div>
-  
+                {pendingText && (
+                  <input
+                    autoFocus
+                    type="text"
+                    dir="auto"
+                    value={pendingText.text}
+                    onChange={(e) => setPendingText({ ...pendingText, text: e.target.value })}
+                    onBlur={() => {
+                      if (pendingText.text.trim()) {
+                        isDirtyRef.current = true;
+                        setAnnotations(prev => ({
+                          ...prev,
+                          [pageNumber]: [...(prev[pageNumber] || []), { id: Date.now(), type: 'text', ...pendingText }]
+                        }));
+                      }
+                      setPendingText(null);
+                      setPdfTool('cursor');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.currentTarget.blur();
+                      }
+                      if (e.key === 'Escape') {
+                        setPendingText(null);
+                        setPdfTool('cursor');
+                      }
+                    }}
+                    className="absolute font-bold bg-transparent px-2 py-1 border-2 border-dashed border-purple-500/50 outline-none pointer-events-auto min-w-[150px]"
+                    style={{ 
+                      left: pendingText.x * zoomLevel, 
+                      top: pendingText.y * zoomLevel,
+                      fontSize: `${Math.max(12, Math.round(24 * zoomLevel))}px`,
+                      lineHeight: 1.2,
+                      fontFamily: pendingText.text.match(/[\u0600-\u06FF]/) ? 'var(--font-lemonada)' : 'var(--font-caveat)',
+                      color: pendingText.color || textColor
+                    }}
+                  />
+                )}
+              </div>
+              <Page 
+                pageNumber={pageNumber} 
+                renderTextLayer={true} 
+                renderAnnotationLayer={true} 
+                scale={zoomLevel} 
+                className="rounded-lg overflow-hidden shadow-2xl transition-transform duration-300 transform-gpu"
+              />
+            </div>
+   
          </Document>
          
          {numPages && (
@@ -367,7 +564,10 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
            <div className="flex items-center gap-3">
              <select 
                value={currentNote.lang} 
-               onChange={e => setNotes(n => ({...n, [pageNumber]: {...currentNote, lang: e.target.value as 'en'|'ar'}}))}
+               onChange={e => {
+                 isDirtyRef.current = true;
+                 setNotes(n => ({...n, [pageNumber]: {...currentNote, lang: e.target.value as 'en'|'ar'}}));
+               }}
                className={`text-xs px-2.5 py-1.5 rounded-lg border outline-none cursor-pointer ${isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
              >
                <option value="en">English (Caveat)</option>
@@ -380,7 +580,10 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
 
          <textarea 
            value={currentNote.text}
-           onChange={e => setNotes(n => ({...n, [pageNumber]: {...currentNote, text: e.target.value}}))}
+           onChange={e => {
+             isDirtyRef.current = true;
+             setNotes(n => ({...n, [pageNumber]: {...currentNote, text: e.target.value}}));
+           }}
            placeholder="Write your notes here..."
            dir={currentNote.lang === 'ar' ? 'rtl' : 'ltr'}
            className={`flex-1 w-full p-8 bg-transparent outline-none resize-none leading-[32px] ${

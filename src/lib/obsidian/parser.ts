@@ -80,7 +80,14 @@ export function parseObsidianMarkdown(
 
         // List item under an active key
         if (trimmed.startsWith('- ') && currentKey) {
-          const val = trimmed.slice(2).trim().replace(/^['"]|['"]$/g, '');
+          let val = trimmed.slice(2).trim();
+          if (val.startsWith("'") && val.endsWith("'")) {
+            val = val.slice(1, -1).replace(/''/g, "'");
+          } else if (val.startsWith('"') && val.endsWith('"')) {
+            val = val.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+          } else {
+            val = val.replace(/^['"]|['"]$/g, '');
+          }
           if (!Array.isArray(frontmatter[currentKey])) {
             frontmatter[currentKey] = [];
           }
@@ -101,7 +108,16 @@ export function parseObsidianMarkdown(
             const items = rawVal
               .slice(1, -1)
               .split(',')
-              .map(s => s.trim().replace(/^['"]|['"]$/g, ''))
+              .map(s => {
+                const trimmedItem = s.trim();
+                if (trimmedItem.startsWith("'") && trimmedItem.endsWith("'")) {
+                  return trimmedItem.slice(1, -1).replace(/''/g, "'");
+                }
+                if (trimmedItem.startsWith('"') && trimmedItem.endsWith('"')) {
+                  return trimmedItem.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                }
+                return trimmedItem.replace(/^['"]|['"]$/g, '');
+              })
               .filter(Boolean);
             frontmatter[currentKey] = items;
             if (currentKey === 'tags' || currentKey === 'tag') {
@@ -110,7 +126,14 @@ export function parseObsidianMarkdown(
           } else if (rawVal === '') {
             frontmatter[currentKey] = [];
           } else {
-            const cleanVal = rawVal.replace(/^['"]|['"]$/g, '');
+            let cleanVal = rawVal;
+            if (rawVal.startsWith("'") && rawVal.endsWith("'")) {
+              cleanVal = rawVal.slice(1, -1).replace(/''/g, "'");
+            } else if (rawVal.startsWith('"') && rawVal.endsWith('"')) {
+              cleanVal = rawVal.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+            } else {
+              cleanVal = rawVal.replace(/^['"]|['"]$/g, '');
+            }
             frontmatter[currentKey] = cleanVal;
             if ((currentKey === 'tags' || currentKey === 'tag') && cleanVal) {
               if (cleanVal.includes(',')) {
@@ -199,4 +222,42 @@ export function parseObsidianMarkdown(
     wordCount: words.length,
     lastModifiedMs: Date.now()
   };
+}
+
+/**
+ * Safely inserts or updates a single key/value pair in YAML frontmatter.
+ * Properly escapes single quotes for YAML single-quoted string representation.
+ */
+export function updateFrontmatterField(content: string, key: string, value: string): string {
+  const raw = content || '';
+  const yamlMatch = raw.match(/^---[ \t]*\r?\n([\s\S]*?)(?:\r?\n)?[ \t]*---[ \t]*(?:\r?\n)?/);
+  const newLine = `${key}: '${value.replace(/'/g, "''")}'`;
+
+  if (yamlMatch) {
+    const yamlBlock = yamlMatch[1];
+    const lines = yamlBlock.split(/\r?\n/);
+    let replaced = false;
+    const newLines: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.startsWith(`${key}:`) || line.trim().startsWith(`${key}:`)) {
+        newLines.push(newLine);
+        replaced = true;
+      } else {
+        newLines.push(line);
+      }
+    }
+
+    if (!replaced) {
+      newLines.unshift(newLine);
+    }
+
+    const updatedYamlBlock = newLines.join('\n');
+    const bodyContent = raw.slice(yamlMatch[0].length);
+    const cleanBody = bodyContent.replace(/^\r?\n+/, '');
+    return `---\n${updatedYamlBlock.trim()}\n---\n\n${cleanBody}`;
+  } else {
+    return `---\n${newLine}\n---\n\n${raw}`;
+  }
 }

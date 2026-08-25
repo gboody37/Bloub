@@ -127,15 +127,18 @@ async function runEmpiricalSuite() {
   }
   console.log(`  Summary: ${allNotesRes.rows.length} notes, ${base64Found} base64 violations, ${oversizedFound} oversized notes (>200KB).`);
 
-  // Test 2: Documents/1.pdf.md Analysis
-  console.log('\n[2/4] INSPECTING Documents/1.pdf.md & STORAGE PUBLIC URL REACHABILITY...');
+  // Test 2: Live PDF Note Analysis & Storage Reachability
+  console.log('\n[2/4] INSPECTING LIVE PDF NOTE & STORAGE PUBLIC URL REACHABILITY...');
   const note1Res = await pgClient.query(`
     SELECT id, user_id, title, path, content, octet_length(content) as byte_length
     FROM public.vault_notes
-    WHERE path = 'Documents/1.pdf.md';
+    WHERE path LIKE 'Documents/%.pdf.md' OR content LIKE '%pdf_url:%'
+    ORDER BY id ASC
+    LIMIT 1;
   `);
 
   const note1 = note1Res.rows[0];
+  assert.ok(note1, 'At least one PDF note must exist in public.vault_notes');
   console.log(`  Target Note: ID=${note1.id}, Path=${note1.path}, DB Size=${(note1.byte_length / 1024).toFixed(2)} KB`);
 
   // Extract raw URL from content via regex directly

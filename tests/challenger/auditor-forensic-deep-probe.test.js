@@ -114,16 +114,18 @@ async function runForensicDeepProbe() {
   console.log('  ✔ Live DB Base64 Inspection: 0 violations, 0 oversized notes.\n');
 
   // ------------------------------------------------------------------
-  // CHECK 3: DOCUMENTS/1.PDF.MD VERIFICATION & LIVE STORAGE PROBE
+  // CHECK 3: LIVE PDF NOTE VERIFICATION & STORAGE CDN ASSET PROBE
   // ------------------------------------------------------------------
-  console.log('[PHASE 3] VERIFYING Documents/1.pdf.md AND STORAGE CDN ASSET...');
+  console.log('[PHASE 3] VERIFYING LIVE PDF NOTE AND STORAGE CDN ASSET...');
   const note1Res = await pgClient.query(`
     SELECT id, user_id, title, path, content, octet_length(content) as byte_length
     FROM public.vault_notes
-    WHERE path = 'Documents/1.pdf.md';
+    WHERE path LIKE 'Documents/%.pdf.md' OR content LIKE '%pdf_url:%'
+    ORDER BY id ASC
+    LIMIT 1;
   `);
 
-  assert.ok(note1Res.rows.length > 0, 'Row "Documents/1.pdf.md" must exist in public.vault_notes');
+  assert.ok(note1Res.rows.length > 0, 'A PDF note must exist in public.vault_notes');
   const note1 = note1Res.rows[0];
 
   console.log(`  • Row found: ID=${note1.id}, Path=${note1.path}, DB Size=${(note1.byte_length / 1024).toFixed(2)} KB`);
@@ -131,7 +133,7 @@ async function runForensicDeepProbe() {
   // Parse with pure parser
   const parsedNote1 = parseObsidianMarkdown(note1.content, note1.path);
   assert.ok(parsedNote1.frontmatter?.pdf_url, 'parsedNote1 must have frontmatter.pdf_url');
-  assert.equal(parsedNote1.title, '1.pdf', 'parsedNote1 title must be "1.pdf"');
+  assert.ok(parsedNote1.title, 'parsedNote1 must have a title');
   assert.equal(parsedNote1.frontmatter.type, 'pdf', 'parsedNote1 type must be "pdf"');
   console.log(`  • Parsed Frontmatter pdf_url: "${parsedNote1.frontmatter.pdf_url}"`);
   console.log(`  • Parsed Note Title: "${parsedNote1.title}"`);

@@ -21,6 +21,7 @@ import NoteViewer from '@/components/study/NoteViewer';
 import QuizSession from '@/components/study/QuizSession';
 import NoteGraph from '@/components/study/NoteGraph';
 import type { ObsidianNoteSummary, ParsedObsidianNote } from '@/types/obsidian';
+import { parseObsidianMarkdown } from '@/lib/obsidian/parser';
 
 const PRIORITY_COLOR = { high: '#ef4444', medium: '#f59e0b', low: '#3b82f6' };
 const PRIORITY_LABEL = { high: 'High', medium: 'Medium', low: 'Low' };
@@ -463,6 +464,49 @@ export default function Home() {
       setIsFetchingNote(false);
     }
   };
+
+  const handleUpdateNote = useCallback(async (updatedContent: string) => {
+    if (!selectedNote) return;
+
+    const parsed = parseObsidianMarkdown(
+      updatedContent,
+      selectedNote.relativePath || selectedNote.id,
+      selectedNote.absolutePath
+    );
+
+    const updatedNote: ParsedObsidianNote = {
+      ...selectedNote,
+      ...parsed,
+      id: selectedNote.id,
+      title: parsed.title || selectedNote.title,
+      folder: selectedNote.folder || parsed.folder,
+      relativePath: selectedNote.relativePath || parsed.relativePath,
+      rawContent: updatedContent,
+      bodyContent: parsed.bodyContent
+    };
+
+    setSelectedNote(updatedNote);
+
+    try {
+      await fetch('/api/obsidian/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: session?.user?.id,
+          notes: [{
+            title: updatedNote.title,
+            path: (updatedNote as any).path || updatedNote.relativePath || updatedNote.id,
+            content: updatedContent,
+            folder: updatedNote.folder,
+            tags: updatedNote.tags,
+            word_count: updatedNote.wordCount || updatedContent.split(/\s+/).length
+          }]
+        })
+      });
+    } catch (e) {
+      console.error('Failed to save note update', e);
+    }
+  }, [selectedNote, session?.user?.id]);
 
   const fetchTodos = async () => {
     if (!session) return;
@@ -1438,23 +1482,25 @@ export default function Home() {
 
         ) : (
           /* Main Content Area */
-        <div className="px-6 py-6 flex-1 relative">
+        <div className={`flex-1 relative flex flex-col min-h-0 ${selectedNote ? 'p-0 h-full' : 'px-6 py-6'}`}>
         
         {/* Large Hero Mascot */}
-        <div className={`flex justify-center transition-all duration-300 ${showAddModal ? 'mb-2 pt-1' : 'mb-8 pt-4'}`}>
-          <div className="cursor-pointer drop-shadow-xl hover:scale-105 transition-transform duration-300" onClick={() => triggerMascot('orbit', 'heureux')}>
-            {(() => {
-              const pendingContextCount = showListHero ? todos.filter(t => !t.completed && t.categoryId === activeCategory).length : todos.filter(t => !t.completed).length;
-              const dyn = getDynamicMascotProps(heroShape, heroColor, pendingContextCount);
-              const isAnim = mascotState !== 'idle';
-              const catExpr = showListHero ? (catSettings[activeCategory]?.expression) : null;
-              const heroExpr = catExpr || mascotExpression || dyn.expr;
-              return (
-                <BloubMascot size={showAddModal ? 96 : 160} state={mascotState} expression={isAnim ? mascotExpression : (heroExpr as ExpressionId)} shape={heroShape} color={dyn.color} />
-              );
-            })()}
+        {!selectedNote && (
+          <div className={`flex justify-center transition-all duration-300 ${showAddModal ? 'mb-2 pt-1' : 'mb-8 pt-4'}`}>
+            <div className="cursor-pointer drop-shadow-xl hover:scale-105 transition-transform duration-300" onClick={() => triggerMascot('orbit', 'heureux')}>
+              {(() => {
+                const pendingContextCount = showListHero ? todos.filter(t => !t.completed && t.categoryId === activeCategory).length : todos.filter(t => !t.completed).length;
+                const dyn = getDynamicMascotProps(heroShape, heroColor, pendingContextCount);
+                const isAnim = mascotState !== 'idle';
+                const catExpr = showListHero ? (catSettings[activeCategory]?.expression) : null;
+                const heroExpr = catExpr || mascotExpression || dyn.expr;
+                return (
+                  <BloubMascot size={showAddModal ? 96 : 160} state={mascotState} expression={isAnim ? mascotExpression : (heroExpr as ExpressionId)} shape={heroShape} color={dyn.color} />
+                );
+              })()}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Lists Master View */}
         {activeTab === 'lists' && isListView ? (
@@ -1697,7 +1743,7 @@ export default function Home() {
           </div>
           ) : activeTab === 'lists' && !isListView ? (
             /* Main Workspace View: Branching based on List Type (Study vs ToDo) */
-            <div>
+            <div className={selectedNote ? "h-full flex flex-col min-h-0 flex-1" : ""}>
             {!selectedNote && activeTab === "lists" && !isListView && (
                <div className="mb-4">
                  <button onClick={() => setIsListView(true)} className={`text-sm font-medium transition-colors ${isDark ? 'text-slate-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}>← Back to Lists</button>
@@ -1706,7 +1752,7 @@ export default function Home() {
 
             {/* Study Workspace Scaffold for categories with type === 'study' */}
             {activeTab === 'lists' && activeCatObj.type === 'study' ? (
-              <div className="space-y-5">
+              <div className={selectedNote ? "h-full flex flex-col min-h-0 flex-1" : "space-y-5"}>
                 {/* Study Hub Hero Card - Hide when deep inside a view */}
                 {!selectedNote && !showStudyExplorer && !showGraphView && (
                   <div className={`p-6 rounded-3xl border transition-all ${t.card} relative overflow-hidden`}>
@@ -1763,6 +1809,7 @@ export default function Home() {
                           isDark={isDark}
                           isLoading={isFetchingNote}
                           hideTopHeader={true}
+                          onUpdateNote={handleUpdateNote}
                         />
                       </div>
 
@@ -1779,7 +1826,7 @@ export default function Home() {
                     </div>
                   </div>
                 ) : selectedNote ? (
-                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col flex-1 min-h-0">
                     <NoteViewer 
                       note={selectedNote} 
                       isDark={isDark} 
@@ -1802,30 +1849,7 @@ export default function Home() {
                           setIsFetchingNote(false);
                         }
                       }}
-                      onUpdateNote={async (updatedContent) => {
-                        const updated = { ...selectedNote, bodyContent: updatedContent, rawContent: updatedContent };
-                        setSelectedNote(updated);
-                        
-                        try {
-                          await fetch('/api/obsidian/notes', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              userId: session?.user?.id,
-                              notes: [{
-                                title: selectedNote.title,
-                                path: (selectedNote as any).path || (selectedNote as any).relativePath || selectedNote.id,
-                                content: updatedContent,
-                                folder: selectedNote.folder,
-                                tags: selectedNote.tags,
-                                word_count: updatedContent.split(/\s+/).length
-                              }]
-                            })
-                          });
-                        } catch (e) {
-                          console.error('Failed to save note update', e);
-                        }
-                      }}
+                      onUpdateNote={handleUpdateNote}
                     />
                   </div>
                 ) : showGraphView ? (
@@ -2162,7 +2186,7 @@ export default function Home() {
       {(() => {
         const activeColorHex = COLORS.find(c => c.id === mascotColor)?.hex;
         return (
-          <nav className={`fixed left-0 right-0 border-t pb-safe z-40 px-6 py-2 transition-all duration-300 ${t.nav} ${isNavVisible ? "bottom-0" : "-bottom-24"}`}>
+          <nav className={`fixed left-0 right-0 border-t pb-safe z-40 px-6 py-2 transition-all duration-300 ${t.nav} ${isNavVisible && !selectedNote ? "bottom-0" : "-bottom-24"}`}>
             <div className="max-w-md mx-auto flex justify-between items-center text-xs font-medium text-gray-400">
               <button 
                 onClick={() => { setActiveTab('lists'); setIsListView(true); }}
@@ -2201,7 +2225,7 @@ export default function Home() {
       })()}
       
       {/* Padding for bottom nav */}
-      <div className="h-20" />
+      {!selectedNote && <div className="h-20" />}
 
       {/* Install Guide Modal */}
       {showInstallGuide && (

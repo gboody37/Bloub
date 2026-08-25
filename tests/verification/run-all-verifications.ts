@@ -8,6 +8,11 @@
 import { verifyAC1 } from './verify-ac1-list-types.ts';
 import { verifyAC2 } from './verify-ac2-obsidian-sync.ts';
 import { verifyAC3 } from './verify-ac3-ai-quizzing.ts';
+import { verifyPdfAnnotationsPersistence } from './verify-pdf-annotations-persistence.ts';
+import { verifyPdfLayoutIntegrity } from './verify-pdf-layout-integrity.ts';
+import { verifyAdversarial } from './verify-adversarial-tests.ts';
+import { verifyR2AdversarialSuite } from './verify-r2-adversarial-suite.ts';
+import { verifyR3AdversarialSuite } from './verify-r3-adversarial-suite.ts';
 
 interface VerificationResult {
   id: string;
@@ -54,6 +59,11 @@ Date: ${new Date().toISOString()}
   await runStep('AC-1', 'List Types (ToDo vs Study) & Strict UI Segregation', verifyAC1);
   await runStep('AC-2', 'Local Obsidian Vault Note Ingestion & Markdown Parsing', verifyAC2);
   await runStep('AC-3', 'Settings LLM Key Storage & Dynamic AI Quiz Generation', verifyAC3);
+  await runStep('R1-PDF-PERSISTENCE', 'PDF Note Annotations Parsing & Supabase Persistence', verifyPdfAnnotationsPersistence);
+  await runStep('R2-PDF-LAYOUT', 'PDF Layout Full-Height Flex Constraints & Mascot Suppression', verifyPdfLayoutIntegrity);
+  await runStep('ADV-STRESS-PARSER', 'Adversarial Parser & Serializer Stress Scenarios', verifyAdversarial);
+  await runStep('R2-ADVERSARIAL-SUITE', 'Round 2 Lifecycle, Empty Autosave & Undo Invariants', verifyR2AdversarialSuite);
+  await runStep('R3-ADVERSARIAL-SUITE', 'Round 3 In-Flight Race, Pending Text & Pointer Matrix', verifyR3AdversarialSuite);
 
   const totalDuration = ((Date.now() - suiteStartTime) / 1000).toFixed(2);
   const passedCount = results.filter(r => r.passed).length;
