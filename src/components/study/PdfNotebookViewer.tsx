@@ -263,37 +263,12 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
                      style={{ 
                        left: pendingText.x * zoomLevel, 
                        top: pendingText.y * zoomLevel,
-                       fontFamily: pendingText.text.match(/[؀-ۿ]/) ? 'var(--font-lemonada)' : 'var(--font-caveat)'
+                       fontFamily: pendingText.text.match(/[\u0600-\u06FF]/) ? 'var(--font-lemonada)' : 'var(--font-caveat)'
                      }}
                    />
                  )}
-}
-                     onBlur={() => {
-                       if (pendingText.text.trim()) {
-                         setAnnotations(prev => ({
-                           ...prev,
-                           [pageNumber]: [...(prev[pageNumber] || []), { id: Date.now(), type: 'text', ...pendingText }]
-                         }));
-                       }
-                       setPendingText(null);
-                       setPdfTool('cursor');
-                     }}
-                     onKeyDown={(e) => {
-                       if (e.key === 'Enter') {
-                         e.currentTarget.blur();
-                       }
-                       if (e.key === 'Escape') {
-                         setPendingText(null);
-                         setPdfTool('cursor');
-                       }
-                     }}
-                     className="absolute font-[family-name:var(--font-caveat)] text-purple-600 font-bold text-3xl bg-white/80 px-2 py-1 rounded shadow-sm border-2 border-purple-500 outline-none pointer-events-auto"
-                     style={{ left: pendingText.x * zoomLevel, top: pendingText.y * zoomLevel }}
-                   />
-                 )}
-
-             </div>
-             <Page 
+               </div>
+               <Page 
                pageNumber={pageNumber} 
                renderTextLayer={true} 
                renderAnnotationLayer={true} 
