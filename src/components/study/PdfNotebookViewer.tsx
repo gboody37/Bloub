@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { ChevronLeft, ChevronRight, PenTool, Save, Check, Highlighter, Type, MousePointer2, ZoomIn, ZoomOut, Eraser, Undo2, Sidebar, Hand } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PenTool, Save, Check, Highlighter, Type, MousePointer2, ZoomIn, ZoomOut, Eraser, Undo2, Sidebar, Hand, Eye, EyeOff } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { updateFrontmatterField } from '@/lib/obsidian/parser';
 
@@ -31,6 +31,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
   const [zoomLevel, setZoomLevel] = useState(1.0);
   const [notesWidth, setNotesWidth] = useState(450);
   const [isDragging, setIsDragging] = useState(false);
+  const [showPdfUi, setShowPdfUi] = useState(true);
   const [showNotes, setShowNotes] = useState(true);
   const [pendingText, setPendingText] = useState<{x: number, y: number, text: string, color?: string, fontSize?: number, id?: number} | null>(null);
   const [highlightStart, setHighlightStart] = useState<{x: number, y: number} | null>(null);
@@ -353,7 +354,10 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
           style={{ cursor: pdfTool === 'pan' ? 'grab' : 'default' }}
         >
                   {/* PDF Toolbar */}
+         {showPdfUi ? (
          <div className="sticky top-2 mb-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-slate-900/90 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-700 shadow-xl z-50">
+           <button onClick={() => setShowPdfUi(false)} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-red-400" title="Hide UI"><EyeOff size={16}/></button>
+           <div className="w-px h-6 bg-slate-700/50 mx-1"></div>
            <button onClick={() => setPdfTool('pan')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'pan' ? 'text-purple-400 bg-purple-500/20' : 'text-slate-400 hover:text-white'}`} title="Pan Tool"><Hand size={16}/></button>
            <button onClick={() => setPdfTool('cursor')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'cursor' ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`} title="Pointer Tool"><MousePointer2 size={16}/></button>
            <button onClick={() => setPdfTool('highlight')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'highlight' ? 'bg-yellow-500/20 text-yellow-400' : 'text-slate-400 hover:text-yellow-400'}`} title="Highlighter Tool"><Highlighter size={16}/></button>
@@ -393,7 +397,11 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
              <ZoomIn size={16}/>
            </button>
          </div>
-
+         ) : (
+           <button onClick={() => setShowPdfUi(true)} className="absolute top-4 left-4 p-2 rounded-full bg-slate-900/50 backdrop-blur text-slate-400 hover:text-white hover:bg-slate-800 z-50 transition-all shadow-lg border border-slate-700/50" title="Show UI">
+             <Eye size={20}/>
+           </button>
+         )}
          <Document 
             file={pdfUrl} 
             onLoadSuccess={onDocumentLoadSuccess} 
