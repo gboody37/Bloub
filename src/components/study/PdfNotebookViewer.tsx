@@ -329,7 +329,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
        
        {/* PDF Viewer Side */}
        <div 
-          className={`flex-1 h-full overflow-auto custom-scrollbar flex flex-col py-6 px-6 relative bg-black/20 ${(pdfTool === 'pan' || pdfTool === 'highlight') ? 'touch-none' : ''}`}
+          className={`flex-1 h-full overflow-auto custom-scrollbar flex flex-col py-6 px-6 relative bg-black/20 ${pdfTool === 'pan' ? 'touch-none' : ''}`}
           onPointerDown={(e) => {
             if (pdfTool === 'pan') {
               e.preventDefault();
@@ -412,54 +412,47 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
          >
            
            
-            <div className="relative inline-block shadow-2xl" ref={overlayRef} onPointerDown={(e) => {
-                  if (pdfTool === 'highlight') {
-                    e.preventDefault();
-                    const coords = getEventClientCoords(e);
-                    if (!coords) return;
-                    const containerRect = e.currentTarget.getBoundingClientRect();
-                    const x = (coords.clientX - containerRect.left) / zoomLevel;
-                    const y = (coords.clientY - containerRect.top) / zoomLevel;
-                    setHighlightStart({ x, y });
-                    setHighlightCurrent({ x, y });
-                  }
-                }}
-                onPointerMove={(e) => {
-                  if (pdfTool === 'highlight' && highlightStart) {
-                    const coords = getEventClientCoords(e);
-                    if (!coords) return;
-                    const containerRect = e.currentTarget.getBoundingClientRect();
-                    const x = (coords.clientX - containerRect.left) / zoomLevel;
-                    const y = (coords.clientY - containerRect.top) / zoomLevel;
-                    setHighlightCurrent({ x, y });
+            <div className="relative inline-block shadow-2xl" ref={overlayRef} 
+                onPointerDown={(e) => {
+                  if (pdfTool === 'text') {
+                    // let handleContainerMouseUp handle it
                   }
                 }}
                 onPointerUp={(e) => {
-                  if (pdfTool === 'highlight' && highlightStart && highlightCurrent) {
-                    const newAnn = {
-                      id: Date.now(),
-                      type: 'highlight',
-                      startX: Math.min(highlightStart.x, highlightCurrent.x),
-                      startY: Math.min(highlightStart.y, highlightCurrent.y),
-                      w: Math.abs(highlightCurrent.x - highlightStart.x),
-                      h: Math.abs(highlightCurrent.y - highlightStart.y),
-                      color: highlightColor
-                    };
-                    isDirtyRef.current = true;
-                    setAnnotations(prev => ({
-                      ...prev,
-                      [pageNumber]: [...(prev[pageNumber] || []), newAnn]
-                    }));
-                    setHighlightStart(null);
-                    setHighlightCurrent(null);
-                  } else {
+                  if (pdfTool === 'text') {
                     handleContainerMouseUp(e as any);
                   }
-                }}
-                onPointerLeave={() => {
-                  if (highlightStart) {
-                    setHighlightStart(null);
-                    setHighlightCurrent(null);
+                  if (pdfTool === 'highlight') {
+                      const selection = window.getSelection();
+                      if (selection && selection.rangeCount > 0 && selection.toString().trim().length > 0) {
+                        const range = selection.getRangeAt(0);
+                        const rects = range.getClientRects();
+                        if (rects.length > 0 && overlayRef.current) {
+                          const containerRect = overlayRef.current.getBoundingClientRect();
+                          let saveAnnotations = { ...annotations };
+                          
+                          for (let i = 0; i < rects.length; i++) {
+                            const rect = rects[i];
+                            const newAnn = {
+                              id: Date.now() + i,
+                              type: 'highlight',
+                              startX: (rect.left - containerRect.left) / zoomLevel,
+                              startY: (rect.top - containerRect.top) / zoomLevel,
+                              w: rect.width / zoomLevel,
+                              h: rect.height / zoomLevel,
+                              color: highlightColor,
+                              text: selection.toString()
+                            };
+                            saveAnnotations = {
+                              ...saveAnnotations,
+                              [pageNumber]: [...(saveAnnotations[pageNumber] || []), newAnn]
+                            };
+                          }
+                          isDirtyRef.current = true;
+                          setAnnotations(saveAnnotations);
+                          selection.removeAllRanges();
+                        }
+                      }
                   }
                 }} style={{ cursor: pdfTool === 'text' ? 'text' : pdfTool === 'highlight' ? 'text' : pdfTool === 'eraser' ? 'crosshair' : 'default' }}>
               <div className="absolute inset-0 z-20" style={{ pointerEvents: (pdfTool === "eraser" || pdfTool === "cursor" || pdfTool === "text" || pdfTool === "highlight") ? "auto" : "none" }}>
