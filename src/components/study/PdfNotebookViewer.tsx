@@ -31,7 +31,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
   const [notesWidth, setNotesWidth] = useState(450);
   const [isDragging, setIsDragging] = useState(false);
   const [showNotes, setShowNotes] = useState(true);
-  const [pendingText, setPendingText] = useState<{x: number, y: number, text: string, color?: string} | null>(null);
+  const [pendingText, setPendingText] = useState<{x: number, y: number, text: string, color?: string, fontSize?: number, id?: number} | null>(null);
   
   
   // Annotation State
@@ -84,7 +84,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
 
       const x = (coords.clientX - containerRect.left) / zoomLevel;
       const y = (coords.clientY - containerRect.top) / zoomLevel;
-      setPendingText({ x, y, text: '', color: textColor });
+      setPendingText({ x, y, text: '', color: textColor, fontSize: 24 });
       return;
     }
 
@@ -365,19 +365,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
            <button onClick={handleUndo} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white" title="Undo Annotation"><Undo2 size={16}/></button>
 
            <div className="w-px h-6 bg-slate-700/50 mx-1"></div>
-           <button 
-             onClick={() => handleSave()} 
-             disabled={isSaving} 
-             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all text-xs font-semibold ${
-               saved 
-                 ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                 : 'bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 border border-purple-500/30'
-             }`} 
-             title="Save Annotations (Ctrl+S)"
-           >
-             {saved ? <Check size={14} className="text-green-400" /> : <Save size={14} />}
-             <span>{saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}</span>
-           </button>
+           
 
            <div className="w-px h-6 bg-slate-700/50 mx-1"></div>
            <button onClick={() => setShowNotes(!showNotes)} className={`p-1.5 rounded-lg transition-colors ${showNotes ? 'text-blue-400 bg-blue-500/20' : 'text-slate-400 hover:text-white'}`} title="Toggle Notes Panel"><Sidebar size={16}/></button>
@@ -411,22 +399,10 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
                     return (
                       <div 
                         key={ann.id} 
-                        onMouseDown={(e) => { 
-                          if (pdfTool === 'eraser') { 
-                            e.stopPropagation(); 
-                            isDirtyRef.current = true;
-                            setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); 
-                          } 
-                        }} 
-                        onTouchStart={(e) => { 
-                          if (pdfTool === 'eraser') { 
-                            e.stopPropagation(); 
-                            isDirtyRef.current = true;
-                            setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); 
-                          } 
-                        }} 
+                        onMouseDown={(e) => { if (pdfTool === 'eraser') { e.stopPropagation(); isDirtyRef.current = true; setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); } else if (pdfTool === 'cursor' || pdfTool === 'text') { e.stopPropagation(); setPendingText({ x: ann.x, y: ann.y, text: ann.text, color: ann.color, fontSize: ann.fontSize || 24, id: ann.id }); setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); } }} 
+                        onTouchStart={(e) => { if (pdfTool === 'eraser') { e.stopPropagation(); isDirtyRef.current = true; setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); } else if (pdfTool === 'cursor' || pdfTool === 'text') { e.stopPropagation(); setPendingText({ x: ann.x, y: ann.y, text: ann.text, color: ann.color, fontSize: ann.fontSize || 24, id: ann.id }); setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); } }} 
                         className={`absolute mix-blend-multiply bg-yellow-400/50 ${pdfTool === 'eraser' ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`} 
-                        style={{ left, top, width: w, height: h, pointerEvents: pdfTool === 'eraser' ? 'auto' : 'none' }} 
+                        style={{ left, top, width: w, height: h, pointerEvents: (pdfTool === 'eraser' || pdfTool === 'cursor' || pdfTool === 'text') ? 'auto' : 'none' }} 
                         title={ann.text} 
                       />
                     );
@@ -435,29 +411,17 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
                     return (
                       <div 
                         key={ann.id} 
-                        onMouseDown={(e) => { 
-                          if (pdfTool === 'eraser') { 
-                            e.stopPropagation(); 
-                            isDirtyRef.current = true;
-                            setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); 
-                          } 
-                        }} 
-                        onTouchStart={(e) => { 
-                          if (pdfTool === 'eraser') { 
-                            e.stopPropagation(); 
-                            isDirtyRef.current = true;
-                            setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); 
-                          } 
-                        }} 
-                        className={`absolute font-bold bg-transparent px-2 py-1 whitespace-pre select-none ${pdfTool === 'eraser' ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`} 
+                        onMouseDown={(e) => { if (pdfTool === 'eraser') { e.stopPropagation(); isDirtyRef.current = true; setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); } else if (pdfTool === 'cursor' || pdfTool === 'text') { e.stopPropagation(); setPendingText({ x: ann.x, y: ann.y, text: ann.text, color: ann.color, fontSize: ann.fontSize || 24, id: ann.id }); setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); } }} 
+                        onTouchStart={(e) => { if (pdfTool === 'eraser') { e.stopPropagation(); isDirtyRef.current = true; setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); } else if (pdfTool === 'cursor' || pdfTool === 'text') { e.stopPropagation(); setPendingText({ x: ann.x, y: ann.y, text: ann.text, color: ann.color, fontSize: ann.fontSize || 24, id: ann.id }); setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); } }} 
+                        className={`absolute font-bold bg-transparent px-2 py-1 whitespace-pre select-none ${(pdfTool === 'eraser' || pdfTool === 'cursor' || pdfTool === 'text') ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`} 
                         style={{ 
                           left: ann.x * zoomLevel, 
                           top: ann.y * zoomLevel, 
-                          fontSize: `${Math.max(12, Math.round(24 * zoomLevel))}px`,
+                          fontSize: `${Math.max(12, Math.round((ann.fontSize || 24) * zoomLevel))}px`,
                           lineHeight: 1.2,
                           fontFamily: (ann.text || '').match(/[\u0600-\u06FF]/) ? 'var(--font-lemonada)' : 'var(--font-caveat)', 
                           color: ann.color || '#9333ea',
-                          pointerEvents: pdfTool === 'eraser' ? 'auto' : 'none'
+                          pointerEvents: (pdfTool === 'eraser' || pdfTool === 'cursor' || pdfTool === 'text') ? 'auto' : 'none'
                         }} 
                         dir="auto"
                       >
@@ -469,42 +433,83 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
                 })}
 
                 {pendingText && (
-                  <input
-                    autoFocus
-                    type="text"
-                    dir="auto"
-                    value={pendingText.text}
-                    onChange={(e) => setPendingText({ ...pendingText, text: e.target.value })}
-                    onBlur={() => {
-                      if (pendingText.text.trim()) {
-                        isDirtyRef.current = true;
-                        setAnnotations(prev => ({
-                          ...prev,
-                          [pageNumber]: [...(prev[pageNumber] || []), { id: Date.now(), type: 'text', ...pendingText }]
-                        }));
-                      }
-                      setPendingText(null);
-                      setPdfTool('cursor');
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.currentTarget.blur();
-                      }
-                      if (e.key === 'Escape') {
-                        setPendingText(null);
-                        setPdfTool('cursor');
-                      }
-                    }}
-                    className="absolute font-bold bg-transparent px-2 py-1 border-2 border-dashed border-purple-500/50 outline-none pointer-events-auto min-w-[150px]"
+                  <div 
+                    className="absolute z-50 flex flex-col gap-1 pointer-events-none"
                     style={{ 
                       left: pendingText.x * zoomLevel, 
-                      top: pendingText.y * zoomLevel,
-                      fontSize: `${Math.max(12, Math.round(24 * zoomLevel))}px`,
-                      lineHeight: 1.2,
-                      fontFamily: pendingText.text.match(/[\u0600-\u06FF]/) ? 'var(--font-lemonada)' : 'var(--font-caveat)',
-                      color: pendingText.color || textColor
+                      top: pendingText.y * zoomLevel - 30
                     }}
-                  />
+                  >
+                    <div className="flex items-center gap-1 bg-slate-800 p-1 rounded shadow-lg pointer-events-auto border border-slate-700 w-max">
+                      <button 
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPendingText({ ...pendingText, fontSize: Math.max(12, (pendingText.fontSize || 24) - 2) }); }}
+                        className="w-6 h-6 flex items-center justify-center rounded bg-slate-700 text-white hover:bg-slate-600 text-xs font-bold"
+                      >A-</button>
+                      <button 
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPendingText({ ...pendingText, fontSize: Math.min(72, (pendingText.fontSize || 24) + 2) }); }}
+                        className="w-6 h-6 flex items-center justify-center rounded bg-slate-700 text-white hover:bg-slate-600 text-xs font-bold"
+                      >A+</button>
+                      <div 
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const startX = e.clientX;
+                          const startY = e.clientY;
+                          const startPX = pendingText.x;
+                          const startPY = pendingText.y;
+                          const handleMove = (ev: any) => {
+                             setPendingText(p => p ? { ...p, x: startPX + (ev.clientX - startX) / zoomLevel, y: startPY + (ev.clientY - startY) / zoomLevel } : p);
+                          };
+                          const handleUp = () => {
+                             window.removeEventListener('pointermove', handleMove);
+                             window.removeEventListener('pointerup', handleUp);
+                          };
+                          window.addEventListener('pointermove', handleMove);
+                          window.addEventListener('pointerup', handleUp);
+                        }}
+                        className="px-2 h-6 flex items-center justify-center rounded bg-purple-600 text-white hover:bg-purple-500 text-xs font-bold cursor-move"
+                      >
+                        Drag to Move
+                      </div>
+                    </div>
+                    <input
+                      autoFocus
+                      type="text"
+                      dir="auto"
+                      value={pendingText.text}
+                      onChange={(e) => setPendingText({ ...pendingText, text: e.target.value })}
+                      onBlur={() => {
+                        if (pendingText.text.trim()) {
+                          isDirtyRef.current = true;
+                          setAnnotations(prev => ({
+                            ...prev,
+                            [pageNumber]: [...(prev[pageNumber] || []), { id: pendingText.id || Date.now(), type: 'text', ...pendingText }]
+                          }));
+                        }
+                        setPendingText(null);
+                        setPdfTool('cursor');
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
+                        if (e.key === 'Escape') {
+                          setPendingText(null);
+                          setPdfTool('cursor');
+                        }
+                      }}
+                      className="font-bold bg-transparent px-2 py-1 border-2 border-dashed border-purple-500/50 outline-none pointer-events-auto min-w-[150px]"
+                      style={{ 
+                        marginTop: '30px',
+                        fontSize: `${Math.max(12, Math.round((pendingText.fontSize || 24) * zoomLevel))}px`,
+                        lineHeight: 1.2,
+                        fontFamily: pendingText.text.match(/[\u0600-\u06FF]/) ? 'var(--font-lemonada)' : 'var(--font-caveat)',
+                        color: pendingText.color || textColor
+                      }}
+                    />
+                  </div>
                 )}
               </div>
               <Page 

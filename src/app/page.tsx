@@ -1999,27 +1999,28 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* Empty State / Session Starter */}
-                <div className={`p-8 rounded-3xl border border-dashed text-center flex flex-col items-center justify-center ${isDark ? 'border-slate-800 bg-slate-900/30' : 'border-gray-200 bg-gray-50/50'}`}>
-                  <div className="w-14 h-14 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center mb-3.5">
-                    <GraduationCap size={28} />
+                {(!selectedNote && !showGraphView && !showQuizSession && !showStudyExplorer) && (
+                  <div className={`p-8 rounded-3xl border border-dashed text-center flex flex-col items-center justify-center ${isDark ? 'border-slate-800 bg-slate-900/30' : 'border-gray-200 bg-gray-50/50'}`}>
+                    <div className="w-14 h-14 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center mb-3.5">
+                      <GraduationCap size={28} />
+                    </div>
+                    <h3 className={`text-sm font-bold mb-1 ${t.textPrimary}`}>Ready for Study Session</h3>
+                    <p className={`text-xs max-w-xs mb-4 leading-relaxed ${t.textMuted}`}>
+                      Explore your cloud Obsidian notes or launch an AI quiz session to test your retention and master concepts.
+                    </p>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setShowStudyExplorer(true);
+                        triggerMascot('orbit', 'fier');
+                      }} 
+                      className="px-4 py-2 rounded-xl bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 shadow-md shadow-purple-600/20 transition-all active:scale-95 flex items-center gap-1.5"
+                    >
+                      <Sparkles size={13} />
+                      Study with Bloub
+                    </button>
                   </div>
-                  <h3 className={`text-sm font-bold mb-1 ${t.textPrimary}`}>Ready for Study Session</h3>
-                  <p className={`text-xs max-w-xs mb-4 leading-relaxed ${t.textMuted}`}>
-                    Explore your cloud Obsidian notes or launch an AI quiz session to test your retention and master concepts.
-                  </p>
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      setShowStudyExplorer(true);
-                      triggerMascot('orbit', 'fier');
-                    }} 
-                    className="px-4 py-2 rounded-xl bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 shadow-md shadow-purple-600/20 transition-all active:scale-95 flex items-center gap-1.5"
-                  >
-                    <Sparkles size={13} />
-                    Study with Bloub
-                  </button>
-                </div>
+                )}
               </div>
             ) : (
               /* Classic ToDo Task List View */
