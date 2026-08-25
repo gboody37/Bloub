@@ -329,6 +329,14 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
 
   return (
     <div ref={containerRef} className={`flex w-full flex-1 h-full min-h-[500px] border rounded-2xl overflow-hidden shadow-inner ${isDark ? 'border-slate-800 bg-slate-950' : 'border-gray-200 bg-gray-100'}`}>
+      <style>{`
+        .react-pdf__Page__textContent {
+          line-height: 1 !important;
+        }
+        .react-pdf__Page__textContent > span {
+          line-height: 1 !important;
+        }
+      `}</style>
        
        {/* PDF Viewer Side */}
        <div 
@@ -455,8 +463,8 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
                         key={ann.id} 
                         onMouseDown={(e) => { if (pdfTool === 'eraser') { e.stopPropagation(); isDirtyRef.current = true; setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); } }} 
                         onTouchStart={(e) => { if (pdfTool === 'eraser') { e.stopPropagation(); isDirtyRef.current = true; setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); } }} 
-                        className={`absolute mix-blend-multiply ${pdfTool === 'eraser' ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`} 
-                        style={{ backgroundColor: ann.color || '#facc1580', left, top, width: w, height: h }}
+                        className={`absolute ${pdfTool === 'eraser' ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`} 
+                        style={{ backgroundColor: (ann.color && ann.color.length === 7) ? ann.color + '80' : (ann.color || '#facc1580'), left, top, width: w, height: h }}
                         title={ann.text} 
                       />
                     );
