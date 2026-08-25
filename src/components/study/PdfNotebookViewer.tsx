@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import ArabicTextLayer from './ArabicTextLayer';
 import { ChevronLeft, ChevronRight, PenTool, Save, Check, Highlighter, Type, MousePointer2, ZoomIn, ZoomOut, Eraser, Undo2, Sidebar, Hand, Eye, EyeOff, Square, Baseline } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { updateFrontmatterField } from '@/lib/obsidian/parser';
@@ -19,14 +20,14 @@ const options = {
 
 interface PdfNotebookViewerProps {
   pdfUrl: string;
-  noteId: string;
+  noteId?: string;
   notePath?: string;
   initialNotesStr?: string;
   isDark?: boolean;
-  onUpdateNote?: (updatedContent: string) => void;
+  onUpdateNote?: ((updatedContent: string) => void) | ((noteId: string, updates: { content?: string; frontmatter?: any }) => void);
 }
 
-export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNotesStr, isDark = true, onUpdateNote }: PdfNotebookViewerProps) {
+export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initialNotesStr, isDark = true, onUpdateNote }: PdfNotebookViewerProps) {
   const [numPages, setNumPages] = useState<number>();
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [notes, setNotes] = useState<Record<number, { text: string, lang: 'en' | 'ar' }>>({});
@@ -47,6 +48,36 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
   const [highlightStart, setHighlightStart] = useState<{x: number, y: number} | null>(null);
   const [highlightCurrent, setHighlightCurrent] = useState<{x: number, y: number} | null>(null);
   
+  // High-Precision Arabic Text Layer State
+  const [activePageProxy, setActivePageProxy] = useState<any>(null);
+  const [pageTextContent, setPageTextContent] = useState<any>(null);
+  const [pageViewport, setPageViewport] = useState<any>(null);
+
+  const handlePageLoadSuccess = (pageProxy: any) => {
+    setActivePageProxy(pageProxy);
+    const vp = pageProxy.getViewport ? pageProxy.getViewport({ scale: zoomLevel }) : null;
+    setPageViewport(vp);
+    if (pageProxy && typeof pageProxy.getTextContent === 'function') {
+      pageProxy.getTextContent().then((tc: any) => {
+        setPageTextContent(tc);
+      }).catch((err: any) => {
+        console.error('Failed to extract text content in PdfNotebookViewer:', err);
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (activePageProxy && typeof activePageProxy.getViewport === 'function') {
+      const vp = activePageProxy.getViewport({ scale: zoomLevel });
+      setPageViewport(vp);
+    }
+  }, [zoomLevel, activePageProxy]);
+
+  useEffect(() => {
+    setActivePageProxy(null);
+    setPageTextContent(null);
+    setPageViewport(null);
+  }, [pageNumber]);
   
   // Annotation State
   const [annotations, setAnnotations] = useState<Record<number, any[]>>({});
@@ -272,7 +303,13 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
       }
 
       if (onUpdateNote) {
-        onUpdateNote(updatedContent);
+        if (typeof onUpdateNote === 'function') {
+          if (onUpdateNote.length > 1 && effNoteId) {
+            (onUpdateNote as any)(effNoteId, { content: updatedContent });
+          } else {
+            (onUpdateNote as any)(updatedContent);
+          }
+        }
       }
       
       isDirtyRef.current = false;
@@ -699,11 +736,20 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
                   </div>
                 )}
               </div>
+              {/* Custom High-Precision Arabic RTL Text Layer */}
+              <ArabicTextLayer
+                pageNumber={pageNumber}
+                viewport={pageViewport}
+                textContent={pageTextContent}
+                scale={zoomLevel}
+                page={activePageProxy}
+              />
               <Page 
                 pageNumber={pageNumber} 
-                renderTextLayer={true} 
+                renderTextLayer={false} 
                 renderAnnotationLayer={true} 
                 scale={zoomLevel} 
+                onLoadSuccess={handlePageLoadSuccess}
                 className="rounded-lg overflow-hidden shadow-2xl transition-transform duration-300 transform-gpu"
               />
             </div>

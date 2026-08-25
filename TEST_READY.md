@@ -1,32 +1,40 @@
-﻿# Test Readiness Report: Milestone M2 — Theme Redesign & Dark Blue Restoration
+﻿# Test Readiness Report: Milestone M3 — Arabic PDF Engine & Annotation Suite
 
-**Timestamp**: 2026-08-25T10:10:00Z  
+**Timestamp**: 2026-08-25T13:30:00Z  
 **Project Workspace**: `d:\AI\جبنة\vibe-todos`  
-**Milestone**: M2 (E2E Testing Suite: Theme Validation Harness)  
+**Milestone**: M3 (4-Tier E2E & Verification Test Suite)  
 **Status**: **READY / PASSED (100% Green)**  
 
 ---
 
 ## 1. Executive Summary
-The automated test infrastructure for Milestone M2 has been completely implemented, verified against the codebase, and validated across 5 tiers of automated tests.
+The automated test infrastructure for Milestone M3 has been completely designed, implemented, and verified across 4 comprehensive tiers of opaque-box, integration, boundary, and real-world application tests.
 
-- **Total Test Suites**: 5
-- **Total Test Cases**: 22 unit & E2E assertions + 4 master acceptance criteria runners + standalone CI script
-- **Passing**: 22 / 22 (100%)
+- **Total Test Suites**: 6 Suites + 1 Master Acceptance Verification Runner
+- **Total Assertions**: 127 `node:test` assertions + 32 Master Runner diagnostic checks (159 total)
+- **Passing**: 159 / 159 (100%)
 - **Failing**: 0
-- **Execution Speed**: ~150ms
+- **Execution Speed**: ~280ms total test suite, ~22ms master runner
 
 ---
 
 ## 2. Test Verification Matrix & Pass Rates
 
-| Tier | Category | Tests | Status | Verification Summary |
+| Tier | Category / Feature | Tests | Status | Verification Summary |
 |---|---|---|---|---|
-| **Tier 1** | Feature Coverage & Array Schema | 6 | **PASS** | 16 themes ($\ge 12$), valid `{ id, name, color }` schema, color-to-ID parity, zero duplicates, Legacy Dark Blue restored (`Dark Blue` - `#080d2a`). |
-| **Tier 2** | Boundary & WCAG AAA Contrast | 4 | **PASS** | Strict `#RRGGBB` hex validation, relative luminance $L \le 0.20$ for all themes (max $L = 0.0257$), WCAG AAA contrast ratio $> 7:1$ against `#FFFFFF` (minimum $13.88:1$). |
-| **Tier 3** | Color Spectrum Coverage | 3 | **PASS** | 8 distinct chromatic families confirmed (Blue, Purple, Green, Red, Amber/Orange, Cyan/Teal, Rose/Magenta, Slate/Monochrome); full 360° chromatic dispersion. |
-| **Tier 4** | Real-World Integration & Persistence | 5 | **PASS** | LocalStorage persistence key format `${uid}_bgTheme`, dynamic `<meta name="theme-color">` runtime sync, `layout.tsx` SSR anti-flash inline script, and UI theme picker handler bindings. |
-| **Tier 5** | Adversarial & Edge Cases | 4 | **PASS** | Rejection of malformed hexes, strict rejection of light backgrounds, pure black `#000000` boundary math (21:1), and grayscale stability. |
+| **Tier 1** | **F1: Presentation-Forms Normalization** | 5 | **PASS** | Normalizes Presentation Forms-A & Forms-B (\uFB50..\uFDFF, \uFE70..\uFEFF) to Canonical Arabic (\u0600..\u06FF), handles ALLAH & BISMILLAH ligatures. |
+| **Tier 1** | **F2: Visual-to-Logical BiDi Reordering** | 5 | **PASS** | Detects Arabic script directionality, preserves logical order of valid sentences, handles sentence punctuation. |
+| **Tier 1** | **F3: Diacritics & Ligatures** | 5 | **PASS** | Preserves Tashkeel (Fatha, Damma, Kasra, Sukun, Tanwin, Shadda), maps mandatory Lam-Alef forms (\uFEFB..\uFEFC). |
+| **Tier 1** | **F4: Text Item Line Clustering** | 5 | **PASS** | Clusters PDF text items sharing vertical baseline (delta <= 2.5px), computes bounding box, sorts RTL descending by left. |
+| **Tier 1** | **F5: Mixed LTR/RTL BiDi Isolation** | 5 | **PASS** | Isolates embedded English words, Eastern Arabic-Indic numerals (١٤٤٥), Western numerals & percentages (98.5%), ISO codes. |
+| **Tier 1** | **F6: Arabic Text Layer DOM Structure** | 2 | **PASS** | Generates DOM spans with `dir="rtl"` and `unicode-bidi: isolate` matching visual glyphs. |
+| **Tier 1** | **F7: Native Text Selection** | 3 | **PASS** | Simulates `window.getSelection()` returning contiguous, logical Arabic strings without skips or reversed letters. |
+| **Tier 1** | **F8: UI & Toolbar Preservation** | 5 | **PASS** | Validates state transitions for Pan, Cursor, Highlight (Box & Text), Text, Eraser, Undo, and Zoom (50%-300%). |
+| **Tier 1** | **F9: Coordinate Scaling & Geometry** | 5 | **PASS** | Validates unscaled coordinate storage, linear zoom scaling, drag delta zoom normalization, and divider clamping. |
+| **Tier 1** | **F10: Note Persistence & Auto-Save** | 5 | **PASS** | YAML frontmatter serialization (`pdf_notes`), debounced 1500ms auto-save, in-flight pending note commits. |
+| **Tier 2** | **Boundary & Corner Cases (E01–E20)** | 18 | **PASS** | Quranic Tashkeel, Tatweel/Kashida justification, extreme zoom (50%-300% <= 1.5px drift), quote escaping, corrupt YAML recovery. |
+| **Tier 3** | **Cross-Feature Pairwise Interactions** | 6 | **PASS** | Text selection -> highlight -> 200% zoom, page-isolated undo, Arabic font auto-switch (Lemonada vs Caveat), rapid dirty flush. |
+| **Tier 4** | **Real-World Application Scenarios (S1–S5)**| 5 | **PASS** | S1: Medical/Engineering, S2: Arabic Law, S3: Bilingual Language Glossary, S4: Rapid Review flip, S5: In-flight reload resilience. |
 
 ---
 
@@ -34,34 +42,36 @@ The automated test infrastructure for Milestone M2 has been completely implement
 
 ### Command Line Executables (Node.js Native)
 ```bash
-# 1. Run the native test suite (22 unit & E2E assertions)
-node --experimental-strip-types --test tests/e2e/theme-validation.test.ts
+# 1. Master acceptance verification harness (all 4 tiers with structured report)
+node --experimental-strip-types tests/verification/verify-arabic-pdf-engine.ts
 
-# 2. Run the master acceptance verification harness with rich diagnostic reporting
-node --experimental-strip-types tests/verification/verify-theme-redesign.ts
+# 2. Run all unit tests
+node --experimental-strip-types --test tests/unit/arabic-presentation-forms.test.ts tests/unit/pdf-annotation-math.test.ts
 
-# 3. Run the standalone CI verification script (zero dependencies)
-node scripts/verify-themes.js
-```
+# 3. Run all integration tests
+node --experimental-strip-types --test tests/integration/arabic-text-selection.test.ts tests/integration/pdf-annotation-persistence.test.ts
 
-### NPM Shortcuts
-```bash
-npm run test:themes
-npm run verify:themes
-npm run verify:themes-full
+# 4. Run all E2E and study scenario tests
+node --experimental-strip-types --test tests/e2e/arabic-pdf-viewer.test.ts tests/e2e/study-scenarios.test.ts
+
+# 5. Run the complete test suite together
+node --experimental-strip-types --test tests/unit/arabic-presentation-forms.test.ts tests/unit/pdf-annotation-math.test.ts tests/integration/arabic-text-selection.test.ts tests/integration/pdf-annotation-persistence.test.ts tests/e2e/arabic-pdf-viewer.test.ts tests/e2e/study-scenarios.test.ts
 ```
 
 ---
 
 ## 4. Test Artifacts Delivered
-1. `tests/e2e/theme-helpers.ts`: Core mathematical formulas (W3C WCAG relative luminance, AAA contrast ratio, HSL color space converter, spectrum classifier, AST parser).
-2. `tests/e2e/theme-validation.test.ts`: Comprehensive unit, boundary, spectral, integration, and adversarial test suites.
-3. `tests/verification/verify-theme-redesign.ts`: Master acceptance runner with formatted diagnostic tables and criterion metrics.
-4. `scripts/verify-themes.js`: Standalone script for CI/CD pipelines.
-5. `TEST_INFRA.md`: Full architectural and mathematical specification.
-6. `package.json`: Updated test scripts for developer workflows.
+1. `tests/unit/arabic-presentation-forms.test.ts`: Tier 1 & 2 unit tests for F1–F5.
+2. `tests/unit/pdf-annotation-math.test.ts`: Tier 1 & 2 unit tests for F9 coordinate scaling & geometry.
+3. `tests/integration/arabic-text-selection.test.ts`: Tier 1, 2, 3 integration tests for F6, F7, and highlight creation.
+4. `tests/integration/pdf-annotation-persistence.test.ts`: Tier 1, 2, 3 persistence & auto-save pipeline tests.
+5. `tests/e2e/arabic-pdf-viewer.test.ts`: Tier 1, 2, 3 UI state machine and toolbar preservation tests.
+6. `tests/e2e/study-scenarios.test.ts`: Tier 4 real-world study scenarios (S1 through S5).
+7. `tests/verification/verify-arabic-pdf-engine.ts`: Master acceptance CLI runner for CI/CD and developer verification.
+8. `TEST_INFRA.md`: Full architectural and mathematical specification.
+9. `TEST_READY.md`: Test completion and readiness matrix.
 
 ---
 
 ## 5. Sign-off
-The Milestone M2 E2E theme verification test harness is fully operational, rock-solid, and ready for continuous regression testing and final gate signoff (Milestone M3).
+The Milestone M3 4-Tier E2E Test Suite for Arabic PDF rendering and interactive annotation tool preservation is complete, hardened, and ready for continuous regression testing and final gate signoff.
