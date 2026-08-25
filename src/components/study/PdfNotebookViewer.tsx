@@ -329,7 +329,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
        
        {/* PDF Viewer Side */}
        <div 
-          className="flex-1 h-full overflow-auto custom-scrollbar flex flex-col items-center py-6 px-6 relative bg-black/20"
+          className={`flex-1 h-full overflow-auto custom-scrollbar flex flex-col items-center py-6 px-6 relative bg-black/20 ${pdfTool === 'pan' ? 'touch-none' : ''}`}
           onPointerDown={(e) => {
             if (pdfTool === 'pan') {
               e.preventDefault();
@@ -366,14 +366,14 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
              {pdfTool === 'text' && (
                  <div className="flex items-center gap-1 mx-1 bg-slate-800 rounded-lg p-1">
                    {['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#9333ea', '#ec4899', '#ffffff', '#000000'].map(c => (
-                     <button key={c} onClick={() => { setTextColor(c); if (pendingText) setPendingText({ ...pendingText, color: c }); }} className={`w-4 h-4 rounded-full border ${textColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
+                     <button key={c} onPointerDown={(e) => e.preventDefault()} onClick={() => { setTextColor(c); if (pendingText) setPendingText({ ...pendingText, color: c }); }} className={`w-4 h-4 rounded-full border ${textColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
                    ))}
                  </div>
                )}
                {pdfTool === 'highlight' && (
                  <div className="flex items-center gap-1 mx-1 bg-slate-800 rounded-lg p-1">
                    {['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#fed7aa', '#e9d5ff'].map(c => (
-                     <button key={c} onClick={() => setHighlightColor(c)} className={`w-4 h-4 rounded-full border ${highlightColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
+                     <button key={c} onPointerDown={(e) => e.preventDefault()} onClick={() => setHighlightColor(c)} className={`w-4 h-4 rounded-full border ${highlightColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
                    ))}
                  </div>
                )}
