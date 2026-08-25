@@ -473,13 +473,13 @@ export function processPageTextContent(textContent: any, viewport: any): Process
     return [];
   }
 
-  // 1. Sort items primarily by Y (top to bottom) and secondarily by X (left to right)
+  // 1. Sort items primarily by Y (top to bottom) and secondarily by X (right to left for Arabic)
   rawItems.sort((a, b) => {
     const yDiff = a.top - b.top;
     if (Math.abs(yDiff) > 4) {
       return yDiff;
     }
-    return a.left - b.left;
+    return b.left - a.left;
   });
 
   // 2. Cluster items sharing vertical baseline (within tolerance) into continuous lines
@@ -496,20 +496,57 @@ export function processPageTextContent(textContent: any, viewport: any): Process
       currentLineTop = item.top;
       currentLineHeight = item.height;
     } else if (Math.abs(item.top - currentLineTop) <= yTolerance) {
-      currentLineItems.push(item);
-      currentLineHeight = Math.max(currentLineHeight, item.height);
-    } else {
-      // Finalize current line
-      lines.push(buildProcessedLine(currentLineItems));
-      currentLineItems = [item];
-      currentLineTop = item.top;
-      currentLineHeight = item.height;
+      // Prevent merging items across large horizontal gaps (e.g. columns)
+      const lastItem = currentLineItems[currentLineItems.length - 1];
+        
+      // Horizontal distance between the edges of the two items
+      const hGap = Math.abs(lastItem.left - (item.left + item.width));
+      const ltrGap = Math.abs(item.left - (lastItem.left + lastItem.width));
+      const maxGap = Math.max(20, item.fontSize * 3.5);
+        
+      if (hGap > maxGap && ltrGap > maxGap) {
+        // Break line due to large horizontal gap (it's a new column!)
+        lines.push(buildProcessedLine(currentLineItems));
+        currentLineItems = [item];
+        currentLineTop = item.top;
+        currentLineHeight = item.height;
+      } else {
+        currentLineItems.push(item);
+        // Only increase line height if the item isn't ridiculously tall (prevents "TOO thick" selections)
+        if (item.height < currentLineHeight * 2) {
+          currentLineHeight = Math.max(currentLineHeight, item.height);
+        }
+      }
+      } else {
+        // Finalize current line
+        lines.push(buildProcessedLine(currentLineItems));
+        currentLineItems = [item];
+        currentLineTop = item.top;
+        currentLineHeight = item.height;
+      }
     }
-  }
 
-  if (currentLineItems.length > 0) {
+    if (currentLineItems.length > 0) {
     lines.push(buildProcessedLine(currentLineItems));
   }
+
+  // 3. Final DOM Reading Order Sorting (Column Detection)
+  // To prevent text selection from jumping horizontally between columns on every line,
+  // we sort the finalized lines primarily into vertical columns (Right-to-Left),
+  // and secondarily top-to-bottom within the column.
+  lines.sort((a, b) => {
+    // Check if lines overlap horizontally
+    const overlap = Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
+    
+    if (overlap === 0) {
+      // No horizontal overlap = they are in different columns.
+      // For Arabic (RTL), the right-most column should come FIRST in the DOM.
+      return b.left - a.left;
+    }
+    
+    // They overlap horizontally (same column), sort top-to-bottom
+    return a.top - b.top;
+  });
 
   return lines;
 }
@@ -528,13 +565,21 @@ function buildProcessedLine(items: ProcessedTextItem[]): ProcessedTextLine {
   let hasArabic = false;
 
   const textParts: string[] = [];
+  
+  // Find median height to reject outliers
+  const sortedHeights = items.map(i => i.height).sort((a, b) => a - b);
+  const medianHeight = sortedHeights[Math.floor(sortedHeights.length / 2)] || 12;
+  const maxHeightAllowed = medianHeight * 1.5;
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     minLeft = Math.min(minLeft, item.left);
     minTop = Math.min(minTop, item.top);
     maxRight = Math.max(maxRight, item.left + item.width);
-    maxBottom = Math.max(maxBottom, item.top + item.height);
+    
+    // Clamp the height to prevent "TOO thick" selections from PDF.js watermark/border bugs
+    const safeHeight = Math.min(item.height, maxHeightAllowed);
+    maxBottom = Math.max(maxBottom, item.top + safeHeight);
 
     if (item.isArabic) {
       hasArabic = true;
