@@ -26,6 +26,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
   const [zoomLevel, setZoomLevel] = useState(1.0);
   const [notesWidth, setNotesWidth] = useState(450);
   const [isDragging, setIsDragging] = useState(false);
+    const [pendingText, setPendingText] = useState<{x: number, y: number, text: string} | null>(null);
   
   
   // Annotation State
@@ -48,19 +49,14 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
     if (!overlayRef.current) return;
     const containerRect = overlayRef.current.getBoundingClientRect();
     
+    
     if (pdfTool === 'text') {
-      const text = prompt('Enter text:');
-      if (text) {
-        const x = (e.clientX - containerRect.left) / zoomLevel;
-        const y = (e.clientY - containerRect.top) / zoomLevel;
-        setAnnotations(prev => ({
-          ...prev,
-          [pageNumber]: [...(prev[pageNumber] || []), { id: Date.now(), type: 'text', x, y, text }]
-        }));
-        setPdfTool('cursor');
-      }
+      const x = (e.clientX - containerRect.left) / zoomLevel;
+      const y = (e.clientY - containerRect.top) / zoomLevel;
+      setPendingText({ x, y, text: '' });
       return;
     }
+
     
     if (pdfTool === 'highlight') {
       const selection = window.getSelection();
@@ -90,15 +86,21 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
 
   
   
+  
   const containerRef = React.useRef<HTMLDivElement>(null);
   
   useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
+    const handleGlobalMouseMove = (e: MouseEvent | TouchEvent) => {
       if (!isDragging || !containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const rightEdge = rect.right;
-      const newWidth = rightEdge - e.clientX;
-      // Allow it to be as small as 200px or up to the container width minus 300px for PDF
+      let clientX = 0;
+      if ('touches' in e) {
+        clientX = e.touches[0].clientX;
+      } else {
+        clientX = e.clientX;
+      }
+      const newWidth = rightEdge - clientX;
       setNotesWidth(Math.max(200, Math.min(newWidth, Math.max(200, rect.width - 300))));
     };
     const handleGlobalMouseUp = () => setIsDragging(false);
@@ -106,12 +108,17 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
     if (isDragging) {
       window.addEventListener('mousemove', handleGlobalMouseMove);
       window.addEventListener('mouseup', handleGlobalMouseUp);
+      window.addEventListener('touchmove', handleGlobalMouseMove, { passive: false });
+      window.addEventListener('touchend', handleGlobalMouseUp);
     }
     return () => {
       window.removeEventListener('mousemove', handleGlobalMouseMove);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
+      window.removeEventListener('touchmove', handleGlobalMouseMove);
+      window.removeEventListener('touchend', handleGlobalMouseUp);
     };
   }, [isDragging]);
+
 
   const supabase = createClient();
 
@@ -167,7 +174,19 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
     }
   };
 
-  const currentNote = notes[pageNumber] || { text: '', lang: 'en' };
+  
+  useEffect(() => {
+    // Only auto-save if there's actually something to save
+    if (Object.keys(notes).length === 0 && Object.keys(annotations).length === 0) return;
+    
+    // Auto-save debounce
+    const timer = setTimeout(() => {
+      handleSave();
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [notes, annotations]);
+
+  const currentNote = notes[pageNumber] || { text: "", lang: "en" };
 
   return (
     <div className={`flex w-full h-[650px] border rounded-2xl overflow-hidden shadow-inner ${isDark ? 'border-slate-800 bg-slate-950' : 'border-gray-200 bg-gray-100'}`}>
@@ -200,7 +219,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
          >
            
            
-           <div className="relative inline-block shadow-2xl" ref={overlayRef} onMouseUp={handleContainerMouseUp} style={{ cursor: pdfTool === 'text' ? 'text' : pdfTool === 'highlight' ? 'text' : pdfTool === 'eraser' ? 'crosshair' : 'default' }}>
+           <div className="relative inline-block shadow-2xl" ref={overlayRef} onMouseUp={handleContainerMouseUp} onTouchEnd={(e) => { e.preventDefault(); handleContainerMouseUp(e as any); }} style={{ cursor: pdfTool === 'text' ? 'text' : pdfTool === 'highlight' ? 'text' : pdfTool === 'eraser' ? 'crosshair' : 'default' }}>
              <div className="absolute inset-0 z-20" style={{ pointerEvents: pdfTool === "eraser" ? "auto" : "none" }}>
                {(annotations[pageNumber] || []).map(ann => {
                  if (ann.type === 'highlight') {
@@ -208,13 +227,71 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
                    const h = Math.abs(ann.h) * zoomLevel;
                    const left = ann.startX * zoomLevel;
                    const top = ann.startY * zoomLevel;
-                   return <div key={ann.id} onMouseDown={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} className="absolute bg-yellow-400/40 mix-blend-multiply" style={{ left, top, width: w, height: h, pointerEvents: pdfTool === 'eraser' ? 'auto' : 'none' }} />;
-                 }
-                 if (ann.type === 'text') {
-                   return <div key={ann.id} onMouseDown={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} className="absolute text-purple-600 font-bold text-lg bg-white/80 px-2 py-1 rounded shadow-sm border border-purple-200 whitespace-pre pointer-events-auto" style={{ left: ann.x * zoomLevel, top: ann.y * zoomLevel }}>{ann.text}</div>;
+                   return <div key={ann.id} onMouseDown={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} onTouchStart={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} className="absolute text-purple-600 font-bold text-3xl bg-transparent px-2 py-1 whitespace-pre pointer-events-auto" style={{ left: ann.x * zoomLevel, top: ann.y * zoomLevel, fontFamily: ann.text.match(/[\u0600-\u06FF]/) ? 'var(--font-lemonada)' : 'var(--font-caveat)' }} dir="auto">{ann.text}</div>;
                  }
                  return null;
-               })}
+                 })}
+
+                 
+                 {pendingText && (
+                   <input
+                     autoFocus
+                     type="text"
+                     dir="auto"
+                     value={pendingText.text}
+                     onChange={(e) => setPendingText({ ...pendingText, text: e.target.value })}
+                     onBlur={() => {
+                       if (pendingText.text.trim()) {
+                         setAnnotations(prev => ({
+                           ...prev,
+                           [pageNumber]: [...(prev[pageNumber] || []), { id: Date.now(), type: 'text', ...pendingText }]
+                         }));
+                       }
+                       setPendingText(null);
+                       setPdfTool('cursor');
+                     }}
+                     onKeyDown={(e) => {
+                       if (e.key === 'Enter') {
+                         e.currentTarget.blur();
+                       }
+                       if (e.key === 'Escape') {
+                         setPendingText(null);
+                         setPdfTool('cursor');
+                       }
+                     }}
+                     className="absolute text-purple-600 font-bold text-3xl bg-transparent px-2 py-1 border-2 border-dashed border-purple-500/50 outline-none pointer-events-auto min-w-[200px]"
+                     style={{ 
+                       left: pendingText.x * zoomLevel, 
+                       top: pendingText.y * zoomLevel,
+                       fontFamily: pendingText.text.match(/[؀-ۿ]/) ? 'var(--font-lemonada)' : 'var(--font-caveat)'
+                     }}
+                   />
+                 )}
+}
+                     onBlur={() => {
+                       if (pendingText.text.trim()) {
+                         setAnnotations(prev => ({
+                           ...prev,
+                           [pageNumber]: [...(prev[pageNumber] || []), { id: Date.now(), type: 'text', ...pendingText }]
+                         }));
+                       }
+                       setPendingText(null);
+                       setPdfTool('cursor');
+                     }}
+                     onKeyDown={(e) => {
+                       if (e.key === 'Enter') {
+                         e.currentTarget.blur();
+                       }
+                       if (e.key === 'Escape') {
+                         setPendingText(null);
+                         setPdfTool('cursor');
+                       }
+                     }}
+                     className="absolute font-[family-name:var(--font-caveat)] text-purple-600 font-bold text-3xl bg-white/80 px-2 py-1 rounded shadow-sm border-2 border-purple-500 outline-none pointer-events-auto"
+                     style={{ left: pendingText.x * zoomLevel, top: pendingText.y * zoomLevel }}
+                   />
+                 )}
+
              </div>
              <Page 
                pageNumber={pageNumber} 
@@ -256,7 +333,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
        {/* Draggable Resizer */}
        <div 
          className="w-1.5 cursor-col-resize bg-transparent hover:bg-blue-500/50 active:bg-blue-500 transition-colors z-20 relative flex-shrink-0"
-         onMouseDown={(e) => { e.preventDefault(); setIsDragging(true); }}
+         onMouseDown={(e) => { e.preventDefault(); setIsDragging(true); }} onTouchStart={(e) => { e.preventDefault(); setIsDragging(true); }}
        >
          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-8 bg-slate-600 rounded-full opacity-50 pointer-events-none"></div>
        </div>
@@ -279,14 +356,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
                <option value="ar">عربي (Lemonada)</option>
              </select>
 
-             <button
-               onClick={handleSave}
-               disabled={isSaving}
-               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${saved ? 'bg-green-500/20 text-green-400' : 'bg-purple-600 hover:bg-purple-500 text-white'}`}
-             >
-               {saved ? <Check size={14}/> : <Save size={14}/>}
-               {saved ? 'Saved' : 'Save'}
-             </button>
+             
            </div>
          </div>
 

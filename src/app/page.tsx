@@ -986,7 +986,7 @@ export default function Home() {
 
   return (
     <div className={`min-h-screen w-full ${bgTheme} transition-colors duration-500 font-sans`}>
-      <main className={`w-full ${(!isListView && activeTab === 'lists' && activeCatObj?.type === 'study') ? 'max-w-7xl px-2 sm:px-6' : (activeTab === 'settings' ? 'max-w-5xl' : 'max-w-md')} mx-auto min-h-screen flex flex-col relative transition-all duration-500`}>
+      <main className={`w-full ${selectedNote ? 'max-w-[100vw] px-0 md:px-4' : (!isListView && activeTab === 'lists' && activeCatObj?.type === 'study') ? 'max-w-[100vw] px-2 sm:px-6' : (activeTab === 'settings' ? 'max-w-5xl' : 'max-w-md')} mx-auto h-screen max-h-screen overflow-hidden flex flex-col relative transition-all duration-500`}>
         {/* Header */}
         {activeTab !== 'settings' && (
           <header className={`pt-12 pb-6 px-6 relative z-30 flex justify-between items-center border-b transition-colors duration-500 ${bgTheme} ${isDark ? 'border-slate-800' : 'border-gray-200/30'}`}>
