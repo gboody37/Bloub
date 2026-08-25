@@ -325,6 +325,52 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
 
   const currentNote = notes[pageNumber] || { text: "", lang: "en" };
 
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (pdfTool === 'highlight') {
+        setTimeout(() => {
+          const selection = window.getSelection();
+          if (selection && selection.rangeCount > 0 && selection.toString().trim().length > 0) {
+            const range = selection.getRangeAt(0);
+            const rects = range.getClientRects();
+            if (rects.length > 0 && overlayRef.current) {
+              const containerRect = overlayRef.current.getBoundingClientRect();
+              let saveAnnotations = { ...annotations };
+              
+              for (let i = 0; i < rects.length; i++) {
+                const rect = rects[i];
+                const newAnn = {
+                  id: Date.now() + i,
+                  type: 'highlight',
+                  startX: (rect.left - containerRect.left) / zoomLevel,
+                  startY: (rect.top - containerRect.top) / zoomLevel,
+                  w: rect.width / zoomLevel,
+                  h: rect.height / zoomLevel,
+                  color: highlightColor,
+                  text: selection.toString()
+                };
+                saveAnnotations = {
+                  ...saveAnnotations,
+                  [pageNumber]: [...(saveAnnotations[pageNumber] || []), newAnn]
+                };
+              }
+              isDirtyRef.current = true;
+              setAnnotations(saveAnnotations);
+              selection.removeAllRanges();
+            }
+          }
+        }, 50);
+      }
+    };
+    
+    document.addEventListener('pointerup', handleGlobalMouseUp);
+    document.addEventListener('touchend', handleGlobalMouseUp);
+    return () => {
+      document.removeEventListener('pointerup', handleGlobalMouseUp);
+      document.removeEventListener('touchend', handleGlobalMouseUp);
+    };
+  }, [pdfTool, annotations, pageNumber, zoomLevel, highlightColor]);
+
   const toolsPortal = typeof document !== 'undefined' ? document.getElementById('pdf-tools-portal') : null;
 
   return (
@@ -355,7 +401,10 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
                 container.scrollLeft = startScrollLeft - (ev.clientX - startX);
                 container.scrollTop = startScrollTop - (ev.clientY - startY);
               };
-              const handleUp = () => {
+              const handleUp = (ev: any) => {
+                if (ev.pointerId && container.hasPointerCapture(ev.pointerId)) {
+                  container.releasePointerCapture(ev.pointerId);
+                }
                 window.removeEventListener('pointermove', handleMove);
                 window.removeEventListener('pointerup', handleUp);
               };
@@ -451,7 +500,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
                       }
                   }
                 }} style={{ cursor: pdfTool === 'text' ? 'text' : pdfTool === 'highlight' ? 'text' : pdfTool === 'eraser' ? 'crosshair' : 'default' }}>
-              <div className="absolute inset-0 z-20" style={{ pointerEvents: (pdfTool === "eraser" || pdfTool === "cursor" || pdfTool === "text" || pdfTool === "highlight") ? "auto" : "none" }}>
+              <div className="absolute inset-0 z-20" style={{ pointerEvents: (pdfTool === "eraser" || pdfTool === "cursor" || pdfTool === "text") ? "auto" : "none" }}>
                 {(annotations[pageNumber] || []).map(ann => {
                   if (ann.type === 'highlight') {
                     const w = Math.abs(ann.w) * zoomLevel;
@@ -525,7 +574,12 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
                           const handleMove = (ev: any) => {
                              setPendingText(p => p ? { ...p, x: startPX + (ev.clientX - startX) / zoomLevel, y: startPY + (ev.clientY - startY) / zoomLevel } : p);
                           };
-                          const handleUp = () => {
+                          const handleUp = (ev: any) => {
+                             try {
+                               if (ev.pointerId && ev.currentTarget && typeof ev.currentTarget.releasePointerCapture === 'function') {
+                                 ev.currentTarget.releasePointerCapture(ev.pointerId);
+                               }
+                             } catch (err) {}
                              window.removeEventListener('pointermove', handleMove);
                              window.removeEventListener('pointerup', handleUp);
                           };
