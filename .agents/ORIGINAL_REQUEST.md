@@ -27,3 +27,30 @@ The application's note reading interface must be upgraded to render the actual P
 ### Verification
 - [ ] An automated test script (`scripts/verify-storage.js`) successfully uploads a mock file to the Supabase `media` bucket and retrieves a valid public URL without "Bucket not found" errors.
 - [ ] An agent evaluator confirms that opening a PDF note in the UI renders the visual document (e.g. via an iframe or embedded viewer) and not just raw text.
+
+## 2026-08-25T03:25:17Z
+
+# Teamwork Project Prompt
+
+> Requested team: Creative team
+
+Redesign the application's color themes. The user feels the current custom themes are too heavily biased towards "blue or brown", and wants a more diverse, vibrant set of purely dark themes. Additionally, the original "dark blue" theme must be restored.
+
+Working directory: d:\AI\جبنة\vibe-todos
+
+Integrity mode: development
+
+## Requirements
+
+### R1. Diverse Theme Palette
+The application's theme list (`THEMES` array in `src/app/page.tsx`) must be completely overhauled to include a much wider variety of vibrant, distinct dark themes (e.g. Neon Purple, Emerald Green, Deep Crimson, etc.), eliminating the over-representation of blue/brown variants. 
+
+### R2. Restore Legacy Dark Blue
+The old "Dark Blue" theme must be perfectly recreated and included in the updated `THEMES` list.
+
+## Acceptance Criteria
+
+### Aesthetic & Variety
+- [ ] Visual inspection confirms the `THEMES` array contains at least 12 distinct dark themes spanning the entire color spectrum (reds, greens, purples, cyans, etc.).
+- [ ] Visual inspection confirms the original "Dark Blue" theme is present and accurately mimics its previous appearance.
+

@@ -1,7 +1,7 @@
-# BRIEFING — 2026-08-24T13:31:00Z
+# BRIEFING — 2026-08-25T03:26:03Z
 
 ## Mission
-Investigate Supabase setup, environment configuration, database schema for `vault_notes`, existing Supabase client initialization, storage buckets, RLS policies, and scripting infrastructure for PDF architecture overhaul.
+Examine `src/app/page.tsx` and related components to document the schema of `THEMES`, how properties are consumed across UI components, identify dependencies/constraints, and produce a comprehensive report.
 
 ## 🔒 My Identity
 - Archetype: explorer
@@ -9,35 +9,32 @@ Investigate Supabase setup, environment configuration, database schema for `vaul
 - Working directory: d:\AI\جبنة\vibe-todos\.agents\explorer_survey_1
 - Original parent: 8a594263-53b2-4092-a6f4-e662cdd61716
 - Milestone: Survey Phase
+- Archetype: explorer (Theme Redesign Survey 1)
+- Roles: survey, theme schema analysis, UI property consumption tracing
+- Working directory: d:\AI\جبنة\vibe-todos\.agents\explorer_survey_1
+- Original parent: 2cb00193-bb1e-4bca-aea1-4df431c9d888
+- Milestone: Theme Redesign Survey Phase
 
 ## 🔒 Key Constraints
 - Read-only investigation — do NOT implement
 - Analyze Supabase config, vault_notes schema, storage buckets, RLS, scripts infrastructure
 - Produce detailed analysis.md and handoff.md
+- Examine `src/app/page.tsx` and related components for `THEMES` schema and usage
+- Document every field/property in each theme object
+- Trace UI consumption across todos, vault, modals, header, buttons
+- Identify dependencies (Tailwind classes vs inline hex vs CSS vars)
 
 ## Current Parent
-- Conversation ID: 8a594263-53b2-4092-a6f4-e662cdd61716
-- Updated: 2026-08-24T13:28:00Z
+- Conversation ID: 2cb00193-bb1e-4bca-aea1-4df431c9d888
+- Updated: 2026-08-25T03:26:03Z
 
 ## Investigation State
-- **Explored paths**:
-  - Supabase client initialization (`src/lib/supabase.ts`, `src/lib/supabase/client.ts`, `src/lib/supabase/server.ts`)
-  - Schema and migrations (`migrations/20260824000000_vault_notes.sql`, `supabase/migrations/20260824000000_vault_notes.sql`)
-  - Storage buckets and RLS policies via live PostgreSQL query
-  - Live `public.vault_notes` data records (discovered 29.37 MB base64 note)
-  - Existing scripts (`create-bucket.cjs`, `check-db.cjs`, `scripts/verify-cloud-sync.js`, `package.json`)
-  - Note components (`src/components/study/NoteExplorer.tsx`, `src/components/study/NoteViewer.tsx`, `src/components/study/QuizSession.tsx`)
-- **Key findings**:
-  - `storage.buckets` is currently empty.
-  - Creating bucket via anon client fails with RLS violation; must use postgres connection or SQL migration.
-  - `Documents/1.pdf.md` contains 29.37 MB base64 string causing severe database statement timeouts and browser lag.
-  - Direct PostgreSQL pooler connection is available in `scripts/verify-cloud-sync.js` (`pg` dependency installed).
-  - Storage RLS on `storage.objects` must be configured with public SELECT and appropriate INSERT/UPDATE/DELETE policies.
-- **Unexplored areas**: None for this survey focus.
+- **Explored paths**: None yet for Theme Redesign
+- **Key findings**: TBD
+- **Unexplored areas**: `src/app/page.tsx`, components consuming theme, Tailwind configuration, CSS variables
 
 ## Key Decisions Made
-- Completed full survey of Supabase & DB infrastructure.
-- Generated `analysis.md` and 5-component `handoff.md`.
+- Starting systematic survey of theme architecture in `vibe-todos`.
 
 ## Artifact Index
 - d:\AI\جبنة\vibe-todos\.agents\explorer_survey_1\analysis.md — Detailed survey analysis

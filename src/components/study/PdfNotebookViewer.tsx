@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { ChevronLeft, ChevronRight, PenTool, Save, Check, Highlighter, Type, MousePointer2, ZoomIn, ZoomOut, Eraser, Undo2, Sidebar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PenTool, Save, Check, Highlighter, Type, MousePointer2, ZoomIn, ZoomOut, Eraser, Undo2, Sidebar, Hand } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { updateFrontmatterField } from '@/lib/obsidian/parser';
 
@@ -27,11 +27,14 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
   const [saved, setSaved] = useState(false);
   const [pdfTool, setPdfTool] = useState('cursor');
   const [textColor, setTextColor] = useState('#9333ea'); // default purple-600
+  const [highlightColor, setHighlightColor] = useState('#fef08a'); // default yellow-200
   const [zoomLevel, setZoomLevel] = useState(1.0);
   const [notesWidth, setNotesWidth] = useState(450);
   const [isDragging, setIsDragging] = useState(false);
   const [showNotes, setShowNotes] = useState(true);
   const [pendingText, setPendingText] = useState<{x: number, y: number, text: string, color?: string, fontSize?: number, id?: number} | null>(null);
+  const [highlightStart, setHighlightStart] = useState<{x: number, y: number} | null>(null);
+  const [highlightCurrent, setHighlightCurrent] = useState<{x: number, y: number} | null>(null);
   
   
   // Annotation State
@@ -89,29 +92,8 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
     }
 
     if (pdfTool === 'highlight') {
-      const selection = window.getSelection();
-      if (selection && !selection.isCollapsed) {
-        const range = selection.getRangeAt(0);
-        const rects = Array.from(range.getClientRects());
-        
-        const newHighlights = rects.map((rect, i) => ({
-          id: Date.now() + i,
-          type: 'highlight',
-          startX: (rect.left - containerRect.left) / zoomLevel,
-          startY: (rect.top - containerRect.top) / zoomLevel,
-          w: rect.width / zoomLevel,
-          h: rect.height / zoomLevel
-        }));
-
-        isDirtyRef.current = true;
-        setAnnotations(prev => ({
-          ...prev,
-          [pageNumber]: [...(prev[pageNumber] || []), ...newHighlights]
-        }));
-        
-        selection.removeAllRanges();
+        // Now handled by pointer events
       }
-    }
   };
   
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -345,20 +327,52 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
     <div ref={containerRef} className={`flex w-full flex-1 h-full min-h-[500px] border rounded-2xl overflow-hidden shadow-inner ${isDark ? 'border-slate-800 bg-slate-950' : 'border-gray-200 bg-gray-100'}`}>
        
        {/* PDF Viewer Side */}
-       <div className="flex-1 h-full overflow-auto custom-scrollbar flex flex-col items-center py-6 px-6 relative bg-black/20">
+       <div 
+          className="flex-1 h-full overflow-auto custom-scrollbar flex flex-col items-center py-6 px-6 relative bg-black/20"
+          onPointerDown={(e) => {
+            if (pdfTool === 'pan') {
+              e.preventDefault();
+              const container = e.currentTarget;
+              const startX = e.clientX;
+              const startY = e.clientY;
+              const startScrollLeft = container.scrollLeft;
+              const startScrollTop = container.scrollTop;
+              
+              const handleMove = (ev: any) => {
+                container.scrollLeft = startScrollLeft - (ev.clientX - startX);
+                container.scrollTop = startScrollTop - (ev.clientY - startY);
+              };
+              const handleUp = () => {
+                window.removeEventListener('pointermove', handleMove);
+                window.removeEventListener('pointerup', handleUp);
+              };
+              window.addEventListener('pointermove', handleMove);
+              window.addEventListener('pointerup', handleUp);
+            }
+          }}
+          style={{ cursor: pdfTool === 'pan' ? 'grab' : 'default' }}
+        >
                   {/* PDF Toolbar */}
          <div className="sticky top-2 mb-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-slate-900/90 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-700 shadow-xl z-50">
+           <button onClick={() => setPdfTool('pan')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'pan' ? 'text-purple-400 bg-purple-500/20' : 'text-slate-400 hover:text-white'}`} title="Pan Tool"><Hand size={16}/></button>
            <button onClick={() => setPdfTool('cursor')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'cursor' ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`} title="Pointer Tool"><MousePointer2 size={16}/></button>
            <button onClick={() => setPdfTool('highlight')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'highlight' ? 'bg-yellow-500/20 text-yellow-400' : 'text-slate-400 hover:text-yellow-400'}`} title="Highlighter Tool"><Highlighter size={16}/></button>
            
              <button onClick={() => setPdfTool('text')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'text' ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-purple-400'}`} title="Text Note Tool"><Type size={16}/></button>
              {pdfTool === 'text' && (
-               <div className="flex items-center gap-1 mx-1 bg-slate-800 rounded-lg p-1">
-                 {['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#9333ea', '#ec4899', '#ffffff', '#000000'].map(c => (
-                   <button key={c} onClick={() => setTextColor(c)} className={`w-4 h-4 rounded-full border ${textColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
-                 ))}
-               </div>
-             )}
+                 <div className="flex items-center gap-1 mx-1 bg-slate-800 rounded-lg p-1">
+                   {['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#9333ea', '#ec4899', '#ffffff', '#000000'].map(c => (
+                     <button key={c} onClick={() => setTextColor(c)} className={`w-4 h-4 rounded-full border ${textColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
+                   ))}
+                 </div>
+               )}
+               {pdfTool === 'highlight' && (
+                 <div className="flex items-center gap-1 mx-1 bg-slate-800 rounded-lg p-1">
+                   {['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#fed7aa', '#e9d5ff'].map(c => (
+                     <button key={c} onClick={() => setHighlightColor(c)} className={`w-4 h-4 rounded-full border ${highlightColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
+                   ))}
+                 </div>
+               )}
 
 
            <button onClick={() => setPdfTool('eraser')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'eraser' ? 'bg-pink-500/20 text-pink-400' : 'text-slate-400 hover:text-pink-400'}`} title="Eraser Tool"><Eraser size={16}/></button>
@@ -388,8 +402,57 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
          >
            
            
-            <div className="relative inline-block shadow-2xl" ref={overlayRef} onMouseUp={handleContainerMouseUp} onTouchEnd={(e) => { e.preventDefault(); handleContainerMouseUp(e as any); }} style={{ cursor: pdfTool === 'text' ? 'text' : pdfTool === 'highlight' ? 'text' : pdfTool === 'eraser' ? 'crosshair' : 'default' }}>
-              <div className="absolute inset-0 z-20" style={{ pointerEvents: pdfTool === "eraser" ? "auto" : "none" }}>
+            <div className="relative inline-block shadow-2xl" ref={overlayRef} onPointerDown={(e) => {
+                  if (pdfTool === 'highlight') {
+                    e.preventDefault();
+                    const coords = getEventClientCoords(e);
+                    if (!coords) return;
+                    const containerRect = e.currentTarget.getBoundingClientRect();
+                    const x = (coords.clientX - containerRect.left) / zoomLevel;
+                    const y = (coords.clientY - containerRect.top) / zoomLevel;
+                    setHighlightStart({ x, y });
+                    setHighlightCurrent({ x, y });
+                  }
+                }}
+                onPointerMove={(e) => {
+                  if (pdfTool === 'highlight' && highlightStart) {
+                    const coords = getEventClientCoords(e);
+                    if (!coords) return;
+                    const containerRect = e.currentTarget.getBoundingClientRect();
+                    const x = (coords.clientX - containerRect.left) / zoomLevel;
+                    const y = (coords.clientY - containerRect.top) / zoomLevel;
+                    setHighlightCurrent({ x, y });
+                  }
+                }}
+                onPointerUp={(e) => {
+                  if (pdfTool === 'highlight' && highlightStart && highlightCurrent) {
+                    const newAnn = {
+                      id: Date.now(),
+                      type: 'highlight',
+                      startX: Math.min(highlightStart.x, highlightCurrent.x),
+                      startY: Math.min(highlightStart.y, highlightCurrent.y),
+                      w: Math.abs(highlightCurrent.x - highlightStart.x),
+                      h: Math.abs(highlightCurrent.y - highlightStart.y),
+                      color: highlightColor
+                    };
+                    isDirtyRef.current = true;
+                    setAnnotations(prev => ({
+                      ...prev,
+                      [pageNumber]: [...(prev[pageNumber] || []), newAnn]
+                    }));
+                    setHighlightStart(null);
+                    setHighlightCurrent(null);
+                  } else {
+                    handleContainerMouseUp(e as any);
+                  }
+                }}
+                onPointerLeave={() => {
+                  if (highlightStart) {
+                    setHighlightStart(null);
+                    setHighlightCurrent(null);
+                  }
+                }} style={{ cursor: pdfTool === 'text' ? 'text' : pdfTool === 'highlight' ? 'text' : pdfTool === 'eraser' ? 'crosshair' : 'default' }}>
+              <div className="absolute inset-0 z-20" style={{ pointerEvents: (pdfTool === "eraser" || pdfTool === "cursor" || pdfTool === "text" || pdfTool === "highlight") ? "auto" : "none" }}>
                 {(annotations[pageNumber] || []).map(ann => {
                   if (ann.type === 'highlight') {
                     const w = Math.abs(ann.w) * zoomLevel;
@@ -402,7 +465,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
                         onMouseDown={(e) => { if (pdfTool === 'eraser') { e.stopPropagation(); isDirtyRef.current = true; setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); } else if (pdfTool === 'cursor' || pdfTool === 'text') { e.stopPropagation(); setPendingText({ x: ann.x, y: ann.y, text: ann.text, color: ann.color, fontSize: ann.fontSize || 24, id: ann.id }); setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); } }} 
                         onTouchStart={(e) => { if (pdfTool === 'eraser') { e.stopPropagation(); isDirtyRef.current = true; setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); } else if (pdfTool === 'cursor' || pdfTool === 'text') { e.stopPropagation(); setPendingText({ x: ann.x, y: ann.y, text: ann.text, color: ann.color, fontSize: ann.fontSize || 24, id: ann.id }); setAnnotations(p => ({ ...p, [pageNumber]: (p[pageNumber] || []).filter(a => a.id !== ann.id) })); } }} 
                         className={`absolute mix-blend-multiply bg-yellow-400/50 ${pdfTool === 'eraser' ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`} 
-                        style={{ left, top, width: w, height: h, pointerEvents: (pdfTool === 'eraser' || pdfTool === 'cursor' || pdfTool === 'text') ? 'auto' : 'none' }} 
+                         
                         title={ann.text} 
                       />
                     );

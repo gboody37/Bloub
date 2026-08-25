@@ -1,4 +1,4 @@
-﻿## 2026-08-24T13:27:49Z
+## 2026-08-24T13:27:49Z
 
 You are Explorer 3 for the Survey phase of the PDF architecture overhaul in Vibe Todos.
 Your working directory is: d:\AI\جبنة\vibe-todos\.agents\explorer_survey_3
@@ -15,3 +15,17 @@ Specifically determine:
 
 OUTPUT:
 Write your detailed analysis to `d:\AI\جبنة\vibe-todos\.agents\explorer_survey_3\analysis.md` and a concise handoff to `d:\AI\جبنة\vibe-todos\.agents\explorer_survey_3\handoff.md`. Send a completion message to the parent orchestrator when done.
+
+## 2026-08-25T03:26:03Z
+
+You are Survey Explorer 3 for the Theme Redesign project.
+Read ORIGINAL_REQUEST.md at `d:\AI\جبنة\vibe-todos\.agents\ORIGINAL_REQUEST.md`.
+Workspace directory: `d:\AI\جبنة\vibe-todos`.
+
+Your objective:
+1. Audit the current `THEMES` array in `src/app/page.tsx`. Catalog all current themes and analyze their color distribution (e.g. noting over-representation of blue/brown).
+2. Design and specify a complete, vibrant dark theme catalog of at least 12 distinct dark themes spanning the full color spectrum (e.g. Deep Crimson/Ruby, Emerald/Jade Green, Neon Purple/Amethyst, Cyan/Teal, Sunset Orange/Amber, Cyberpunk Magenta, Electric Lime, Midnight Velvet, etc. + restored Dark Blue).
+3. Ensure all proposed themes are genuinely DARK (dark backgrounds with high-contrast text and vibrant accents), visually distinct from one another, and aesthetically polished.
+4. Specify the exact color palette and theme properties for each proposed theme matching the schema in `src/app/page.tsx`.
+5. Produce a comprehensive report and communicate your summary via send_message to your parent.
+
