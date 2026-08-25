@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { ChevronLeft, ChevronRight, PenTool, Save, Check, Highlighter, Type, MousePointer2, ZoomIn, ZoomOut, Eraser, Undo2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PenTool, Save, Check, Highlighter, Type, MousePointer2, ZoomIn, ZoomOut, Eraser, Undo2, Sidebar } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -26,6 +26,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
   const [zoomLevel, setZoomLevel] = useState(1.0);
   const [notesWidth, setNotesWidth] = useState(450);
   const [isDragging, setIsDragging] = useState(false);
+    const [showNotes, setShowNotes] = useState(true);
     const [pendingText, setPendingText] = useState<{x: number, y: number, text: string} | null>(null);
   
   
@@ -201,6 +202,10 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
 
            <button onClick={() => setPdfTool('eraser')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'eraser' ? 'bg-pink-500/20 text-pink-400' : 'text-slate-400 hover:text-pink-400'}`}><Eraser size={16}/></button>
            <button onClick={handleUndo} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white"><Undo2 size={16}/></button>
+
+           <div className="w-px h-6 bg-slate-700/50 mx-1"></div>
+           <button onClick={() => setShowNotes(!showNotes)} className={`p-1.5 rounded-lg transition-colors ${showNotes ? 'text-blue-400 bg-blue-500/20' : 'text-slate-400 hover:text-white'}`} title="Toggle Notes Panel"><Sidebar size={16}/></button>
+
            <div className="w-px h-4 bg-slate-700 mx-1"></div>
            <button onClick={() => setZoomLevel(z => Math.max(z - 0.25, 0.5))} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white">
              <ZoomOut size={16}/>
@@ -305,7 +310,8 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
        </div>
 
        
-       {/* Draggable Resizer */}
+       {showNotes && (<>
+         {/* Draggable Resizer */}
        <div 
          className="w-1.5 cursor-col-resize bg-transparent hover:bg-blue-500/50 active:bg-blue-500 transition-colors z-20 relative flex-shrink-0"
          onMouseDown={(e) => { e.preventDefault(); setIsDragging(true); }} onTouchStart={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -351,6 +357,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
            }}
          />
        </div>
+         </>)}
     </div>
   )
 }
