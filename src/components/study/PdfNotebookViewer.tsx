@@ -42,7 +42,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
   const [showPdfUi, setShowPdfUi] = useState(true);
   const [showNotes, setShowNotes] = useState(true);
   const [pendingText, setPendingText] = useState<{x: number, y: number, text: string, color?: string, fontSize?: number, id?: number} | null>(null);
-  const [viewerEngine, setViewerEngine] = useState<'pdfjs' | 'native'>('native');
+  const [viewerEngine, setViewerEngine] = useState<'pdfjs' | 'native'>('pdfjs');
   const [highlightMode, setHighlightMode] = useState<'box' | 'text'>('box');
   const [highlightStart, setHighlightStart] = useState<{x: number, y: number} | null>(null);
   const [highlightCurrent, setHighlightCurrent] = useState<{x: number, y: number} | null>(null);
