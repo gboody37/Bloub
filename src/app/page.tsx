@@ -988,7 +988,7 @@ export default function Home() {
     <div className={`min-h-screen w-full ${bgTheme} transition-colors duration-500 font-sans`}>
       <main className={`w-full ${selectedNote ? 'max-w-[100vw] px-0 md:px-4' : (!isListView && activeTab === 'lists' && activeCatObj?.type === 'study') ? 'max-w-[100vw] px-2 sm:px-6' : (activeTab === 'settings' ? 'max-w-5xl' : 'max-w-md')} mx-auto h-screen max-h-screen overflow-hidden flex flex-col relative transition-all duration-500`}>
         {/* Header */}
-        {activeTab !== 'settings' && (
+        {(!selectedNote && activeTab !== 'settings') && (
           <header className={`pt-12 pb-6 px-6 relative z-30 flex justify-between items-center border-b transition-colors duration-500 ${bgTheme} ${isDark ? 'border-slate-800' : 'border-gray-200/30'}`}>
             <div className="flex-1">
               <h1 className={`text-3xl font-bold tracking-tight transition-colors ${t.textPrimary}`}>
@@ -1698,7 +1698,7 @@ export default function Home() {
           ) : activeTab === 'lists' && !isListView ? (
             /* Main Workspace View: Branching based on List Type (Study vs ToDo) */
             <div>
-            {activeTab === 'lists' && !isListView && (
+            {!selectedNote && activeTab === "lists" && !isListView && (
                <div className="mb-4">
                  <button onClick={() => setIsListView(true)} className={`text-sm font-medium transition-colors ${isDark ? 'text-slate-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}>← Back to Lists</button>
                </div>
