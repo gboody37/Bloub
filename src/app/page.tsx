@@ -63,21 +63,18 @@ const getDynamicMascotProps = (shape: string, baseColor: string, pendingCount: n
 };
 
 const THEMES = [
-  { id: 'bg-[#1e1e2e]', name: 'Mocha (Dark)', color: '#1e1e2e' },
-  { id: 'bg-[#24273a]', name: 'Macchiato', color: '#24273a' },
-  { id: 'bg-[#303446]', name: 'Frappé', color: '#303446' },
-  { id: 'bg-[#0f291e]', name: 'Forest Green', color: '#0f291e' },
-  { id: 'bg-[#2a1708]', name: 'Cozy Orange', color: '#2a1708' },
-  { id: 'bg-[#2a0808]', name: 'Samurai Red', color: '#2a0808' },
-  { id: 'bg-[#081e2a]', name: 'Sky Blue', color: '#081e2a' },
-  { id: 'bg-[#080d2a]', name: 'Dark Blue', color: '#080d2a' },
+  { id: 'bg-[#0f172a]', name: 'Classic Dark Blue', color: '#0f172a' },
+  { id: 'bg-[#1e1e2e]', name: 'Mocha', color: '#1e1e2e' },
+  { id: 'bg-[#2a0a18]', name: 'Deep Crimson', color: '#2a0a18' },
+  { id: 'bg-[#0a2a1a]', name: 'Emerald Shadow', color: '#0a2a1a' },
+  { id: 'bg-[#1a0a2a]', name: 'Neon Purple', color: '#1a0a2a' },
+  { id: 'bg-[#0a1a2a]', name: 'Midnight Cyan', color: '#0a1a2a' },
+  { id: 'bg-[#2a1a0a]', name: 'Gold Obsidian', color: '#2a1a0a' },
+  { id: 'bg-[#2a0a2a]', name: 'Sunset Velvet', color: '#2a0a2a' },
   { id: 'bg-[#090514]', name: 'Cyberpunk Neon', color: '#090514' },
-  { id: 'bg-[#282a36]', name: 'Dracula Dark', color: '#282a36' },
-  { id: 'bg-[#2e3440]', name: 'Nordic Frost', color: '#2e3440' },
-  { id: 'bg-[#1e1525]', name: 'Sakura Rose Gold', color: '#1e1525' },
-  { id: 'bg-[#2a081a]', name: 'Hot Pink', color: '#2a081a' },
-  { id: 'bg-[#082a13]', name: 'Toxic Poison', color: '#082a13' },
-  { id: 'bg-[#1a1525]', name: 'Midnight Lavender', color: '#1a1525' }
+  { id: 'bg-[#282a36]', name: 'Dracula', color: '#282a36' },
+  { id: 'bg-[#111111]', name: 'Pitch Black', color: '#111111' },
+  { id: 'bg-[#1e1525]', name: 'Sakura Night', color: '#1e1525' }
 ];
 
 const SHAPE_IDS = ['squircle', 'cercle', 'galet', 'hexagone', 'capsule', 'soleil', 'nuage', 'goutte', 'oeuf'];
