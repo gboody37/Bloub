@@ -13,6 +13,7 @@ import { verifyPdfLayoutIntegrity } from './verify-pdf-layout-integrity.ts';
 import { verifyAdversarial } from './verify-adversarial-tests.ts';
 import { verifyR2AdversarialSuite } from './verify-r2-adversarial-suite.ts';
 import { verifyR3AdversarialSuite } from './verify-r3-adversarial-suite.ts';
+import { verifyArabicColumnsAndTransitivity } from './verify-arabic-columns-and-transitivity.ts';
 
 interface VerificationResult {
   id: string;
@@ -64,6 +65,7 @@ Date: ${new Date().toISOString()}
   await runStep('ADV-STRESS-PARSER', 'Adversarial Parser & Serializer Stress Scenarios', verifyAdversarial);
   await runStep('R2-ADVERSARIAL-SUITE', 'Round 2 Lifecycle, Empty Autosave & Undo Invariants', verifyR2AdversarialSuite);
   await runStep('R3-ADVERSARIAL-SUITE', 'Round 3 In-Flight Race, Pending Text & Pointer Matrix', verifyR3AdversarialSuite);
+  await runStep('ARABIC-COLUMNS-TRANSITIVITY', 'Arabic PDF Column Breaking & Transitive DOM Sorting', verifyArabicColumnsAndTransitivity);
 
   const totalDuration = ((Date.now() - suiteStartTime) / 1000).toFixed(2);
   const passedCount = results.filter(r => r.passed).length;

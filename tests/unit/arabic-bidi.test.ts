@@ -19,6 +19,8 @@ import {
   reverseArabicGraphemes,
   reorderVisualToLogicalArabic,
   processPageTextContent,
+  sortLinesInReadingOrder,
+  buildProcessedLine,
   ARABIC_PRESENTATION_MAP,
 } from '../../src/lib/pdf/arabic-bidi.ts';
 import type {
@@ -358,3 +360,535 @@ describe('Arabic BiDi - PDF.js Baseline Grouping & Bounding Box Math (Requiremen
     assert.ok(duration < 50, `1,000 items processed in ${duration.toFixed(2)}ms, expected < 50ms`);
   });
 });
+
+describe('Arabic BiDi - Strict Horizontal Column Breaking (Requirement R1, AC1)', () => {
+  it('AC1: should break items on the same vertical baseline into distinct ProcessedTextLines when separated by a large horizontal gap (left: 50 and left: 400)', () => {
+    const mockTextContent = {
+      items: [
+        {
+          str: 'العمود الأيمن',
+          transform: [12, 0, 0, 12, 400, 700],
+          width: 80,
+          height: 12,
+        },
+        {
+          str: 'العمود الأيسر',
+          transform: [12, 0, 0, 12, 50, 700],
+          width: 80,
+          height: 12,
+        },
+      ],
+    };
+
+    const mockViewport = {
+      scale: 1.0,
+      height: 800,
+      width: 600,
+    };
+
+    const lines = processPageTextContent(mockTextContent, mockViewport);
+
+    // Must produce two distinct lines, not a single unified line stretched across the page
+    assert.equal(lines.length, 2, 'Should break into 2 distinct ProcessedTextLines across the 270px horizontal gap');
+
+    // Verify coordinates of the two lines
+    const rightColLine = lines.find(l => l.left >= 350);
+    const leftColLine = lines.find(l => l.left < 350);
+
+    assert.ok(rightColLine, 'Right column line must exist');
+    assert.ok(leftColLine, 'Left column line must exist');
+
+    assert.equal(rightColLine.left, 400);
+    assert.equal(leftColLine.left, 50);
+    assert.equal(rightColLine.width, 80);
+    assert.equal(leftColLine.width, 80);
+    assert.equal(rightColLine.dir, 'rtl');
+    assert.equal(leftColLine.dir, 'rtl');
+  });
+
+  it('should cluster contiguous items within the same column while breaking across the column gap', () => {
+    // 2 items in Left column (left: 50, left: 140) and 2 items in Right column (left: 420, left: 510)
+    const mockTextContent = {
+      items: [
+        { str: 'كلمة_1', transform: [12, 0, 0, 12, 50, 600], width: 70, height: 12 },
+        { str: 'كلمة_2', transform: [12, 0, 0, 12, 130, 600], width: 70, height: 12 }, // gap = 130 - (50+70) = 10px <= 35
+        { str: 'كلمة_3', transform: [12, 0, 0, 12, 420, 600], width: 70, height: 12 }, // gap = 420 - 200 = 220px > 35
+        { str: 'كلمة_4', transform: [12, 0, 0, 12, 500, 600], width: 70, height: 12 }, // gap = 500 - (420+70) = 10px <= 35
+      ],
+    };
+
+    const mockViewport = { scale: 1.0, height: 800, width: 700 };
+    const lines = processPageTextContent(mockTextContent, mockViewport);
+
+    assert.equal(lines.length, 2, 'Should cluster into 2 lines (1 per column)');
+
+    const rightLine = lines.find(l => l.left >= 300);
+    const leftLine = lines.find(l => l.left < 300);
+
+    assert.ok(rightLine);
+    assert.ok(leftLine);
+    assert.equal(rightLine.items.length, 2);
+    assert.equal(leftLine.items.length, 2);
+  });
+
+  it('should maintain column break sensitivity under zoom scaling (scale = 2.0)', () => {
+    const mockTextContent = {
+      items: [
+        { str: 'نص_يسار', transform: [12, 0, 0, 12, 50, 500], width: 60, height: 12 },
+        { str: 'نص_يمين', transform: [12, 0, 0, 12, 350, 500], width: 60, height: 12 },
+      ],
+    };
+
+    const mockViewport = { scale: 2.0, height: 1600, width: 1200 };
+    const lines = processPageTextContent(mockTextContent, mockViewport);
+
+    assert.equal(lines.length, 2, 'Zoomed items must still break across columns');
+    assert.equal(lines.find(l => l.left >= 600)?.width, 120);
+    assert.equal(lines.find(l => l.left < 600)?.width, 120);
+  });
+});
+
+describe('Arabic BiDi - Transitive DOM Reading Order Sorting (Requirement R2, AC2)', () => {
+  it('AC2: should sort 2-column RTL layout with a full-width header into logical reading order without interleaving', () => {
+    // Layout:
+    // 1. Full-width Header at top (Y = 750 / top ~ 50)
+    // 2. Right Column lines at Y = 700, 650, 600 (left ~ 450)
+    // 3. Left Column lines at Y = 700, 650, 600 (left ~ 50)
+    const mockTextContent = {
+      items: [
+        // Full-width Header
+        {
+          str: 'عنوان رئيسي عريض يغطي كامل الصفحة من اليمين إلى اليسار',
+          transform: [16, 0, 0, 16, 50, 750],
+          width: 550,
+          height: 16,
+        },
+        // Right Column (Column 1 in RTL)
+        {
+          str: 'العمود الأيمن - السطر الأول',
+          transform: [12, 0, 0, 12, 380, 680],
+          width: 220,
+          height: 12,
+        },
+        {
+          str: 'العمود الأيمن - السطر الثاني',
+          transform: [12, 0, 0, 12, 380, 630],
+          width: 220,
+          height: 12,
+        },
+        {
+          str: 'العمود الأيمن - السطر الثالث',
+          transform: [12, 0, 0, 12, 380, 580],
+          width: 220,
+          height: 12,
+        },
+        // Left Column (Column 2 in RTL)
+        {
+          str: 'العمود الأيسر - السطر الأول',
+          transform: [12, 0, 0, 12, 50, 680],
+          width: 220,
+          height: 12,
+        },
+        {
+          str: 'العمود الأيسر - السطر الثاني',
+          transform: [12, 0, 0, 12, 50, 630],
+          width: 220,
+          height: 12,
+        },
+        {
+          str: 'العمود الأيسر - السطر الثالث',
+          transform: [12, 0, 0, 12, 50, 580],
+          width: 220,
+          height: 12,
+        },
+      ],
+    };
+
+    const mockViewport = { scale: 1.0, height: 800, width: 650 };
+    const lines = processPageTextContent(mockTextContent, mockViewport);
+
+    assert.equal(lines.length, 7, 'Expected 1 header + 3 right col + 3 left col lines');
+
+    // Expected Logical RTL Reading Order:
+    // 0: Header
+    // 1: Right Column - Line 1
+    // 2: Right Column - Line 2
+    // 3: Right Column - Line 3
+    // 4: Left Column - Line 1
+    // 5: Left Column - Line 2
+    // 6: Left Column - Line 3
+
+    assert.ok(lines[0].fullText.includes('عنوان رئيسي'), `Line 0 must be Header, got: "${lines[0].fullText}"`);
+    assert.ok(lines[1].fullText.includes('العمود الأيمن') && lines[1].fullText.includes('الأول'), `Line 1 must be Right Col Line 1, got: "${lines[1].fullText}"`);
+    assert.ok(lines[2].fullText.includes('العمود الأيمن') && lines[2].fullText.includes('الثاني'), `Line 2 must be Right Col Line 2, got: "${lines[2].fullText}"`);
+    assert.ok(lines[3].fullText.includes('العمود الأيمن') && lines[3].fullText.includes('الثالث'), `Line 3 must be Right Col Line 3, got: "${lines[3].fullText}"`);
+    assert.ok(lines[4].fullText.includes('العمود الأيسر') && lines[4].fullText.includes('الأول'), `Line 4 must be Left Col Line 1, got: "${lines[4].fullText}"`);
+    assert.ok(lines[5].fullText.includes('العمود الأيسر') && lines[5].fullText.includes('الثاني'), `Line 5 must be Left Col Line 2, got: "${lines[5].fullText}"`);
+    assert.ok(lines[6].fullText.includes('العمود الأيسر') && lines[6].fullText.includes('الثالث'), `Line 6 must be Left Col Line 3, got: "${lines[6].fullText}"`);
+
+    // Verify NO horizontal interleaving (Left col lines must never appear before Right col lines finish)
+    for (let i = 1; i <= 3; i++) {
+      assert.ok(lines[i].left >= 350, `Line ${i} should belong to Right Column`);
+    }
+    for (let i = 4; i <= 6; i++) {
+      assert.ok(lines[i].left < 350, `Line ${i} should belong to Left Column`);
+    }
+  });
+
+  it('should correctly order a 2-column layout containing Header and full-width Footer', () => {
+    const lines: ProcessedTextLine[] = [
+      // Header
+      { items: [], fullText: 'ترويسة المستند', dir: 'rtl', top: 40, left: 50, width: 600, height: 20 },
+      // Left col (added first in scrambled array)
+      { items: [], fullText: 'يسار 2', dir: 'rtl', top: 130, left: 50, width: 250, height: 16 },
+      { items: [], fullText: 'يسار 1', dir: 'rtl', top: 90, left: 50, width: 250, height: 16 },
+      // Right col
+      { items: [], fullText: 'يمين 2', dir: 'rtl', top: 130, left: 400, width: 250, height: 16 },
+      { items: [], fullText: 'يمين 1', dir: 'rtl', top: 90, left: 400, width: 250, height: 16 },
+      // Footer
+      { items: [], fullText: 'تذييل الصفحة', dir: 'rtl', top: 200, left: 50, width: 600, height: 20 },
+    ];
+
+    const sorted = sortLinesInReadingOrder(lines, true);
+    const textOrder = sorted.map(l => l.fullText);
+
+    assert.deepEqual(textOrder, [
+      'ترويسة المستند',
+      'يمين 1',
+      'يمين 2',
+      'يسار 1',
+      'يسار 2',
+      'تذييل الصفحة',
+    ]);
+  });
+
+  it('should correctly sort 3-column RTL layout from right to left, then top to bottom', () => {
+    const lines: ProcessedTextLine[] = [
+      // Middle Column (left: 320..540)
+      { items: [], fullText: 'وسط 1', dir: 'rtl', top: 80, left: 320, width: 220, height: 16 },
+      { items: [], fullText: 'وسط 2', dir: 'rtl', top: 120, left: 320, width: 220, height: 16 },
+      // Left Column (left: 50..270)
+      { items: [], fullText: 'يسار 1', dir: 'rtl', top: 80, left: 50, width: 220, height: 16 },
+      { items: [], fullText: 'يسار 2', dir: 'rtl', top: 120, left: 50, width: 220, height: 16 },
+      // Right Column (left: 600..820)
+      { items: [], fullText: 'يمين 1', dir: 'rtl', top: 80, left: 600, width: 220, height: 16 },
+      { items: [], fullText: 'يمين 2', dir: 'rtl', top: 120, left: 600, width: 220, height: 16 },
+    ];
+
+    const sorted = sortLinesInReadingOrder(lines, true);
+    const textOrder = sorted.map(l => l.fullText);
+
+    assert.deepEqual(textOrder, [
+      'يمين 1',
+      'يمين 2',
+      'وسط 1',
+      'وسط 2',
+      'يسار 1',
+      'يسار 2',
+    ]);
+  });
+
+  it('should sort multi-column LTR layout from left to right, then top to bottom', () => {
+    const lines: ProcessedTextLine[] = [
+      // Right Column (left: 450)
+      { items: [], fullText: 'Right 1', dir: 'ltr', top: 100, left: 450, width: 300, height: 16 },
+      { items: [], fullText: 'Right 2', dir: 'ltr', top: 140, left: 450, width: 300, height: 16 },
+      // Left Column (left: 50)
+      { items: [], fullText: 'Left 1', dir: 'ltr', top: 100, left: 50, width: 300, height: 16 },
+      { items: [], fullText: 'Left 2', dir: 'ltr', top: 140, left: 50, width: 300, height: 16 },
+    ];
+
+    const sorted = sortLinesInReadingOrder(lines, false);
+    const textOrder = sorted.map(l => l.fullText);
+
+    assert.deepEqual(textOrder, [
+      'Left 1',
+      'Left 2',
+      'Right 1',
+      'Right 2',
+    ]);
+  });
+
+  it('should handle indented paragraphs and bullet points inside columns without separating into false columns', () => {
+    const lines: ProcessedTextLine[] = [
+      // Right Column with heading, indented paragraph, bullet
+      { items: [], fullText: 'عنوان فرعي يمين', dir: 'rtl', top: 60, left: 450, width: 250, height: 18 },
+      { items: [], fullText: 'فقرة مزاحة يمين', dir: 'rtl', top: 90, left: 470, width: 230, height: 14 },
+      { items: [], fullText: 'نقطة فرعية يمين', dir: 'rtl', top: 115, left: 480, width: 220, height: 14 },
+      // Left Column with heading, indented paragraph
+      { items: [], fullText: 'عنوان فرعي يسار', dir: 'rtl', top: 60, left: 50, width: 250, height: 18 },
+      { items: [], fullText: 'فقرة مزاحة يسار', dir: 'rtl', top: 90, left: 70, width: 230, height: 14 },
+    ];
+
+    const sorted = sortLinesInReadingOrder(lines, true);
+    const textOrder = sorted.map(l => l.fullText);
+
+    assert.deepEqual(textOrder, [
+      'عنوان فرعي يمين',
+      'فقرة مزاحة يمين',
+      'نقطة فرعية يمين',
+      'عنوان فرعي يسار',
+      'فقرة مزاحة يسار',
+    ]);
+  });
+
+  it('should correctly sort short centered title positioned above 2-column RTL layout', () => {
+    const lines: ProcessedTextLine[] = [
+      { items: [], fullText: 'عنوان الفصل الأول', dir: 'rtl', top: 50, left: 220, width: 160, height: 20 },
+      { items: [], fullText: 'العمود الأيمن سطر 1', dir: 'rtl', top: 100, left: 350, width: 200, height: 14 },
+      { items: [], fullText: 'العمود الأيمن سطر 2', dir: 'rtl', top: 150, left: 350, width: 200, height: 14 },
+      { items: [], fullText: 'العمود الأيسر سطر 1', dir: 'rtl', top: 100, left: 50, width: 200, height: 14 },
+      { items: [], fullText: 'العمود الأيسر سطر 2', dir: 'rtl', top: 150, left: 50, width: 200, height: 14 }
+    ];
+
+    const sorted = sortLinesInReadingOrder(lines, true);
+    const textOrder = sorted.map(l => l.fullText);
+
+    assert.deepEqual(textOrder, [
+      'عنوان الفصل الأول',
+      'العمود الأيمن سطر 1',
+      'العمود الأيمن سطر 2',
+      'العمود الأيسر سطر 1',
+      'العمود الأيسر سطر 2'
+    ]);
+  });
+
+  it('should reliably break and sort across narrow gutters (20px) without merging columns or zig-zagging', () => {
+    // 1. Column breaking in processPageTextContent
+    const textContent = {
+      items: [
+        { str: 'العمود الأيمن', width: 100, height: 12, transform: [12, 0, 0, 12, 220, 700] },
+        { str: 'العمود الأيسر', width: 100, height: 12, transform: [12, 0, 0, 12, 100, 700] }
+      ]
+    };
+    const processed = processPageTextContent(textContent, { scale: 1.0, height: 800 });
+    assert.equal(processed.length, 2, 'Must break into 2 lines across 20px gutter');
+
+    // 2. Reading order sorting with 20px gutter
+    const lines: ProcessedTextLine[] = [
+      { items: [], fullText: 'يمين 1', dir: 'rtl', top: 100, left: 270, width: 200, height: 14 },
+      { items: [], fullText: 'يمين 2', dir: 'rtl', top: 150, left: 270, width: 200, height: 14 },
+      { items: [], fullText: 'يسار 1', dir: 'rtl', top: 100, left: 50, width: 200, height: 14 },
+      { items: [], fullText: 'يسار 2', dir: 'rtl', top: 150, left: 50, width: 200, height: 14 }
+    ];
+    const sorted = sortLinesInReadingOrder(lines, true);
+    assert.deepEqual(sorted.map(l => l.fullText), ['يمين 1', 'يمين 2', 'يسار 1', 'يسار 2']);
+  });
+
+  it('should correctly partition multi-column blocks separated by mid-page section headers', () => {
+    const lines: ProcessedTextLine[] = [
+      { items: [], fullText: 'أعلى يمين 1', dir: 'rtl', top: 100, left: 300, width: 150, height: 14 },
+      { items: [], fullText: 'أعلى يمين 2', dir: 'rtl', top: 150, left: 300, width: 150, height: 14 },
+      { items: [], fullText: 'أعلى يسار 1', dir: 'rtl', top: 100, left: 50, width: 150, height: 14 },
+      { items: [], fullText: 'أعلى يسار 2', dir: 'rtl', top: 150, left: 50, width: 150, height: 14 },
+      { items: [], fullText: '--- عنوان وسط الصفحة ---', dir: 'rtl', top: 250, left: 180, width: 140, height: 16 },
+      { items: [], fullText: 'أسفل يمين 1', dir: 'rtl', top: 300, left: 300, width: 150, height: 14 },
+      { items: [], fullText: 'أسفل يمين 2', dir: 'rtl', top: 350, left: 300, width: 150, height: 14 },
+      { items: [], fullText: 'أسفل يسار 1', dir: 'rtl', top: 300, left: 50, width: 150, height: 14 },
+      { items: [], fullText: 'أسفل يسار 2', dir: 'rtl', top: 350, left: 50, width: 150, height: 14 }
+    ];
+
+    const sorted = sortLinesInReadingOrder(lines, true);
+    assert.deepEqual(sorted.map(l => l.fullText), [
+      'أعلى يمين 1',
+      'أعلى يمين 2',
+      'أعلى يسار 1',
+      'أعلى يسار 2',
+      '--- عنوان وسط الصفحة ---',
+      'أسفل يمين 1',
+      'أسفل يمين 2',
+      'أسفل يسار 1',
+      'أسفل يسار 2'
+    ]);
+  });
+
+  it('should prevent column interleaving when columns have vertically staggered baselines with a centered title', () => {
+    const lines: ProcessedTextLine[] = [
+      { items: [], fullText: 'عنوان الفصل الأول', dir: 'rtl', top: 50, left: 220, width: 160, height: 20 },
+      { items: [], fullText: 'يمين 1', dir: 'rtl', top: 100, left: 350, width: 200, height: 14 },
+      { items: [], fullText: 'يسار 1', dir: 'rtl', top: 115, left: 50, width: 200, height: 14 },
+      { items: [], fullText: 'يمين 2', dir: 'rtl', top: 130, left: 350, width: 200, height: 14 },
+      { items: [], fullText: 'يسار 2', dir: 'rtl', top: 145, left: 50, width: 200, height: 14 },
+    ];
+
+    const sorted = sortLinesInReadingOrder(lines, true);
+    assert.deepEqual(sorted.map(l => l.fullText), [
+      'عنوان الفصل الأول',
+      'يمين 1',
+      'يمين 2',
+      'يسار 1',
+      'يسار 2'
+    ]);
+  });
+
+  it('should correctly sort asymmetrical 2-column layout (65% main column width vs 35% sidebar)', () => {
+    const lines: ProcessedTextLine[] = [
+      { items: [], fullText: 'العمود الرئيسي 1', dir: 'rtl', top: 100, left: 250, width: 350, height: 14 },
+      { items: [], fullText: 'شريط جانبي 1', dir: 'rtl', top: 100, left: 50, width: 150, height: 14 },
+      { items: [], fullText: 'العمود الرئيسي 2', dir: 'rtl', top: 150, left: 250, width: 350, height: 14 },
+      { items: [], fullText: 'شريط جانبي 2', dir: 'rtl', top: 150, left: 50, width: 150, height: 14 },
+      { items: [], fullText: 'العمود الرئيسي 3', dir: 'rtl', top: 200, left: 250, width: 350, height: 14 },
+      { items: [], fullText: 'شريط جانبي 3', dir: 'rtl', top: 200, left: 50, width: 150, height: 14 },
+    ];
+
+    const sorted = sortLinesInReadingOrder(lines, true);
+    assert.deepEqual(sorted.map(l => l.fullText), [
+      'العمود الرئيسي 1',
+      'العمود الرئيسي 2',
+      'العمود الرئيسي 3',
+      'شريط جانبي 1',
+      'شريط جانبي 2',
+      'شريط جانبي 3'
+    ]);
+  });
+
+  it('should correctly order a multi-column document with running header and running footer', () => {
+    const lines: ProcessedTextLine[] = [
+      { items: [], fullText: 'كتاب الرياضيات', dir: 'rtl', top: 40, left: 450, width: 100, height: 12 },
+      { items: [], fullText: 'صفحة 15', dir: 'rtl', top: 40, left: 50, width: 50, height: 12 },
+      { items: [], fullText: 'يمين 1', dir: 'rtl', top: 100, left: 350, width: 200, height: 14 },
+      { items: [], fullText: 'يمين 2', dir: 'rtl', top: 150, left: 350, width: 200, height: 14 },
+      { items: [], fullText: 'يسار 1', dir: 'rtl', top: 100, left: 50, width: 200, height: 14 },
+      { items: [], fullText: 'يسار 2', dir: 'rtl', top: 150, left: 50, width: 200, height: 14 },
+      { items: [], fullText: 'حقوق النشر محفوظة', dir: 'rtl', top: 500, left: 400, width: 150, height: 12 },
+      { items: [], fullText: 'صفحة 1', dir: 'rtl', top: 500, left: 50, width: 50, height: 12 },
+    ];
+
+    const sorted = sortLinesInReadingOrder(lines, true);
+    assert.deepEqual(sorted.map(l => l.fullText), [
+      'كتاب الرياضيات',
+      'صفحة 15',
+      'يمين 1',
+      'يمين 2',
+      'يسار 1',
+      'يسار 2',
+      'حقوق النشر محفوظة',
+      'صفحة 1'
+    ]);
+  });
+
+  it('should handle unbalanced columns (e.g. Right col 1 line, Left col 4 lines)', () => {
+    const lines: ProcessedTextLine[] = [
+      { items: [], fullText: 'يمين 1', dir: 'rtl', top: 100, left: 350, width: 200, height: 14 },
+      { items: [], fullText: 'يسار 1', dir: 'rtl', top: 100, left: 50, width: 200, height: 14 },
+      { items: [], fullText: 'يسار 2', dir: 'rtl', top: 130, left: 50, width: 200, height: 14 },
+      { items: [], fullText: 'يسار 3', dir: 'rtl', top: 160, left: 50, width: 200, height: 14 },
+      { items: [], fullText: 'يسار 4', dir: 'rtl', top: 190, left: 50, width: 200, height: 14 },
+    ];
+
+    const sorted = sortLinesInReadingOrder(lines, true);
+    assert.deepEqual(sorted.map(l => l.fullText), [
+      'يمين 1',
+      'يسار 1',
+      'يسار 2',
+      'يسار 3',
+      'يسار 4'
+    ]);
+  });
+
+  it('should handle multi-stage dynamic layout transitions (1-col -> 2-col -> 1-col -> 3-col -> 1-col)', () => {
+    const lines: ProcessedTextLine[] = [
+      { items: [], fullText: 'عنوان المقال', dir: 'rtl', top: 30, left: 100, width: 500, height: 20 },
+      { items: [], fullText: 'بند أ 1', dir: 'rtl', top: 80, left: 380, width: 220, height: 14 },
+      { items: [], fullText: 'بند أ 2', dir: 'rtl', top: 110, left: 380, width: 220, height: 14 },
+      { items: [], fullText: 'بند ب 1', dir: 'rtl', top: 80, left: 50, width: 220, height: 14 },
+      { items: [], fullText: 'بند ب 2', dir: 'rtl', top: 110, left: 50, width: 220, height: 14 },
+      { items: [], fullText: '--- اقتباس مركزي مميز ---', dir: 'rtl', top: 170, left: 150, width: 350, height: 16 },
+      { items: [], fullText: 'خلاصة 3', dir: 'rtl', top: 220, left: 450, width: 150, height: 14 },
+      { items: [], fullText: 'خلاصة 2', dir: 'rtl', top: 220, left: 250, width: 150, height: 14 },
+      { items: [], fullText: 'خلاصة 1', dir: 'rtl', top: 220, left: 50, width: 150, height: 14 },
+      { items: [], fullText: 'تذييل الصفحة الأخير', dir: 'rtl', top: 290, left: 50, width: 550, height: 18 },
+    ];
+
+    const sorted = sortLinesInReadingOrder(lines, true);
+    assert.deepEqual(sorted.map(l => l.fullText), [
+      'عنوان المقال',
+      'بند أ 1',
+      'بند أ 2',
+      'بند ب 1',
+      'بند ب 2',
+      '--- اقتباس مركزي مميز ---',
+      'خلاصة 3',
+      'خلاصة 2',
+      'خلاصة 1',
+      'تذييل الصفحة الأخير'
+    ]);
+  });
+
+  it('should maintain strict mathematical transitivity and permutation invariance across all order permutations', () => {
+    // 3 lines with slight vertical drift that would form a cycle in a fuzzy comparator
+    const lines: ProcessedTextLine[] = [
+      { items: [], fullText: 'Line A', dir: 'rtl', top: 100, left: 300, width: 100, height: 14 },
+      { items: [], fullText: 'Line B', dir: 'rtl', top: 102.5, left: 200, width: 100, height: 14 },
+      { items: [], fullText: 'Line C', dir: 'rtl', top: 105, left: 100, width: 100, height: 14 },
+    ];
+
+    // Permutations
+    const p1 = [lines[0], lines[1], lines[2]];
+    const p2 = [lines[2], lines[1], lines[0]];
+    const p3 = [lines[1], lines[0], lines[2]];
+    const p4 = [lines[1], lines[2], lines[0]];
+    const p5 = [lines[2], lines[0], lines[1]];
+    const p6 = [lines[0], lines[2], lines[1]];
+
+    const expectedOrder = sortLinesInReadingOrder(p1, true).map(l => l.fullText);
+
+    assert.deepEqual(sortLinesInReadingOrder(p2, true).map(l => l.fullText), expectedOrder);
+    assert.deepEqual(sortLinesInReadingOrder(p3, true).map(l => l.fullText), expectedOrder);
+    assert.deepEqual(sortLinesInReadingOrder(p4, true).map(l => l.fullText), expectedOrder);
+    assert.deepEqual(sortLinesInReadingOrder(p5, true).map(l => l.fullText), expectedOrder);
+    assert.deepEqual(sortLinesInReadingOrder(p6, true).map(l => l.fullText), expectedOrder);
+  });
+
+  it('should correctly isolate narrow centered title located entirely in the gutter between columns', () => {
+    // Narrow title in gutter (left: 220..380), Right col (left: 400..550), Left col (left: 50..200)
+    const lines: ProcessedTextLine[] = [
+      { items: [], fullText: 'العنوان في المنتصف', dir: 'rtl', top: 50, left: 220, width: 160, height: 20 },
+      { items: [], fullText: 'يمين 1', dir: 'rtl', top: 100, left: 400, width: 150, height: 14 },
+      { items: [], fullText: 'يمين 2', dir: 'rtl', top: 150, left: 400, width: 150, height: 14 },
+      { items: [], fullText: 'يسار 1', dir: 'rtl', top: 100, left: 50, width: 150, height: 14 },
+      { items: [], fullText: 'يسار 2', dir: 'rtl', top: 150, left: 50, width: 150, height: 14 }
+    ];
+
+    const sorted = sortLinesInReadingOrder(lines, true);
+    assert.deepEqual(sorted.map(l => l.fullText), [
+      'العنوان في المنتصف',
+      'يمين 1',
+      'يمين 2',
+      'يسار 1',
+      'يسار 2'
+    ]);
+  });
+
+  it('should correctly partition multi-column blocks separated by narrow mid-page section title in the gutter', () => {
+    const lines: ProcessedTextLine[] = [
+      // Top 2-col block
+      { items: [], fullText: 'أعلى يمين 1', dir: 'rtl', top: 100, left: 300, width: 150, height: 14 },
+      { items: [], fullText: 'أعلى يمين 2', dir: 'rtl', top: 130, left: 300, width: 150, height: 14 },
+      { items: [], fullText: 'أعلى يسار 1', dir: 'rtl', top: 100, left: 50, width: 150, height: 14 },
+      { items: [], fullText: 'أعلى يسار 2', dir: 'rtl', top: 130, left: 50, width: 150, height: 14 },
+      // Narrow mid-page title in gutter (no X-overlap with either column!)
+      { items: [], fullText: 'عنوان ضيق', dir: 'rtl', top: 170, left: 210, width: 80, height: 14 },
+      // Bottom 2-col block
+      { items: [], fullText: 'أسفل يمين 1', dir: 'rtl', top: 210, left: 300, width: 150, height: 14 },
+      { items: [], fullText: 'أسفل يمين 2', dir: 'rtl', top: 240, left: 300, width: 150, height: 14 },
+      { items: [], fullText: 'أسفل يسار 1', dir: 'rtl', top: 210, left: 50, width: 150, height: 14 },
+      { items: [], fullText: 'أسفل يسار 2', dir: 'rtl', top: 240, left: 50, width: 150, height: 14 }
+    ];
+
+    const sorted = sortLinesInReadingOrder(lines, true);
+    assert.deepEqual(sorted.map(l => l.fullText), [
+      'أعلى يمين 1',
+      'أعلى يمين 2',
+      'أعلى يسار 1',
+      'أعلى يسار 2',
+      'عنوان ضيق',
+      'أسفل يمين 1',
+      'أسفل يمين 2',
+      'أسفل يسار 1',
+      'أسفل يسار 2'
+    ]);
+  });
+});
+
+

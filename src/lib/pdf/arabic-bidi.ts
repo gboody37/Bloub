@@ -421,10 +421,14 @@ export function processPageTextContent(textContent: any, viewport: any): Process
     const tx = transform[4] || 0;
     const ty = transform[5] || 0;
 
-    // Font size estimation from transform matrix
+    // Font size estimation from transform matrix and item height
     const fontScaleX = Math.hypot(transform[0], transform[1]);
     const fontScaleY = Math.hypot(transform[2], transform[3]);
-    const baseFontSize = Math.max(fontScaleX, fontScaleY) || 12;
+    const baseFontSize = Math.max(
+      fontScaleX > 1 ? fontScaleX : 0,
+      fontScaleY > 1 ? fontScaleY : 0,
+      (typeof item.height === 'number' && item.height > 0) ? item.height : 0
+    ) || 12;
     const fontSize = baseFontSize * scale;
 
     const itemWidth = (typeof item.width === 'number' ? item.width : 0) * scale;
@@ -473,86 +477,393 @@ export function processPageTextContent(textContent: any, viewport: any): Process
     return [];
   }
 
-  // 1. Sort items primarily by Y (top to bottom) and secondarily by X (right to left for Arabic)
-  rawItems.sort((a, b) => {
-    const yDiff = a.top - b.top;
-    if (Math.abs(yDiff) > 4) {
-      return yDiff;
-    }
-    return b.left - a.left;
-  });
+  // 1. Sort items strictly and transitively by Y (top to bottom) and X (left to right)
+  rawItems.sort((a, b) => a.top - b.top || a.left - b.left);
 
-  // 2. Cluster items sharing vertical baseline (within tolerance) into continuous lines
-  const lines: ProcessedTextLine[] = [];
-  let currentLineItems: ProcessedTextItem[] = [];
-  let currentLineTop = rawItems[0].top;
-  let currentLineHeight = rawItems[0].height;
+  // 2. Group items that share the same vertical baseline (within tolerance)
+  const baselineGroups: ProcessedTextItem[][] = [];
+  let currentGroup: ProcessedTextItem[] = [];
+  let currentGroupTop = rawItems[0].top;
+  let currentGroupHeight = rawItems[0].height;
 
   for (const item of rawItems) {
-    const yTolerance = Math.max(4, Math.min(item.height, currentLineHeight) * 0.4);
+    const yTolerance = Math.max(4, Math.min(item.height, currentGroupHeight) * 0.4);
 
-    if (currentLineItems.length === 0) {
-      currentLineItems.push(item);
-      currentLineTop = item.top;
-      currentLineHeight = item.height;
-    } else if (Math.abs(item.top - currentLineTop) <= yTolerance) {
-      // Prevent merging items across large horizontal gaps (e.g. columns)
-      const lastItem = currentLineItems[currentLineItems.length - 1];
-        
-      // Horizontal distance between the start coordinates of the two items
-      const absoluteGap = Math.abs(lastItem.left - item.left);
-      const isNewColumn = absoluteGap > 50; // 50px is a solid heuristic for a column gap
-        
-      if (isNewColumn) {
-        // Break line due to large horizontal gap (it's a new column!)
-        lines.push(buildProcessedLine(currentLineItems));
-        currentLineItems = [item];
-        currentLineTop = item.top;
-        currentLineHeight = item.height;
-      } else {
-        currentLineItems.push(item);
-        // Only increase line height if the item isn't ridiculously tall (prevents "TOO thick" selections)
-        if (item.height < currentLineHeight * 2) {
-          currentLineHeight = Math.max(currentLineHeight, item.height);
-        }
+    if (currentGroup.length === 0) {
+      currentGroup.push(item);
+      currentGroupTop = item.top;
+      currentGroupHeight = item.height;
+    } else if (Math.abs(item.top - currentGroupTop) <= yTolerance) {
+      currentGroup.push(item);
+      if (item.height < currentGroupHeight * 2) {
+        currentGroupHeight = Math.max(currentGroupHeight, item.height);
       }
+    } else {
+      baselineGroups.push(currentGroup);
+      currentGroup = [item];
+      currentGroupTop = item.top;
+      currentGroupHeight = item.height;
+    }
+  }
+
+  if (currentGroup.length > 0) {
+    baselineGroups.push(currentGroup);
+  }
+
+  // 3. Cluster items into ProcessedTextLines, breaking across horizontal column gaps (R1)
+  const lines: ProcessedTextLine[] = [];
+
+  for (const group of baselineGroups) {
+    group.sort((a, b) => a.left - b.left);
+
+    let lineItems: ProcessedTextItem[] = [];
+    let currentLineRight = -Infinity;
+
+    for (const item of group) {
+      if (lineItems.length === 0) {
+        lineItems.push(item);
+        currentLineRight = item.left + item.width;
       } else {
-        // Finalize current line
-        lines.push(buildProcessedLine(currentLineItems));
-        currentLineItems = [item];
-        currentLineTop = item.top;
-        currentLineHeight = item.height;
+        const gap = item.left - currentLineRight;
+        // Dynamic column gap threshold: adapts to font size and zoom scale while staying above normal word spaces
+        const columnGapThreshold = Math.max(item.fontSize * 1.25, 14 * scale);
+
+        if (gap > columnGapThreshold) {
+          // Large horizontal gap detected (column boundary): break into a separate ProcessedTextLine
+          lines.push(buildProcessedLine(lineItems));
+          lineItems = [item];
+          currentLineRight = item.left + item.width;
+        } else {
+          lineItems.push(item);
+          currentLineRight = Math.max(currentLineRight, item.left + item.width);
+        }
       }
     }
 
-    if (currentLineItems.length > 0) {
-    lines.push(buildProcessedLine(currentLineItems));
+    if (lineItems.length > 0) {
+      lines.push(buildProcessedLine(lineItems));
+    }
   }
 
-  // 3. Final DOM Reading Order Sorting (Column Detection)
-    // To prevent text selection from jumping horizontally, we must sort transitively.
-    // We bin the lines into 150px wide vertical columns, and sort primarily by column (Right-to-Left).
-    lines.sort((a, b) => {
-      // For Arabic RTL, rightmost coordinates should be grouped first
-      // Assuming a standard max page width of ~1000px, we bin by 150px chunks
-      const colA = Math.floor(a.left / 150);
-      const colB = Math.floor(b.left / 150);
-      
-      if (colA !== colB) {
-        return colB - colA; // Sort columns Right-to-Left
-      }
-      
-      // If they are in the same vertical column bin, sort Top-to-Bottom
-      return a.top - b.top;
-    });
+  // 4. Sort lines into strictly transitive DOM reading order (R2)
+  return sortLinesInReadingOrder(lines);
+}
 
-  return lines;
+/**
+ * Geometric Rect helper for spatial layout sorting
+ */
+interface Rect {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  width: number;
+  height: number;
+  line: ProcessedTextLine;
+}
+
+interface ColumnGroup {
+  minLeft: number;
+  maxRight: number;
+  rects: Rect[];
+}
+
+/**
+ * Clusters a list of Rects into distinct horizontal columns based on X-interval overlap and gutters.
+ */
+function clusterColumns(rects: Rect[], minGutter: number = 8): ColumnGroup[] {
+  if (rects.length === 0) return [];
+
+  // Sort by X (left) ascending
+  const sortedByX = [...rects].sort((a, b) => a.left - b.left || a.top - b.top);
+  const groups: ColumnGroup[] = [];
+
+  for (const r of sortedByX) {
+    let matchedGroup: ColumnGroup | null = null;
+    let maxOverlap = 0;
+
+    for (const g of groups) {
+      const overlap = Math.min(r.right, g.maxRight) - Math.max(r.left, g.minLeft);
+      if (overlap > maxOverlap) {
+        maxOverlap = overlap;
+        matchedGroup = g;
+      }
+    }
+
+    // Two lines belong to the same column if:
+    // 1. Their horizontal overlap is positive (> 2px)
+    // 2. Or they are closely aligned (e.g. indented paragraph within column bounds)
+    if (matchedGroup && (maxOverlap > 2 || (r.left >= matchedGroup.minLeft - 4 && r.right <= matchedGroup.maxRight + 4))) {
+      matchedGroup.minLeft = Math.min(matchedGroup.minLeft, r.left);
+      matchedGroup.maxRight = Math.max(matchedGroup.maxRight, r.right);
+      matchedGroup.rects.push(r);
+    } else {
+      const lastGroup = groups.length > 0 ? groups[groups.length - 1] : null;
+      // If gap is smaller than minGutter, merge (e.g. within-column variation or slight jitter)
+      if (lastGroup && r.left < lastGroup.maxRight + minGutter) {
+        lastGroup.minLeft = Math.min(lastGroup.minLeft, r.left);
+        lastGroup.maxRight = Math.max(lastGroup.maxRight, r.right);
+        lastGroup.rects.push(r);
+      } else {
+        groups.push({
+          minLeft: r.left,
+          maxRight: r.right,
+          rects: [r],
+        });
+      }
+    }
+  }
+
+  return groups;
+}
+
+/**
+ * Sorts ProcessedTextLine array into strictly transitive 2D reading order.
+ * Handles multi-column layouts (with full-width headers/banners/footers, centered titles,
+ * and mid-page section breaks) for both RTL (right-to-left columns) and LTR (left-to-right columns).
+ */
+export function sortLinesInReadingOrder(lines: ProcessedTextLine[], isRTL?: boolean): ProcessedTextLine[] {
+  if (lines.length <= 1) {
+    return [...lines];
+  }
+
+  // 1. Determine document direction
+  let pageIsRTL = isRTL;
+  if (pageIsRTL === undefined) {
+    let rtlCount = 0;
+    let ltrCount = 0;
+    for (const line of lines) {
+      if (line.dir === 'rtl') rtlCount++;
+      else ltrCount++;
+    }
+    pageIsRTL = rtlCount >= ltrCount;
+  }
+
+  const rects: Rect[] = lines.map(line => ({
+    left: line.left,
+    top: line.top,
+    right: line.left + line.width,
+    bottom: line.top + line.height,
+    width: line.width,
+    height: line.height,
+    line,
+  }));
+
+  const sortedRects = sortDocumentLayout(rects, pageIsRTL);
+  return sortedRects.map(r => r.line);
+}
+
+/**
+ * Sorts rects within a column or band by discrete baseline slices, then by direction (strictly transitive).
+ */
+function sortRectsByBaselineAndDirection(rects: Rect[], isRTL: boolean): Rect[] {
+  if (rects.length <= 1) return rects;
+
+  const sorted = [...rects].sort((a, b) => a.top - b.top || (isRTL ? b.left - a.left : a.left - b.left));
+  const slices: Rect[][] = [];
+  let currentSlice: Rect[] = [sorted[0]];
+  let currentSliceTop = sorted[0].top;
+  let currentSliceHeight = sorted[0].height || 14;
+
+  for (let i = 1; i < sorted.length; i++) {
+    const r = sorted[i];
+    const yTolerance = Math.max(4, Math.min(r.height || 14, currentSliceHeight) * 0.4);
+
+    if (Math.abs(r.top - currentSliceTop) <= yTolerance) {
+      currentSlice.push(r);
+      currentSliceHeight = Math.max(currentSliceHeight, r.height || 14);
+    } else {
+      slices.push(currentSlice);
+      currentSlice = [r];
+      currentSliceTop = r.top;
+      currentSliceHeight = r.height || 14;
+    }
+  }
+  if (currentSlice.length > 0) {
+    slices.push(currentSlice);
+  }
+
+  const result: Rect[] = [];
+  for (const slice of slices) {
+    slice.sort((a, b) => isRTL ? b.left - a.left : a.left - b.left);
+    result.push(...slice);
+  }
+  return result;
+}
+
+/**
+ * Decomposes document into structural horizontal bands (dividers and multi-column regions).
+ */
+function sortDocumentLayout(rects: Rect[], isRTL: boolean): Rect[] {
+  if (rects.length <= 1) {
+    return rects;
+  }
+
+  // 1. Group rects into baseline groups (horizontal slices)
+  const sortedByY = [...rects].sort((a, b) => a.top - b.top || (isRTL ? b.left - a.left : a.left - b.left));
+  const baselineSlices: Rect[][] = [];
+  let currentSlice: Rect[] = [sortedByY[0]];
+  let currentSliceTop = sortedByY[0].top;
+  let currentSliceHeight = sortedByY[0].height;
+
+  for (let i = 1; i < sortedByY.length; i++) {
+    const r = sortedByY[i];
+    const yTolerance = Math.max(4, Math.min(r.height, currentSliceHeight) * 0.4);
+
+    if (Math.abs(r.top - currentSliceTop) <= yTolerance) {
+      currentSlice.push(r);
+      currentSliceHeight = Math.max(currentSliceHeight, r.height);
+    } else {
+      baselineSlices.push(currentSlice);
+      currentSlice = [r];
+      currentSliceTop = r.top;
+      currentSliceHeight = r.height;
+    }
+  }
+  if (currentSlice.length > 0) {
+    baselineSlices.push(currentSlice);
+  }
+
+  let minX = Infinity, maxX = -Infinity;
+  for (const r of rects) {
+    minX = Math.min(minX, r.left);
+    maxX = Math.max(maxX, r.right);
+  }
+  const totalContentWidth = Math.max(maxX - minX, 1);
+
+  function isSpanningBanner(slice: Rect[]): boolean {
+    if (slice.length !== 1) return false;
+    const r = slice[0];
+    return totalContentWidth > 200 && r.width >= totalContentWidth * 0.75;
+  }
+
+  function isValidMultiColumnBlock(candidateRects: Rect[]): boolean {
+    const cols = clusterColumns(candidateRects);
+    if (cols.length < 2) return false;
+
+    // Bridge check: no single rect should span across multiple columns
+    for (const r of candidateRects) {
+      let overlaps = 0;
+      for (const col of cols) {
+        const overlap = Math.min(r.right, col.maxRight) - Math.max(r.left, col.minLeft);
+        if (overlap > 5) overlaps++;
+      }
+      if (overlaps >= 2) return false;
+    }
+
+    // Column validity & vertical overlap check
+    let pairOverlapCount = 0;
+    for (let c1 = 0; c1 < cols.length; c1++) {
+      const col1 = cols[c1];
+      const c1Top = Math.min(...col1.rects.map(r => r.top));
+      const c1Bottom = Math.max(...col1.rects.map(r => r.bottom));
+
+      let overlapsWithOther = false;
+      for (let c2 = 0; c2 < cols.length; c2++) {
+        if (c1 === c2) continue;
+        const col2 = cols[c2];
+        const c2Top = Math.min(...col2.rects.map(r => r.top));
+        const c2Bottom = Math.max(...col2.rects.map(r => r.bottom));
+
+        const vOverlap = Math.min(c1Bottom, c2Bottom) - Math.max(c1Top, c2Top);
+        if (vOverlap >= -4) {
+          overlapsWithOther = true;
+          if (c1 < c2 && vOverlap >= 0) pairOverlapCount++;
+        }
+      }
+
+      // Every column must either have multiple lines OR vertically overlap with another column
+      if (col1.rects.length < 2 && !overlapsWithOther) {
+        return false;
+      }
+    }
+
+    return pairOverlapCount >= 1 || cols.every(c => c.rects.length >= 2);
+  }
+
+  // 2. Partition slices into structural bands using lookahead multi-column block detection
+  interface Band {
+    isMultiColumn: boolean;
+    rects: Rect[];
+  }
+
+  const bands: Band[] = [];
+  let i = 0;
+
+  while (i < baselineSlices.length) {
+    const slice = baselineSlices[i];
+
+    if (isSpanningBanner(slice)) {
+      bands.push({ isMultiColumn: false, rects: [...slice] });
+      i++;
+      continue;
+    }
+
+    let j = i;
+    let blockRects: Rect[] = [];
+    let bestMultiBlockRects: Rect[] | null = null;
+    let bestJ = i;
+
+    while (j < baselineSlices.length) {
+      const nextSlice = baselineSlices[j];
+      if (isSpanningBanner(nextSlice)) {
+        break;
+      }
+
+      // Check for large section gap (>= 40px)
+      if (j > i) {
+        const prevBottom = Math.max(...baselineSlices[j - 1].map(r => r.bottom));
+        const currTop = Math.min(...nextSlice.map(r => r.top));
+        if (currTop - prevBottom >= 40) {
+          break;
+        }
+      }
+
+      const candidateRects = [...blockRects, ...nextSlice];
+
+      if (isValidMultiColumnBlock(candidateRects)) {
+        blockRects = candidateRects;
+        bestMultiBlockRects = candidateRects;
+        bestJ = j;
+        j++;
+      } else {
+        if (bestMultiBlockRects !== null) {
+          break;
+        }
+        blockRects = candidateRects;
+        j++;
+      }
+    }
+
+    if (bestMultiBlockRects !== null && bestJ >= i) {
+      bands.push({ isMultiColumn: true, rects: bestMultiBlockRects });
+      i = bestJ + 1;
+    } else {
+      bands.push({ isMultiColumn: false, rects: [...slice] });
+      i++;
+    }
+  }
+
+  // 3. Process each band and collect final ordered lines (strictly transitive)
+  const result: Rect[] = [];
+  for (const band of bands) {
+    if (band.isMultiColumn) {
+      const columns = clusterColumns(band.rects);
+      columns.sort((a, b) => isRTL ? b.minLeft - a.minLeft : a.minLeft - b.minLeft);
+      for (const col of columns) {
+        result.push(...sortRectsByBaselineAndDirection(col.rects, isRTL));
+      }
+    } else {
+      result.push(...sortRectsByBaselineAndDirection(band.rects, isRTL));
+    }
+  }
+  return result;
 }
 
 /**
  * Builds a single ProcessedTextLine from clustered text items on the same baseline.
  */
-function buildProcessedLine(items: ProcessedTextItem[]): ProcessedTextLine {
+export function buildProcessedLine(items: ProcessedTextItem[]): ProcessedTextLine {
   // Sort items on the line geometrically from left to right
   items.sort((a, b) => a.left - b.left);
 
