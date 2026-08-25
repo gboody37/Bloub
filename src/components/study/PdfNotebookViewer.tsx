@@ -329,7 +329,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
        
        {/* PDF Viewer Side */}
        <div 
-          className={`flex-1 h-full overflow-auto custom-scrollbar flex flex-col items-center py-6 px-6 relative bg-black/20 ${(pdfTool === 'pan' || pdfTool === 'highlight') ? 'touch-none' : ''}`}
+          className={`flex-1 h-full overflow-auto custom-scrollbar flex flex-col py-6 px-6 relative bg-black/20 ${(pdfTool === 'pan' || pdfTool === 'highlight') ? 'touch-none' : ''}`}
           onPointerDown={(e) => {
             if (pdfTool === 'pan') {
               e.preventDefault();
@@ -356,7 +356,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
         >
                   {/* PDF Toolbar */}
          {showPdfUi ? (
-         <div className="sticky top-2 mb-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-slate-900/90 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-700 shadow-xl z-50">
+         <div className="sticky top-2 mb-4 left-1/2 -translate-x-1/2 w-max flex items-center gap-2 bg-slate-900/90 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-700 shadow-xl z-50">
            <button onClick={() => setShowPdfUi(false)} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-red-400" title="Hide UI"><EyeOff size={16}/></button>
            <div className="w-px h-6 bg-slate-700/50 mx-1"></div>
            <button onClick={() => setPdfTool('pan')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'pan' ? 'text-purple-400 bg-purple-500/20' : 'text-slate-400 hover:text-white'}`} title="Pan Tool"><Hand size={16}/></button>
@@ -403,7 +403,8 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
              <Eye size={20}/>
            </button>
          )}
-         <Document 
+         <div className="w-fit mx-auto relative flex flex-col items-center">
+           <Document 
             file={pdfUrl} 
             onLoadSuccess={onDocumentLoadSuccess} 
             loading={<div className="text-slate-400 font-mono text-sm animate-pulse flex h-full items-center">Loading Document...</div>}
@@ -594,10 +595,11 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
               />
             </div>
    
-         </Document>
+          </Document>
+          </div>
          
          {numPages && (
-           <div className="sticky bottom-6 mt-6 flex items-center gap-4 bg-slate-900/90 backdrop-blur px-6 py-3 rounded-full border border-slate-700 shadow-2xl z-50">
+           <div className="sticky bottom-6 mt-6 left-1/2 -translate-x-1/2 w-max flex items-center gap-4 bg-slate-900/90 backdrop-blur px-6 py-3 rounded-full border border-slate-700 shadow-2xl z-50">
                <button onClick={() => setPageNumber(p => Math.max(1, p - 1))} disabled={pageNumber <= 1} className="p-1.5 text-white disabled:opacity-30 hover:bg-slate-800 rounded-full transition-colors"><ChevronLeft size={20}/></button>
                
                <div className="flex items-center gap-2 text-white text-xs tracking-widest font-bold uppercase">
