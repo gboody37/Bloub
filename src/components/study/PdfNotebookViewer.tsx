@@ -396,6 +396,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
        <div 
           className={`flex-1 h-full overflow-auto custom-scrollbar flex flex-col py-6 px-6 relative bg-black/20 ${(pdfTool === 'pan' || (pdfTool === 'highlight' && highlightMode === 'box')) ? 'touch-none' : ''}`}
           onPointerDown={(e) => {
+            if ((e.target as HTMLElement).closest('button, input, select, .pointer-events-auto')) return;
             if (pdfTool === 'pan') {
               e.preventDefault();
               const container = e.currentTarget;
@@ -410,14 +411,18 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
                 container.scrollTop = startScrollTop - (ev.clientY - startY);
               };
               const handleUp = (ev: any) => {
-                if (ev.pointerId && container.hasPointerCapture(ev.pointerId)) {
-                  container.releasePointerCapture(ev.pointerId);
-                }
+                try {
+                  if (ev.pointerId && container.hasPointerCapture && container.hasPointerCapture(ev.pointerId)) {
+                    container.releasePointerCapture(ev.pointerId);
+                  }
+                } catch (err) {}
                 window.removeEventListener('pointermove', handleMove);
                 window.removeEventListener('pointerup', handleUp);
+                window.removeEventListener('pointercancel', handleUp);
               };
               window.addEventListener('pointermove', handleMove);
               window.addEventListener('pointerup', handleUp);
+              window.addEventListener('pointercancel', handleUp);
             }
           }}
           style={{ cursor: pdfTool === 'pan' ? 'grab' : 'default' }}
@@ -626,9 +631,11 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
                              } catch (err) {}
                              window.removeEventListener('pointermove', handleMove);
                              window.removeEventListener('pointerup', handleUp);
+                             window.removeEventListener('pointercancel', handleUp);
                           };
                           window.addEventListener('pointermove', handleMove);
                           window.addEventListener('pointerup', handleUp);
+                          window.addEventListener('pointercancel', handleUp);
                         }}
                         className="px-2 h-6 flex items-center justify-center rounded bg-purple-600 text-white hover:bg-purple-500 text-xs font-bold cursor-move touch-none"
                       >
