@@ -161,7 +161,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
       const notesJson = JSON.stringify({ notes: saveNotes, annotations: saveAnnotations }).replace(/'/g, "''"); // SQL/YAML safe single quote escape
       
       if (content.includes('pdf_notes:')) {
-        content = content.replace(/pdf_notes:\s*'.*?'/g, `pdf_notes: '${notesJson}'`);
+        content = content.replace(/pdf_notes:\s*'([\\s\\S]*?)'/g, `pdf_notes: '${notesJson}'`);
       } else if (content.startsWith('---')) {
         content = content.replace(/^---\r?\n/, `---\npdf_notes: '${notesJson}'\n`);
       } else {
@@ -260,16 +260,19 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, initialNotesStr, isD
            
            <div className="relative inline-block shadow-2xl" ref={overlayRef} onMouseUp={handleContainerMouseUp} onTouchEnd={(e) => { e.preventDefault(); handleContainerMouseUp(e as any); }} style={{ cursor: pdfTool === 'text' ? 'text' : pdfTool === 'highlight' ? 'text' : pdfTool === 'eraser' ? 'crosshair' : 'default' }}>
              <div className="absolute inset-0 z-20" style={{ pointerEvents: pdfTool === "eraser" ? "auto" : "none" }}>
-               {(annotations[pageNumber] || []).map(ann => {
+                              {(annotations[pageNumber] || []).map(ann => {
                  if (ann.type === 'highlight') {
                    const w = Math.abs(ann.w) * zoomLevel;
                    const h = Math.abs(ann.h) * zoomLevel;
                    const left = ann.startX * zoomLevel;
                    const top = ann.startY * zoomLevel;
-                   return <div key={ann.id} onMouseDown={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} onTouchStart={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} className="absolute font-bold text-3xl bg-transparent px-2 py-1 whitespace-pre pointer-events-auto" style={{ left: ann.x * zoomLevel, top: ann.y * zoomLevel, fontFamily: ann.text.match(/[\u0600-\u06FF]/) ? 'var(--font-lemonada)' : 'var(--font-caveat)', color: ann.color || '#9333ea' }} dir="auto">{ann.text}</div>;
+                   return <div key={ann.id} onMouseDown={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} onTouchStart={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} className="absolute mix-blend-multiply bg-yellow-400/50 pointer-events-auto cursor-pointer" style={{ left, top, width: w, height: h }} title={ann.text} />;
+                 }
+                 if (ann.type === 'text') {
+                   return <div key={ann.id} onMouseDown={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} onTouchStart={(e) => { if(pdfTool==='eraser') { e.stopPropagation(); setAnnotations(p => ({...p, [pageNumber]: p[pageNumber].filter(a => a.id !== ann.id)})); } }} className="absolute font-bold text-3xl bg-transparent px-2 py-1 whitespace-pre pointer-events-auto" style={{ left: ann.x * zoomLevel, top: ann.y * zoomLevel, fontFamily: (ann.text || '').match(/[\u0600-\u06FF]/) ? 'var(--font-lemonada)' : 'var(--font-caveat)', color: ann.color || '#9333ea' }} dir="auto">{ann.text}</div>;
                  }
                  return null;
-                 })}
+               })}
 
                  
                  {pendingText && (
