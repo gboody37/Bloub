@@ -373,6 +373,12 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
     };
   }, [pdfTool, highlightMode, annotations, pageNumber, zoomLevel, highlightColor]);
 
+  const options = {
+    cMapUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/cmaps/`,
+    cMapPacked: true,
+    standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
+  };
+
   const toolsPortal = typeof document !== 'undefined' ? document.getElementById('pdf-tools-portal') : null;
 
   return (
@@ -468,11 +474,12 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
 
          <div className="w-fit mx-auto relative flex flex-col items-center">
            <Document 
-            file={pdfUrl} 
-            onLoadSuccess={onDocumentLoadSuccess} 
-            loading={<div className="text-slate-400 font-mono text-sm animate-pulse flex h-full items-center">Loading Document...</div>}
-            className="drop-shadow-2xl"
-         >
+              file={pdfUrl} 
+              options={options}
+              onLoadSuccess={onDocumentLoadSuccess} 
+              loading={<div className="text-slate-400 font-mono text-sm animate-pulse flex h-full items-center">Loading Document...</div>}
+              className="drop-shadow-2xl"
+           >
            
            
             <div className="relative inline-block shadow-2xl" ref={overlayRef} 
