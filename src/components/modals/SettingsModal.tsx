@@ -13,16 +13,22 @@ import type { Category } from '@/types/todo';
 import { maskApiKey } from '@/lib/ai/quiz';
 
 export const THEMES = [
-  { id: 'bg-gray-100', name: 'Minimal', color: '#f3f4f6' },
-  { id: 'bg-slate-900', name: 'Midnight', color: '#0f172a' },
-  { id: 'bg-zinc-950', name: 'Abyss', color: '#09090b' },
-  { id: 'bg-blue-950', name: 'Dark Blue', color: '#172554' },
-  { id: 'bg-gradient-to-br from-stone-200 to-stone-300', name: 'Sand', color: '#d6d3d1' },
-  { id: 'bg-gradient-to-br from-rose-100 to-pink-200', name: 'Blush', color: '#fbcfe8' },
-  { id: 'bg-gradient-to-br from-blue-100 to-cyan-100', name: 'Ocean', color: '#cffafe' },
-  { id: 'bg-gradient-to-br from-emerald-100 to-teal-100', name: 'Mint', color: '#ccfbf1' },
-  { id: 'bg-gradient-to-br from-violet-100 to-purple-200', name: 'Lavender', color: '#e9d5ff' },
-  { id: 'bg-gradient-to-br from-amber-100 to-yellow-200', name: 'Sunlight', color: '#fde68a' }
+  { id: 'bg-[#080d2a]', name: 'Dark Blue', color: '#080d2a' },
+  { id: 'bg-[#1a0b2e]', name: 'Midnight Violet', color: '#1a0b2e' },
+  { id: 'bg-[#022c22]', name: 'Emerald Night', color: '#022c22' },
+  { id: 'bg-[#3b0712]', name: 'Crimson Ember', color: '#3b0712' },
+  { id: 'bg-[#422006]', name: 'Solar Amber', color: '#422006' },
+  { id: 'bg-[#082f49]', name: 'Abyssal Cyan', color: '#082f49' },
+  { id: 'bg-[#380424]', name: 'Neon Rose', color: '#380424' },
+  { id: 'bg-[#052e16]', name: 'Forest Moss', color: '#052e16' },
+  { id: 'bg-[#1e1b4b]', name: 'Royal Indigo', color: '#1e1b4b' },
+  { id: 'bg-[#2e0854]', name: 'Deep Plum', color: '#2e0854' },
+  { id: 'bg-[#3c1605]', name: 'Burnt Bronze', color: '#3c1605' },
+  { id: 'bg-[#0f172a]', name: 'Titanium Slate', color: '#0f172a' },
+  { id: 'bg-[#030712]', name: 'Obsidian OLED', color: '#030712' },
+  { id: 'bg-[#18181b]', name: 'Phantom Charcoal', color: '#18181b' },
+  { id: 'bg-[#3b0d2d]', name: 'Mystic Magenta', color: '#3b0d2d' },
+  { id: 'bg-[#0c1a30]', name: 'Arctic Navy', color: '#0c1a30' }
 ];
 
 export const GEMINI_MODELS = [

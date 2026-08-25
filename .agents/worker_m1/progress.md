@@ -1,16 +1,15 @@
-# Progress — Implementation Worker (Milestone 1)
+# Progress — Milestone M1 Theme Redesign
 
-## Current Status
-Last visited: 2026-08-25T06:31:00+03:00
+Last visited: 2026-08-25T07:09:30Z
 
 ## Status
-In Progress
-
-## Checklist
-- [x] Initial dispatch received and logged in DISPATCH.md
-- [x] BRIEFING.md initialized
-- [ ] Inspect current `src/app/page.tsx` and search for any other theme usages
-- [ ] Update `THEMES` in `src/app/page.tsx` with 15 Dark Spectrum themes
-- [ ] Verify `THEMES` structure, default state, and legacy Dark Blue restoration
-- [ ] Run `npm run build` to verify build / typecheck
-- [ ] Write handoff report and notify parent
+- [x] Read dispatch and initialized BRIEFING.md / progress.md
+- [x] Inspect survey findings, ORIGINAL_REQUEST.md, PROJECT.md, and `src/app/page.tsx`
+- [x] Implement 16 dark themes in `src/app/page.tsx` and `src/components/modals/SettingsModal.tsx`
+- [x] Restore original "Dark Blue" theme (`#080d2a`)
+- [x] Set initial `bgTheme` state to `'bg-[#080d2a]'` and fallback color to `'#080d2a'`
+- [x] Run Next.js production build (`npm.cmd run build`): PASSED (0 errors)
+- [x] Run theme math & contrast suite (`.agents/worker_m1/verify-themes.cjs`): PASSED (16/16 themes, WCAG AAA compliant)
+- [x] Run project test suite (`npm.cmd test`): PASSED (8/8 test suites)
+- [x] Document in `implementation.md` and `handoff.md`
+- [x] Send completion message to parent orchestrator

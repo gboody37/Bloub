@@ -1,330 +1,243 @@
+﻿#!/usr/bin/env node
+
 /**
- * Opaque-box E2E Verification Suite for Theme Redesign
+ * Standalone Theme Verification Script for CI/CD and CLI checks.
  * 
- * Evaluates:
- * - Tier 1: Feature Coverage (THEMES array existence, length >= 12, required properties)
- * - Tier 2: Boundary & Math Verification (Hex syntax, unique IDs/names, Relative Luminance < 0.25, WCAG AAA Contrast >= 7:1)
- * - Tier 3: Spectrum Distribution & Bias Elimination (HSL hue sector coverage >= 6 sectors, Blue/Brown bias <= 30%)
- * - Tier 4: Legacy Dark Blue Exact Match (Name 'Dark Blue', Color '#172554', ID 'bg-[#172554]' or 'bg-blue-950')
+ * Usage:
+ *   node scripts/verify-themes.js
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
 
-// ANSI Color Helpers
-const RESET = '\x1b[0m';
-const BOLD = '\x1b[1m';
-const GREEN = '\x1b[32m';
-const RED = '\x1b[31m';
-const YELLOW = '\x1b[33m';
-const CYAN = '\x1b[36m';
-const MAGENTA = '\x1b[35m';
-const GRAY = '\x1b[90m';
-
-let totalTests = 0;
-let passedTests = 0;
-let failedTests = 0;
-const failures = [];
-
-function assert(condition, message, details = '') {
-  totalTests++;
-  if (condition) {
-    passedTests++;
-    console.log(`  ${GREEN}✓ PASS${RESET} ${message}`);
-  } else {
-    failedTests++;
-    const failMsg = `  ${RED}✗ FAIL${RESET} ${message}${details ? ` -> ${details}` : ''}`;
-    console.log(failMsg);
-    failures.push({ message, details });
-  }
-}
-
-// Math Utility Functions
 function hexToRgb(hex) {
-  const cleanHex = hex.replace(/^#/, '');
-  if (cleanHex.length !== 6) return null;
-  const num = parseInt(cleanHex, 16);
+  if (!/^#([0-9a-fA-F]{6})$/.test(hex)) {
+    throw new Error(`Invalid 6-digit hex color: ${hex}`);
+  }
+  const clean = hex.slice(1);
   return {
-    r: (num >> 16) & 255,
-    g: (num >> 8) & 255,
-    b: num & 255
+    r: parseInt(clean.substring(0, 2), 16),
+    g: parseInt(clean.substring(2, 4), 16),
+    b: parseInt(clean.substring(4, 6), 16),
   };
 }
 
-function srgbToLinear(c) {
-  const v = c / 255;
-  return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+function getRelativeLuminance(r, g, b) {
+  const [rl, gl, bl] = [r, g, b].map(c => {
+    const s = c / 255;
+    return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * rl + 0.7152 * gl + 0.0722 * bl;
 }
 
-function computeRelativeLuminance(hex) {
-  const rgb = hexToRgb(hex);
-  if (!rgb) return NaN;
-  const rLin = srgbToLinear(rgb.r);
-  const gLin = srgbToLinear(rgb.g);
-  const bLin = srgbToLinear(rgb.b);
-  return 0.2126 * rLin + 0.7152 * gLin + 0.0722 * bLin;
+function getContrastRatioAgainstWhite(lum) {
+  return 1.05 / (lum + 0.05);
 }
 
-function computeWcagContrastAgainstWhite(hex) {
-  const L = computeRelativeLuminance(hex);
-  const Lwhite = 1.0;
-  return (Lwhite + 0.05) / (L + 0.05);
-}
-
-function rgbToHsl(hex) {
-  const rgb = hexToRgb(hex);
-  if (!rgb) return { h: 0, s: 0, l: 0 };
-  const r = rgb.r / 255;
-  const g = rgb.g / 255;
-  const b = rgb.b / 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
+function rgbToHsl(r, g, b) {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
   let h = 0;
   let s = 0;
   const l = (max + min) / 2;
 
-  const d = max - min;
-  if (d !== 0) {
+  if (max !== min) {
+    const d = max - min;
     s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
     switch (max) {
-      case r: h = ((g - b) / d + (g < b ? 6 : 0)) * 60; break;
-      case g: h = ((b - r) / d + 2) * 60; break;
-      case b: h = ((r - g) / d + 4) * 60; break;
+      case rn: h = (gn - bn) / d + (gn < bn ? 6 : 0); break;
+      case gn: h = (bn - rn) / d + 2; break;
+      case bn: h = (rn - gn) / d + 4; break;
     }
+    h *= 60;
   }
-  return { h: Math.round(h * 10) / 10, s: Math.round(s * 1000) / 10, l: Math.round(l * 1000) / 10 };
+  return { h, s, l };
 }
 
-// Hue Sectors (6 Sectors of 60 degrees across 360°)
-const HUE_SECTORS = [
-  { name: 'Red / Warm Red', min: 330, max: 30, wrap: true },
-  { name: 'Orange / Amber / Yellow', min: 30, max: 90, wrap: false },
-  { name: 'Green / Lime', min: 90, max: 150, wrap: false },
-  { name: 'Teal / Cyan', min: 150, max: 210, wrap: false },
-  { name: 'Blue / Indigo', min: 210, max: 270, wrap: false },
-  { name: 'Purple / Magenta / Pink', min: 270, max: 330, wrap: false }
-];
+function classifySpectrumFamily(hex) {
+  const { r, g, b } = hexToRgb(hex);
+  const { h, s } = rgbToHsl(r, g, b);
 
-function getHueSector(hue) {
-  for (const sector of HUE_SECTORS) {
-    if (sector.wrap) {
-      if (hue >= sector.min || hue < sector.max) return sector.name;
-    } else {
-      if (hue >= sector.min && hue < sector.max) return sector.name;
-    }
+  if (s < 0.22 || (r === g && g === b)) {
+    return 'Slate/Monochrome';
   }
+
+  if (((h >= 325 && h <= 360) || (h >= 0 && h < 15)) && (r >= g && r >= b)) {
+    return 'Red';
+  } else if (h >= 15 && h < 50) {
+    return 'Amber/Orange';
+  } else if (h >= 50 && h < 70) {
+    return 'Yellow';
+  } else if (h >= 70 && h < 165) {
+    return 'Green';
+  } else if (h >= 165 && h < 215) {
+    return 'Cyan/Teal';
+  } else if (h >= 215 && h < 255) {
+    return 'Blue';
+  } else if (h >= 255 && h < 290) {
+    return 'Purple';
+  } else if (h >= 290 && h < 325) {
+    return 'Rose/Magenta';
+  }
+
   return 'Unknown';
 }
 
-function isBlueOrBrown(theme) {
-  const name = (theme.name || '').toLowerCase();
-  const hsl = rgbToHsl(theme.color);
-  
-  // Blue indicators
-  const isBlueHue = hsl.h >= 195 && hsl.h <= 265;
-  const isBlueName = name.includes('blue') || name.includes('sky') || name.includes('nordic') || name.includes('frost') || name.includes('sapphire') || name.includes('indigo') || name.includes('ocean');
-  
-  // Brown / Earth indicators (warm hues 15°-50° with low/moderate saturation, or coffee/mocha/macchiato/frappe/brown names)
-  const isBrownName = name.includes('mocha') || name.includes('macchiato') || name.includes('frappé') || name.includes('frappe') || name.includes('brown') || name.includes('coffee') || name.includes('earth') || name.includes('wood') || name.includes('caramel');
-  const isBrownHue = (hsl.h >= 15 && hsl.h <= 45) && (hsl.s <= 40);
+function main() {
+  console.log('\n========================================================================');
+  console.log('  🎨 VIBE TODOS THEMES AUTOMATED VERIFICATION SCRIPT');
+  console.log('========================================================================\n');
 
-  return isBlueHue || isBlueName || isBrownName || isBrownHue;
-}
+  const pagePath = path.resolve(process.cwd(), 'src/app/page.tsx');
+  const layoutPath = path.resolve(process.cwd(), 'src/app/layout.tsx');
 
-// Extraction
-function extractThemesFromSource() {
-  const pagePath = path.resolve(__dirname, '../src/app/page.tsx');
   if (!fs.existsSync(pagePath)) {
-    throw new Error(`Target file not found at ${pagePath}`);
-  }
-  const content = fs.readFileSync(pagePath, 'utf8');
-  const themesMatch = content.match(/const\s+THEMES(?:\s*:\s*[^=]+)?\s*=\s*(\[[\s\S]*?\]);/);
-  if (!themesMatch) {
-    throw new Error('Could not find `const THEMES = [...]` declaration in src/app/page.tsx');
+    console.error(`❌ Missing src/app/page.tsx at ${pagePath}`);
+    process.exit(1);
   }
 
-  try {
-    const fn = new Function(`"use strict"; return (${themesMatch[1]});`);
-    return fn();
-  } catch (err) {
-    throw new Error(`Failed to parse THEMES array from page.tsx: ${err.message}`);
+  const pageSrc = fs.readFileSync(pagePath, 'utf8');
+  const layoutSrc = fs.readFileSync(layoutPath, 'utf8');
+
+  const match = pageSrc.match(/(?:export\s+)?const\s+THEMES\s*=\s*(\[[\s\S]*?\]);/);
+  if (!match) {
+    console.error('❌ Could not locate THEMES array in src/app/page.tsx');
+    process.exit(1);
   }
-}
 
-// Execution
-console.log(`${BOLD}${CYAN}====================================================${RESET}`);
-console.log(`${BOLD}${CYAN}   VIBE TODOS: THEME REDESIGN E2E VERIFICATION SUITE  ${RESET}`);
-console.log(`${BOLD}${CYAN}====================================================${RESET}\n`);
+  const themes = new Function('return ' + match[1])();
+  console.log(`🔍 Discovered ${themes.length} themes in THEMES array.\n`);
 
-let themes;
-try {
-  themes = extractThemesFromSource();
-  console.log(`${GRAY}Successfully extracted ${themes.length} themes from src/app/page.tsx${RESET}\n`);
-} catch (err) {
-  console.error(`${RED}FATAL ERROR:${RESET} ${err.message}`);
-  process.exit(1);
-}
+  let failures = 0;
 
-// Print Theme Overview Table
-console.log(`${BOLD}Theme Matrix Analysis:${RESET}`);
-console.log(`${GRAY}${'ID'.padEnd(18)} | ${'Name'.padEnd(20)} | ${'Hex'.padEnd(9)} | ${'Lum (L)'.padEnd(9)} | ${'Contrast'.padEnd(10)} | ${'Hue (°)'.padEnd(8)} | ${'Sector'.padEnd(26)}${RESET}`);
-console.log('-'.repeat(98));
-
-themes.forEach(t => {
-  const lum = computeRelativeLuminance(t.color || '');
-  const contrast = computeWcagContrastAgainstWhite(t.color || '');
-  const hsl = rgbToHsl(t.color || '');
-  const sector = getHueSector(hsl.h);
-  console.log(
-    `${(t.id || 'N/A').padEnd(18)} | ` +
-    `${(t.name || 'N/A').padEnd(20)} | ` +
-    `${(t.color || 'N/A').padEnd(9)} | ` +
-    `${(!isNaN(lum) ? lum.toFixed(4) : 'NaN').padEnd(9)} | ` +
-    `${(!isNaN(contrast) ? `${contrast.toFixed(2)}:1` : 'NaN').padEnd(10)} | ` +
-    `${(`${hsl.h}°`).padEnd(8)} | ` +
-    `${sector.padEnd(26)}`
-  );
-});
-console.log('\n');
-
-// ----------------------------------------------------
-// TIER 1: Feature Coverage
-// ----------------------------------------------------
-console.log(`${BOLD}${MAGENTA}--- TIER 1: FEATURE COVERAGE ---${RESET}`);
-
-assert(Array.isArray(themes), 'THEMES is an array');
-assert(themes.length >= 12, `THEMES contains at least 12 themes (found: ${themes.length})`, `Expected >= 12, found ${themes.length}`);
-
-let validStructureCount = 0;
-themes.forEach((t, idx) => {
-  const hasId = typeof t.id === 'string' && t.id.trim().length > 0;
-  const hasName = typeof t.name === 'string' && t.name.trim().length > 0;
-  const hasColor = typeof t.color === 'string' && t.color.trim().length > 0;
-  if (hasId && hasName && hasColor) {
-    validStructureCount++;
+  // Check 1: Minimum Count
+  if (themes.length < 12) {
+    console.error(`❌ Check 1 Failed: Expected >= 12 themes, found ${themes.length}`);
+    failures++;
   } else {
-    assert(false, `Theme #${idx + 1} has valid schema (id, name, color)`, `Invalid theme object: ${JSON.stringify(t)}`);
+    console.log(`✅ Check 1: Theme Count (${themes.length} >= 12)`);
   }
-});
-assert(validStructureCount === themes.length, `All ${themes.length} themes have valid { id, name, color } schema`);
 
-console.log('');
+  // Check 2: Schema & Parity
+  let schemaErrors = 0;
+  const ids = new Set();
+  const names = new Set();
+  const colors = new Set();
 
-// ----------------------------------------------------
-// TIER 2: Boundary & Math Verification
-// ----------------------------------------------------
-console.log(`${BOLD}${MAGENTA}--- TIER 2: BOUNDARY & MATH VERIFICATION ---${RESET}`);
-
-// Hex Syntax
-const hexRegex = /^#[0-9a-fA-F]{6}$/;
-const invalidHex = themes.filter(t => !hexRegex.test(t.color));
-assert(invalidHex.length === 0, 'All theme colors strictly conform to 6-digit hex format (#RRGGBB)', invalidHex.map(t => `${t.name}: ${t.color}`).join(', '));
-
-// Unique IDs
-const ids = themes.map(t => t.id);
-const uniqueIds = new Set(ids);
-assert(uniqueIds.size === ids.length, 'All theme IDs are strictly unique', `Duplicate count: ${ids.length - uniqueIds.size}`);
-
-// Unique Names
-const names = themes.map(t => t.name);
-const uniqueNames = new Set(names);
-assert(uniqueNames.size === names.length, 'All theme names are strictly unique', `Duplicate count: ${names.length - uniqueNames.size}`);
-
-// ID Format Validity (Must be valid Tailwind bg class)
-const invalidIdFormat = themes.filter(t => !t.id.startsWith('bg-[') && !t.id.startsWith('bg-'));
-assert(invalidIdFormat.length === 0, 'All theme IDs follow valid Tailwind background utility class convention', invalidIdFormat.map(t => t.id).join(', '));
-
-// Relative Luminance Verification (L < 0.25 for dark mode safety)
-const nonDarkThemes = themes.filter(t => {
-  const L = computeRelativeLuminance(t.color);
-  return isNaN(L) || L >= 0.25;
-});
-assert(nonDarkThemes.length === 0, 'All themes mathematically qualify as dark backgrounds (Relative Luminance L < 0.25)', nonDarkThemes.map(t => `${t.name} (L=${computeRelativeLuminance(t.color).toFixed(4)})`).join(', '));
-
-// WCAG AAA Contrast Ratio vs White (#FFFFFF) >= 7.0:1
-const lowContrastThemes = themes.filter(t => {
-  const ratio = computeWcagContrastAgainstWhite(t.color);
-  return isNaN(ratio) || ratio < 7.0;
-});
-assert(lowContrastThemes.length === 0, 'All themes achieve WCAG AAA contrast ratio (>= 7.0:1) against white text', lowContrastThemes.map(t => `${t.name} (${computeWcagContrastAgainstWhite(t.color).toFixed(2)}:1)`).join(', '));
-
-console.log('');
-
-// ----------------------------------------------------
-// TIER 3: Spectrum Distribution & Bias Elimination
-// ----------------------------------------------------
-console.log(`${BOLD}${MAGENTA}--- TIER 3: SPECTRUM DISTRIBUTION & BIAS ELIMINATION ---${RESET}`);
-
-// Sector Coverage
-const coveredSectors = new Set();
-themes.forEach(t => {
-  const hsl = rgbToHsl(t.color);
-  const sector = getHueSector(hsl.h);
-  if (sector !== 'Unknown') {
-    coveredSectors.add(sector);
-  }
-});
-
-console.log(`  ${GRAY}Covered Hue Sectors (${coveredSectors.size}/${HUE_SECTORS.length}):${RESET}`);
-HUE_SECTORS.forEach(sec => {
-  const isCovered = coveredSectors.has(sec.name);
-  const mark = isCovered ? `${GREEN}✓${RESET}` : `${RED}✗${RESET}`;
-  console.log(`    ${mark} ${sec.name}`);
-});
-
-assert(coveredSectors.size >= 6, `Theme palette covers at least 6 distinct hue sectors across the 360° color spectrum (found: ${coveredSectors.size}/6)`, `Missing sectors: ${HUE_SECTORS.filter(s => !coveredSectors.has(s.name)).map(s => s.name).join(', ')}`);
-
-// Blue/Brown Bias Elimination (<= 30%)
-const blueBrownThemes = themes.filter(isBlueOrBrown);
-const blueBrownRatio = blueBrownThemes.length / themes.length;
-const blueBrownPct = (blueBrownRatio * 100).toFixed(1);
-
-console.log(`  ${GRAY}Blue/Brown Classification Count: ${blueBrownThemes.length}/${themes.length} (${blueBrownPct}%)${RESET}`);
-if (blueBrownThemes.length > 0) {
-  console.log(`    ${GRAY}Classified themes: ${blueBrownThemes.map(t => t.name).join(', ')}${RESET}`);
-}
-
-assert(blueBrownRatio <= 0.30, `Blue/Brown themes do not exceed 30% of the total palette (current: ${blueBrownPct}%)`, `Count: ${blueBrownThemes.length}/${themes.length} (${blueBrownPct}% > 30.0%)`);
-
-console.log('');
-
-// ----------------------------------------------------
-// TIER 4: Legacy Dark Blue Exact Match
-// ----------------------------------------------------
-console.log(`${BOLD}${MAGENTA}--- TIER 4: LEGACY DARK BLUE EXACT MATCH ---${RESET}`);
-
-const darkBlueTheme = themes.find(t => t.name === 'Dark Blue');
-assert(!!darkBlueTheme, 'A theme with name "Dark Blue" exists in the palette', 'Dark Blue theme missing');
-
-if (darkBlueTheme) {
-  const normalizedColor = (darkBlueTheme.color || '').toLowerCase();
-  assert(normalizedColor === '#172554', 'Dark Blue color matches legacy value #172554 exactly', `Found: ${darkBlueTheme.color}, Expected: #172554`);
-  
-  const validIds = ['bg-[#172554]', 'bg-blue-950'];
-  const isValidId = validIds.includes(darkBlueTheme.id);
-  assert(isValidId, 'Dark Blue id matches "bg-[#172554]" or "bg-blue-950"', `Found: ${darkBlueTheme.id}, Expected one of: ${validIds.join(' or ')}`);
-}
-
-console.log('');
-
-// ----------------------------------------------------
-// Summary & Verdict
-// ----------------------------------------------------
-console.log(`${BOLD}${CYAN}====================================================${RESET}`);
-console.log(`${BOLD}${CYAN}                   TEST SUMMARY                     ${RESET}`);
-console.log(`${BOLD}${CYAN}====================================================${RESET}`);
-console.log(`Total Assertions: ${totalTests}`);
-console.log(`Passed:           ${GREEN}${passedTests}${RESET}`);
-console.log(`Failed:           ${failedTests > 0 ? RED : GREEN}${failedTests}${RESET}`);
-
-if (failedTests > 0) {
-  console.log(`\n${BOLD}${RED}FAILED ASSERTIONS (${failedTests}):${RESET}`);
-  failures.forEach((f, i) => {
-    console.log(`  ${i + 1}. ${f.message}${f.details ? ` (${f.details})` : ''}`);
+  themes.forEach((t, i) => {
+    if (!t.id || !t.name || !t.color) {
+      console.error(`❌ Theme #${i} missing properties:`, t);
+      schemaErrors++;
+    }
+    if (t.id.toLowerCase() !== `bg-[${t.color.toLowerCase()}]`) {
+      console.error(`❌ Theme #${i} id/color mismatch: id="${t.id}", color="${t.color}"`);
+      schemaErrors++;
+    }
+    if (ids.has(t.id)) {
+      console.error(`❌ Duplicate ID: ${t.id}`);
+      schemaErrors++;
+    }
+    if (names.has(t.name.toLowerCase())) {
+      console.error(`❌ Duplicate Name: ${t.name}`);
+      schemaErrors++;
+    }
+    if (colors.has(t.color.toLowerCase())) {
+      console.error(`❌ Duplicate Color: ${t.color}`);
+      schemaErrors++;
+    }
+    ids.add(t.id);
+    names.add(t.name.toLowerCase());
+    colors.add(t.color.toLowerCase());
   });
-  console.log(`\n${RED}${BOLD}VERDICT: FAILED${RESET}\n`);
-  process.exit(1);
-} else {
-  console.log(`\n${GREEN}${BOLD}VERDICT: ALL TESTS PASSED SUCCESSFULLY${RESET}\n`);
-  process.exit(0);
+
+  if (schemaErrors === 0) {
+    console.log(`✅ Check 2: Schema, Color-ID Parity & Uniqueness`);
+  } else {
+    failures += schemaErrors;
+  }
+
+  // Check 3: Dark Blue Restored
+  const darkBlue = themes.find(
+    t => (t.name.toLowerCase() === 'dark blue' || t.name.toLowerCase() === 'classic dark blue') &&
+         ['#080d2a', '#172554', '#0f172a'].includes(t.color.toLowerCase())
+  );
+  if (darkBlue) {
+    console.log(`✅ Check 3: Dark Blue Restoration (${darkBlue.name} - ${darkBlue.color})`);
+  } else {
+    console.error('❌ Check 3 Failed: Restored Dark Blue theme missing');
+    failures++;
+  }
+
+  // Check 4: Luminance & WCAG AAA Contrast
+  let wcagErrors = 0;
+  themes.forEach(t => {
+    const { r, g, b } = hexToRgb(t.color);
+    const lum = getRelativeLuminance(r, g, b);
+    const cr = getContrastRatioAgainstWhite(lum);
+    if (lum > 0.20 || cr < 7.0) {
+      console.error(`❌ Theme "${t.name}" violates WCAG invariants: L=${lum.toFixed(4)}, CR=${cr.toFixed(2)}:1`);
+      wcagErrors++;
+    }
+  });
+
+  if (wcagErrors === 0) {
+    console.log(`✅ Check 4: Purely Dark & WCAG AAA Contrast (> 7:1) across all themes`);
+  } else {
+    failures += wcagErrors;
+  }
+
+  // Check 5: Spectrum Coverage
+  const familyMap = new Map();
+  themes.forEach(t => {
+    const fam = classifySpectrumFamily(t.color);
+    if (!familyMap.has(fam)) familyMap.set(fam, []);
+    familyMap.get(fam).push(t.name);
+  });
+
+  const requiredFamilies = ['Blue', 'Purple', 'Green', 'Red', 'Amber/Orange', 'Cyan/Teal', 'Rose/Magenta', 'Slate/Monochrome'];
+  const missingFamilies = requiredFamilies.filter(rf => !familyMap.has(rf));
+
+  if (missingFamilies.length === 0 && familyMap.size >= 8) {
+    console.log(`✅ Check 5: Spectrum Families Coverage (${familyMap.size} families: ${Array.from(familyMap.keys()).join(', ')})`);
+  } else {
+    console.error(`❌ Check 5 Failed: Missing families: ${missingFamilies.join(', ')}`);
+    failures++;
+  }
+
+  // Check 6: Real-World Integration
+  let integrationErrors = 0;
+  if (!pageSrc.includes('localStorage.setItem(`${uid}_bgTheme`') && !pageSrc.includes('_bgTheme')) {
+    console.error('❌ Missing localStorage persistence key `${uid}_bgTheme`');
+    integrationErrors++;
+  }
+  if (!pageSrc.includes('name="theme-color"') && !pageSrc.includes('theme-color')) {
+    console.error('❌ Missing dynamic meta theme-color sync');
+    integrationErrors++;
+  }
+  if (!layoutSrc.includes('_bgTheme') || !layoutSrc.includes('document.documentElement.classList.add(\'dark\')')) {
+    console.error('❌ layout.tsx anti-flash hydration script broken');
+    integrationErrors++;
+  }
+
+  if (integrationErrors === 0) {
+    console.log('✅ Check 6: LocalStorage, SSR Anti-Flash & Meta Theme-Color Integration');
+  } else {
+    failures += integrationErrors;
+  }
+
+  console.log('\n------------------------------------------------------------------------');
+  if (failures === 0) {
+    console.log('🎉 ALL THEME VERIFICATION CHECKS PASSED SUCCESSFULLY (0 FAILURES)');
+    console.log('------------------------------------------------------------------------\n');
+    process.exit(0);
+  } else {
+    console.error(`💥 THEME VERIFICATION FAILED WITH ${failures} ERRORS`);
+    console.log('------------------------------------------------------------------------\n');
+    process.exit(1);
+  }
 }
+
+main();

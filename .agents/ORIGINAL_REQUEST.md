@@ -54,3 +54,35 @@ The old "Dark Blue" theme must be perfectly recreated and included in the update
 - [ ] Visual inspection confirms the `THEMES` array contains at least 12 distinct dark themes spanning the entire color spectrum (reds, greens, purples, cyans, etc.).
 - [ ] Visual inspection confirms the original "Dark Blue" theme is present and accurately mimics its previous appearance.
 
+## 2026-08-25T07:02:12Z
+
+# Teamwork Project Prompt
+
+> Requested team: Creative team
+
+Redesign the application's color themes. The user feels the current custom themes are not diverse enough, and wants a more diverse, vibrant set of purely dark themes. Additionally, the original "dark blue" theme must be restored.
+
+Working directory: d:\AI\جبنة\vibe-todos
+
+Integrity mode: development
+
+## Requirements
+
+### R1. Diverse Theme Palette
+The application's theme list (`THEMES` array in `src/app/page.tsx`) must be completely overhauled to include a much wider variety of vibrant, distinct dark themes (e.g. Neon Purple, Emerald Green, Deep Crimson, etc.), spanning the entire color spectrum.
+
+### R2. Restore Legacy Dark Blue
+The old "Dark Blue" theme must be perfectly recreated and included in the updated `THEMES` list.
+
+## Acceptance Criteria
+
+### Aesthetic & Variety
+- [ ] Visual inspection confirms the `THEMES` array contains at least 12 distinct dark themes spanning the entire color spectrum (reds, greens, purples, cyans, etc.).
+- [ ] Visual inspection confirms the original "Dark Blue" theme is present and accurately mimics its previous appearance.
+
+## 2026-08-25T07:09:08Z
+
+The user has explicitly requested that we finish this task using the least amount of credits/API calls possible. Please execute the theme redesign as efficiently and quickly as possible without over-complicating it or spinning up unnecessary workers. Just get the `THEMES` array updated!
+
+
+

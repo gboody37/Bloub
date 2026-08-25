@@ -62,19 +62,23 @@ const getDynamicMascotProps = (shape: string, baseColor: string, pendingCount: n
   return { expr: 'attentif', color: baseColor };
 };
 
-const THEMES = [
-  { id: 'bg-[#0f172a]', name: 'Classic Dark Blue', color: '#0f172a' },
-  { id: 'bg-[#1e1e2e]', name: 'Mocha', color: '#1e1e2e' },
-  { id: 'bg-[#2a0a18]', name: 'Deep Crimson', color: '#2a0a18' },
-  { id: 'bg-[#0a2a1a]', name: 'Emerald Shadow', color: '#0a2a1a' },
-  { id: 'bg-[#1a0a2a]', name: 'Neon Purple', color: '#1a0a2a' },
-  { id: 'bg-[#0a1a2a]', name: 'Midnight Cyan', color: '#0a1a2a' },
-  { id: 'bg-[#2a1a0a]', name: 'Gold Obsidian', color: '#2a1a0a' },
-  { id: 'bg-[#2a0a2a]', name: 'Sunset Velvet', color: '#2a0a2a' },
-  { id: 'bg-[#090514]', name: 'Cyberpunk Neon', color: '#090514' },
-  { id: 'bg-[#282a36]', name: 'Dracula', color: '#282a36' },
-  { id: 'bg-[#111111]', name: 'Pitch Black', color: '#111111' },
-  { id: 'bg-[#1e1525]', name: 'Sakura Night', color: '#1e1525' }
+export const THEMES = [
+  { id: 'bg-[#080d2a]', name: 'Dark Blue', color: '#080d2a' },
+  { id: 'bg-[#1a0b2e]', name: 'Midnight Violet', color: '#1a0b2e' },
+  { id: 'bg-[#022c22]', name: 'Emerald Night', color: '#022c22' },
+  { id: 'bg-[#3b0712]', name: 'Crimson Ember', color: '#3b0712' },
+  { id: 'bg-[#422006]', name: 'Solar Amber', color: '#422006' },
+  { id: 'bg-[#082f49]', name: 'Abyssal Cyan', color: '#082f49' },
+  { id: 'bg-[#380424]', name: 'Neon Rose', color: '#380424' },
+  { id: 'bg-[#052e16]', name: 'Forest Moss', color: '#052e16' },
+  { id: 'bg-[#1e1b4b]', name: 'Royal Indigo', color: '#1e1b4b' },
+  { id: 'bg-[#2e0854]', name: 'Deep Plum', color: '#2e0854' },
+  { id: 'bg-[#3c1605]', name: 'Burnt Bronze', color: '#3c1605' },
+  { id: 'bg-[#0f172a]', name: 'Titanium Slate', color: '#0f172a' },
+  { id: 'bg-[#030712]', name: 'Obsidian OLED', color: '#030712' },
+  { id: 'bg-[#18181b]', name: 'Phantom Charcoal', color: '#18181b' },
+  { id: 'bg-[#3b0d2d]', name: 'Mystic Magenta', color: '#3b0d2d' },
+  { id: 'bg-[#0c1a30]', name: 'Arctic Navy', color: '#0c1a30' }
 ];
 
 const SHAPE_IDS = ['squircle', 'cercle', 'galet', 'hexagone', 'capsule', 'soleil', 'nuage', 'goutte', 'oeuf'];
@@ -183,7 +187,7 @@ export default function Home() {
   const [settingsTarget, setSettingsTarget] = useState<string>('global');
 
   // Settings
-  const [bgTheme, setBgTheme] = useState('bg-gray-100');
+  const [bgTheme, setBgTheme] = useState('bg-[#080d2a]');
   const [catSettings, setCatSettings] = useState<Record<string, {shape: string, color: string, expression?: string}>>({});
 
   // Global Mascot
@@ -379,7 +383,7 @@ export default function Home() {
       document.head.appendChild(meta);
     }
     const activeTheme = THEMES.find(t => t.id === bgTheme);
-    const themeColor = activeTheme ? activeTheme.color : '#0f172a';
+    const themeColor = activeTheme ? activeTheme.color : '#080d2a';
     meta.setAttribute('content', themeColor);
     
     if (bgTheme !== 'minimal') {
