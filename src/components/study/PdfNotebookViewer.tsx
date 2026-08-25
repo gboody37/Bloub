@@ -329,11 +329,12 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
        
        {/* PDF Viewer Side */}
        <div 
-          className={`flex-1 h-full overflow-auto custom-scrollbar flex flex-col items-center py-6 px-6 relative bg-black/20 ${pdfTool === 'pan' ? 'touch-none' : ''}`}
+          className={`flex-1 h-full overflow-auto custom-scrollbar flex flex-col items-center py-6 px-6 relative bg-black/20 ${(pdfTool === 'pan' || pdfTool === 'highlight') ? 'touch-none' : ''}`}
           onPointerDown={(e) => {
             if (pdfTool === 'pan') {
               e.preventDefault();
               const container = e.currentTarget;
+              if (e.pointerId) container.setPointerCapture(e.pointerId);
               const startX = e.clientX;
               const startY = e.clientY;
               const startScrollLeft = container.scrollLeft;
@@ -526,6 +527,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
                         onPointerDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
+                          if (e.pointerId) e.currentTarget.setPointerCapture(e.pointerId);
                           const startX = e.clientX;
                           const startY = e.clientY;
                           const startPX = pendingText.x;
@@ -540,7 +542,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId, notePath, initialNot
                           window.addEventListener('pointermove', handleMove);
                           window.addEventListener('pointerup', handleUp);
                         }}
-                        className="px-2 h-6 flex items-center justify-center rounded bg-purple-600 text-white hover:bg-purple-500 text-xs font-bold cursor-move"
+                        className="px-2 h-6 flex items-center justify-center rounded bg-purple-600 text-white hover:bg-purple-500 text-xs font-bold cursor-move touch-none"
                       >
                         Drag to Move
                       </div>
