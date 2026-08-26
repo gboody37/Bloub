@@ -253,7 +253,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
       };
       setAnnotations(saveAnnotations);
       setPendingText(null);
-      setPdfTool('cursor');
+      // setPdfTool('cursor');
     }
 
     const saveNotes = forceNotes !== undefined ? forceNotes : notesRef.current;
@@ -591,7 +591,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
                       }));
                       setHighlightStart(null);
                       setHighlightCurrent(null);
-                      setPdfTool('cursor');
+                      // setPdfTool('cursor');
                     }
                   }} style={{ cursor: pdfTool === 'text' ? 'text' : pdfTool === 'highlight' ? 'crosshair' : pdfTool === 'eraser' ? 'crosshair' : 'default' }}>
               <div className="absolute inset-0 z-20" style={{ pointerEvents: (pdfTool === "eraser" || (pdfTool === "highlight" && highlightMode === "box") || pdfTool === "text") ? "auto" : "none" }}>
@@ -713,7 +713,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
                           }));
                         }
                         setPendingText(null);
-                        setPdfTool('cursor');
+                        // setPdfTool('cursor');
                       }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -721,7 +721,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
                         }
                         if (e.key === 'Escape') {
                           setPendingText(null);
-                          setPdfTool('cursor');
+                          // setPdfTool('cursor');
                         }
                       }}
                       className="font-bold bg-transparent px-2 py-1 border-2 border-dashed border-purple-500/50 outline-none pointer-events-auto min-w-[150px]"
