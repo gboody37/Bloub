@@ -86,6 +86,9 @@ export function ArabicTextLayer({
           user-select: text !important;
           -webkit-user-select: text !important;
         }
+        .arabic-text-layer::selection {
+          background: transparent !important;
+        }
         .arabic-text-layer span.arabic-text-line {
           color: transparent !important;
           cursor: text;
@@ -96,6 +99,14 @@ export function ArabicTextLayer({
         .arabic-text-layer span.arabic-text-line::selection {
           background: rgba(59, 130, 246, 0.35) !important;
           color: transparent !important;
+        }
+        /* Inject a newline pseudo-element to help the browser break the selection bounding box cleanly */
+        .arabic-text-layer span.arabic-text-line::after {
+          content: "\\A";
+          white-space: pre;
+          width: 0;
+          height: 0;
+          position: absolute;
         }
       `}</style>
       {activeLines.map((line, index) => {

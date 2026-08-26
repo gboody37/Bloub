@@ -901,13 +901,20 @@ export function buildProcessedLine(items: ProcessedTextItem[]): ProcessedTextLin
   const fullText = reorderVisualToLogicalArabic(rawJoined);
   const dir: 'rtl' | 'ltr' = hasArabic ? 'rtl' : 'ltr';
 
+  // Fix: The highlighter bounding box from PDF.js fonts usually has an exaggerated ascender (empty space above text)
+  // We push the top down by ~20% and reduce the total height by ~20% so it perfectly hugs the text from the top.
+  const rawHeight = maxBottom - minTop;
+  const topAdjustment = rawHeight * 0.22;
+  const finalTop = minTop + topAdjustment;
+  const finalHeight = rawHeight - topAdjustment;
+
   return {
     items,
     fullText,
     dir,
     left: Math.round(minLeft * 100) / 100,
-    top: Math.round(minTop * 100) / 100,
+    top: Math.round(finalTop * 100) / 100,
     width: Math.round((maxRight - minLeft) * 100) / 100,
-    height: Math.round((maxBottom - minTop) * 100) / 100,
+    height: Math.round(finalHeight * 100) / 100,
   };
 }
