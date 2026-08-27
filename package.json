@@ -9,9 +9,10 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --experimental-strip-types tests/verification/run-all-verifications.ts",
-    "test:all": "node --experimental-strip-types --test tests/unit/*.test.ts tests/integration/*.test.ts",
+    "test:all": "node --experimental-strip-types --test tests/unit/*.test.ts tests/integration/*.test.ts tests/challenger/*.test.ts",
     "test:unit": "node --experimental-strip-types --test tests/unit/*.test.ts",
     "test:integration": "node --experimental-strip-types --test tests/integration/*.test.ts",
+    "test:stress": "node --experimental-strip-types tests/stress/zero-data-loss-stress.ts",
     "test:themes": "node --experimental-strip-types --test tests/e2e/theme-validation.test.ts",
     "verify": "node --experimental-strip-types tests/verification/run-all-verifications.ts",
     "verify:themes": "node scripts/verify-themes.js",
@@ -21,7 +22,9 @@
     "verify:ac3": "node --experimental-strip-types tests/verification/verify-ac3-ai-quizzing.ts",
     "verify:r1": "node --experimental-strip-types tests/verification/verify-pdf-annotations-persistence.ts",
     "verify:r2": "node --experimental-strip-types tests/verification/verify-pdf-layout-integrity.ts",
-    "verify:arabic-columns": "node --experimental-strip-types tests/verification/verify-arabic-columns-and-transitivity.ts"
+    "verify:arabic-columns": "node --experimental-strip-types tests/verification/verify-arabic-columns-and-transitivity.ts",
+    "verify:block-editor": "node --experimental-strip-types tests/verification/verify-notion-block-editor.ts",
+    "verify:stress": "node --experimental-strip-types tests/stress/zero-data-loss-stress.ts"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",

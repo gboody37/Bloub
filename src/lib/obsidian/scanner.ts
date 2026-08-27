@@ -5,7 +5,7 @@ import type {
   VaultTagCount, 
   NoteSearchResult 
 } from '@/types/obsidian';
-import { parseObsidianMarkdown } from './parser';
+import { parseObsidianMarkdown, updateFrontmatterField, applyPdfNotesToContent, applyFrontmatterUpdatesToContent } from './parser';
 import { supabase as defaultSupabase } from '@/lib/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -433,3 +433,190 @@ export async function batchUpsertVaultNotes(
     return { success: false, count: 0, error: err.message };
   }
 }
+
+/**
+ * Atomically updates PDF annotations in frontmatter without clobbering note body content.
+ */
+export async function updateNotePdfAnnotations(
+  noteIdOrPath: string,
+  pdfNotesJson: string,
+  userId?: string,
+  client: SupabaseClient = defaultSupabase
+): Promise<{ success: boolean; note?: ParsedObsidianNote; error?: string; statusCode: number }> {
+  if (!noteIdOrPath) {
+    return { success: false, error: 'NOTE_ID_OR_PATH_REQUIRED', statusCode: 400 };
+  }
+
+  try {
+    let query = client.from('vault_notes').select('*');
+    if (noteIdOrPath.includes('/') || noteIdOrPath.endsWith('.md') || noteIdOrPath.endsWith('.pdf')) {
+      const safeRelPath = sanitizeRelativePath(noteIdOrPath) || noteIdOrPath.replace(/\\/g, '/');
+      query = query.eq('path', safeRelPath);
+    } else {
+      query = query.eq('id', noteIdOrPath);
+    }
+
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data: rows, error: fetchErr } = await query;
+    if (fetchErr) {
+      return { success: false, error: fetchErr.message, statusCode: 500 };
+    }
+
+    if (!rows || rows.length === 0) {
+      return { success: false, error: 'NOTE_NOT_FOUND', statusCode: 404 };
+    }
+
+    const row = rows[0] as VaultNoteDbRow;
+    const currentContent = row.content || '';
+    const updatedContent = applyPdfNotesToContent(currentContent, pdfNotesJson);
+    const parsed = parseObsidianMarkdown(updatedContent, row.path, row.path);
+
+    const updatePayload: any = {
+      content: updatedContent,
+      updated_at: new Date().toISOString()
+    };
+
+    let updateQuery = client.from('vault_notes').update(updatePayload);
+    if (row.id) {
+      updateQuery = updateQuery.eq('id', row.id);
+    } else {
+      updateQuery = updateQuery.eq('path', row.path);
+    }
+
+    const { error: updateErr } = await updateQuery;
+    if (updateErr) {
+      return { success: false, error: updateErr.message, statusCode: 500 };
+    }
+
+    return { success: true, note: parsed, statusCode: 200 };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'INTERNAL_ERROR', statusCode: 500 };
+  }
+}
+
+/**
+ * Atomically updates multiple frontmatter key/value fields without clobbering note body content.
+ */
+export async function atomicUpdateNoteFrontmatter(
+  noteIdOrPath: string,
+  frontmatterUpdates: Record<string, string>,
+  userId?: string,
+  client: SupabaseClient = defaultSupabase
+): Promise<{ success: boolean; note?: ParsedObsidianNote; error?: string; statusCode: number }> {
+  if (!noteIdOrPath) {
+    return { success: false, error: 'NOTE_ID_OR_PATH_REQUIRED', statusCode: 400 };
+  }
+
+  try {
+    let query = client.from('vault_notes').select('*');
+    if (noteIdOrPath.includes('/') || noteIdOrPath.endsWith('.md') || noteIdOrPath.endsWith('.pdf')) {
+      const safeRelPath = sanitizeRelativePath(noteIdOrPath) || noteIdOrPath.replace(/\\/g, '/');
+      query = query.eq('path', safeRelPath);
+    } else {
+      query = query.eq('id', noteIdOrPath);
+    }
+
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data: rows, error: fetchErr } = await query;
+    if (fetchErr) {
+      return { success: false, error: fetchErr.message, statusCode: 500 };
+    }
+
+    if (!rows || rows.length === 0) {
+      return { success: false, error: 'NOTE_NOT_FOUND', statusCode: 404 };
+    }
+
+    const row = rows[0] as VaultNoteDbRow;
+    const updatedContent = applyFrontmatterUpdatesToContent(row.content || '', frontmatterUpdates);
+    const parsed = parseObsidianMarkdown(updatedContent, row.path, row.path);
+
+    const updatePayload: any = {
+      content: updatedContent,
+      updated_at: new Date().toISOString()
+    };
+
+    let updateQuery = client.from('vault_notes').update(updatePayload);
+    if (row.id) {
+      updateQuery = updateQuery.eq('id', row.id);
+    } else {
+      updateQuery = updateQuery.eq('path', row.path);
+    }
+
+    const { error: updateErr } = await updateQuery;
+    if (updateErr) {
+      return { success: false, error: updateErr.message, statusCode: 500 };
+    }
+
+    return { success: true, note: parsed, statusCode: 200 };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'INTERNAL_ERROR', statusCode: 500 };
+  }
+}
+
+export interface FlushNotePayload {
+  noteId?: string;
+  notePath?: string;
+  pdfNotes?: string | Record<string, any>;
+  content?: string;
+  title?: string;
+  folder?: string;
+  tags?: string[];
+  frontmatterUpdates?: Record<string, string>;
+}
+
+/**
+ * High-reliability atomic flush handler for beacon / keepalive / offline WAL sync.
+ */
+export async function atomicFlushNote(
+  payload: FlushNotePayload,
+  userId?: string,
+  client: SupabaseClient = defaultSupabase
+): Promise<{ success: boolean; note?: ParsedObsidianNote; count?: number; error?: string; statusCode: number }> {
+  const targetIdentifier = payload.noteId || payload.notePath;
+  if (!targetIdentifier && !payload.content) {
+    return { success: false, error: 'NOTE_IDENTIFIER_REQUIRED', statusCode: 400 };
+  }
+
+  const pdfNotesStr = typeof payload.pdfNotes === 'object' && payload.pdfNotes !== null
+    ? JSON.stringify(payload.pdfNotes)
+    : payload.pdfNotes;
+
+  // 1. If pdfNotes is provided, use atomic frontmatter update
+  if (targetIdentifier && pdfNotesStr !== undefined) {
+    return updateNotePdfAnnotations(targetIdentifier, pdfNotesStr, userId, client);
+  }
+
+  // 2. If general frontmatter updates provided
+  if (targetIdentifier && payload.frontmatterUpdates && Object.keys(payload.frontmatterUpdates).length > 0) {
+    return atomicUpdateNoteFrontmatter(targetIdentifier, payload.frontmatterUpdates, userId, client);
+  }
+
+  // 3. If entire content provided
+  if (payload.content !== undefined) {
+    const cleanPath = sanitizeRelativePath(payload.notePath || targetIdentifier || 'untitled.md') || (payload.notePath || targetIdentifier || 'untitled.md').replace(/\\/g, '/');
+    const result = await batchUpsertVaultNotes([{
+      user_id: userId || 'anonymous',
+      title: payload.title || 'Untitled',
+      content: payload.content,
+      path: cleanPath,
+      folder: payload.folder || 'Root',
+      tags: payload.tags || []
+    }], client);
+
+    return {
+      success: result.success,
+      count: result.count,
+      error: result.error,
+      statusCode: result.success ? 200 : 500
+    };
+  }
+
+  return { success: false, error: 'NO_PAYLOAD_CHANGES_PROVIDED', statusCode: 400 };
+}
+

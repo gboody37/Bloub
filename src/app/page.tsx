@@ -124,7 +124,7 @@ export default function Home() {
 
   // Study Workflow State
   const [showStudyExplorer, setShowStudyExplorer] = useState(false);
-    const [showGraphView, setShowGraphView] = useState(false);
+  const [showGraphView, setShowGraphView] = useState(false);
   const [showQuizSession, setShowQuizSession] = useState(false);
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [selectedNote, setSelectedNote] = useState<ParsedObsidianNote | null>(null);
@@ -133,23 +133,30 @@ export default function Home() {
   const lastScrollY = useRef(0);
 
   useEffect(() => {
+    let rafId: number | null = null;
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      if (currentScrollY > lastScrollY.current + 10) {
-        setIsNavVisible(false);
-      } else if (currentScrollY < lastScrollY.current - 10) {
-        setIsNavVisible(true);
-      }
-      // Keep it visible if near the top
-      if (currentScrollY < 50) {
-        setIsNavVisible(true);
-      }
-      lastScrollY.current = currentScrollY;
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        const currentScrollY = window.scrollY;
+        if (currentScrollY > lastScrollY.current + 10) {
+          setIsNavVisible(false);
+        } else if (currentScrollY < lastScrollY.current - 10) {
+          setIsNavVisible(true);
+        }
+        // Keep it visible if near the top
+        if (currentScrollY < 50) {
+          setIsNavVisible(true);
+        }
+        lastScrollY.current = currentScrollY;
+        rafId = null;
+      });
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
-
 
   // Auth Effect
   useEffect(() => {
@@ -1014,8 +1021,9 @@ export default function Home() {
     <div className={`min-h-screen w-full ${bgTheme} transition-colors duration-500 font-sans`}>
       <main className={`w-full ${selectedNote ? 'max-w-[100vw] px-0 md:px-4' : (!isListView && activeTab === 'lists' && activeCatObj?.type === 'study') ? 'max-w-[100vw] px-2 sm:px-6' : (activeTab === 'settings' ? 'max-w-5xl' : 'max-w-md')} mx-auto ${selectedNote ? 'h-[100dvh] max-h-[100dvh] overflow-hidden' : 'min-h-[100dvh] pb-24'} flex flex-col relative transition-all duration-500`}>
         {/* Header */}
-        {(!selectedNote && activeTab !== 'settings') && (
-          <header className={`pt-12 pb-6 px-6 relative z-30 flex justify-between items-center border-b transition-colors duration-500 ${bgTheme} ${isDark ? 'border-slate-800' : 'border-gray-200/30'}`}>
+        {activeTab !== 'settings' && (
+          !selectedNote && (
+            <header className={`pt-12 pb-6 px-6 relative z-30 flex justify-between items-center border-b transition-colors duration-500 ${bgTheme} ${isDark ? 'border-slate-800' : 'border-gray-200/30'}`}>
             <div className="flex-1">
               <h1 className={`text-3xl font-bold tracking-tight transition-colors ${t.textPrimary}`}>
                 {activeTab === 'lists' ? (isListView ? 'My Lists' : activeCatObj.name) : activeTab === 'today' ? 'Today' : 'Stats'}
@@ -1033,6 +1041,7 @@ export default function Home() {
               )}
             </div>
           </header>
+          )
         )}
 
       {/* Add Task Modal */}
@@ -1205,56 +1214,55 @@ export default function Home() {
             {/* Right side: Settings controls */}
             <div className="w-full md:w-1/2 lg:w-2/5 h-full overflow-y-auto custom-scrollbar pb-32 pt-6 px-6 bg-slate-900/90 dark:bg-slate-900 border-l border-slate-800">
               
-              {/* Mobile Mascot Preview (Hidden on Desktop) */}
-              <div className="md:hidden w-full flex flex-col items-center mb-6">
+              {/* Mascot Preview inside Settings */}
+              <div className="bg-slate-900 rounded-3xl p-4 mb-6 border border-slate-800 flex flex-col items-center">
                 <div className="w-32 h-32 flex items-center justify-center mb-4 cursor-pointer hover:scale-105 transition-transform duration-300" onClick={() => triggerMascot('orbit', mascotExpression)}>
                   <BloubMascot size={120} state="idle" expression={mascotExpression} shape={targetShape} color={targetColor} isStatic={false} />
                 </div>
-              </div>
 
-              {/* Horizontal Category Scroller */}
-              <div className="w-full flex gap-2.5 overflow-x-auto pb-4 pt-1 px-1 custom-scrollbar scroll-smooth mb-4 border-b border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setSettingsTarget('global')}
-                  className={`flex-shrink-0 flex flex-col items-center py-2 px-3 rounded-2xl border transition-all ${
-                    settingsTarget === 'global'
-                      ? 'bg-slate-700/90 border-blue-500 text-white shadow-md scale-105 ring-1 ring-blue-500/30'
-                      : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                  }`}
-                >
-                  <div className="w-8 h-8 flex items-center justify-center pointer-events-none">
-                    <BloubMascot size={48} state="idle" expression={mascotExpression} shape={mascotShape} color={mascotColor} isStatic={true} />
-                  </div>
-                  <span className="text-[10px] font-bold mt-1 tracking-wide uppercase">Global</span>
-                </button>
-                {categories.map(cat => {
-                  const { shape: cShape, color: cColor } = getListMascot(cat, catSettings);
-                  return (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setSettingsTarget(cat.id)}
-                      className={`flex-shrink-0 flex flex-col items-center py-2 px-3 rounded-2xl border transition-all ${
-                        settingsTarget === cat.id
-                          ? 'bg-slate-700/90 border-blue-500 text-white shadow-md scale-105 ring-1 ring-blue-500/30'
-                          : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                      }`}
-                    >
-                      <div className="w-8 h-8 flex items-center justify-center pointer-events-none">
-                        <BloubMascot size={48} state="idle" expression="neutre" shape={cShape} color={cColor} isStatic={true} />
-                      </div>
-                      <span className="text-[10px] font-bold mt-1 tracking-wide uppercase truncate w-12 text-center">{cat.name}</span>
-                    </button>
-                  );
-                })}
+                {/* Horizontal Category Scroller */}
+                <div className="w-full flex gap-2.5 overflow-x-auto pb-4 pt-1 px-1 custom-scrollbar scroll-smooth border-t border-slate-800/80">
+                  <button
+                    type="button"
+                    onClick={() => setSettingsTarget('global')}
+                    className={`flex-shrink-0 flex flex-col items-center py-2 px-3 rounded-2xl border transition-all ${
+                      settingsTarget === 'global'
+                        ? 'bg-slate-700/90 border-blue-500 text-white shadow-md scale-105 ring-1 ring-blue-500/30'
+                        : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    }`}
+                  >
+                    <div className="w-8 h-8 flex items-center justify-center pointer-events-none">
+                      <BloubMascot size={48} state="idle" expression={mascotExpression} shape={mascotShape} color={mascotColor} isStatic={true} />
+                    </div>
+                    <span className="text-[10px] font-bold mt-1 tracking-wide uppercase">Global</span>
+                  </button>
+                  {categories.map(cat => {
+                    const { shape: cShape, color: cColor } = getListMascot(cat, catSettings);
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setSettingsTarget(cat.id)}
+                        className={`flex-shrink-0 flex flex-col items-center py-2 px-3 rounded-2xl border transition-all ${
+                          settingsTarget === cat.id
+                            ? 'bg-slate-700/90 border-blue-500 text-white shadow-md scale-105 ring-1 ring-blue-500/30'
+                            : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="w-8 h-8 flex items-center justify-center pointer-events-none">
+                          <BloubMascot size={48} state="idle" expression="neutre" shape={cShape} color={cColor} isStatic={true} />
+                        </div>
+                        <span className="text-[10px] font-bold mt-1 tracking-wide uppercase truncate w-12 text-center">{cat.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Shape Section */}
               <div className="mb-6">
                 <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> 
-                  Shape
+                  <Shapes size={14} /> Shape
                 </span>
                 <div className="grid grid-cols-4 gap-2">
                   {SHAPE_IDS.map(s => (
@@ -1286,7 +1294,7 @@ export default function Home() {
                     <button
                       key={expr}
                       type="button"
-                      onClick={() => updateTargetExpr(expr)}
+                      onClick={() => { updateTargetExpr(expr); setMascotExpression(expr as ExpressionId); } /* onClick={() => setMascotExpression(expr as ExpressionId)} */}
                       className={`flex aspect-square flex-col items-center justify-center rounded-2xl border-2 transition-all cursor-pointer ${
                         (settingsTarget === 'global' ? mascotExpression : (catSettings[settingsTarget]?.expression || 'neutre')) === expr
                           ? 'bg-slate-800 border-blue-500 shadow-md ring-2 ring-blue-500/30 ring-offset-1 ring-offset-slate-900 scale-105'
@@ -1305,8 +1313,7 @@ export default function Home() {
               {/* Color Section */}
               <div className="mb-6">
                 <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
-                  Colour
+                  <PaintBucket size={14} /> Colour
                 </span>
                 <div className="flex flex-wrap gap-3">
                   {COLORS.map(c => (
@@ -1518,7 +1525,7 @@ export default function Home() {
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-3.5">
                           <div className="w-12 h-12 drop-shadow-sm flex items-center justify-center flex-shrink-0">
-                            <BloubMascot size={42} state="idle" expression={dynCat.expr} shape={catShape} color={dynCat.color} />
+                            <BloubMascot size={42} state="idle" expression={dynCat.expr} shape={catShape} color={dynCat.color} isStatic={true} />
                           </div>
                           <div className="flex flex-col">
                             {isEditing ? (

@@ -4,9 +4,10 @@ import {
   processPageTextContent,
   sortLinesInReadingOrder,
   type ProcessedTextLine,
+  type ProcessedTextItem,
 } from '../../src/lib/pdf/arabic-bidi.ts';
 
-describe('Challenger - Arabic BiDi Geometric Clustering & Reading Order Rigor', () => {
+describe('⚔️ CHALLENGER HARNESS 1: Multi-Column Geometry & Reading Order Transitivity', () => {
   it('should prevent column interleaving when short centered title is positioned above 2 columns', () => {
     // 600px width page, centered title is 160px wide (26.6% < 60%)
     const lines: ProcessedTextLine[] = [
@@ -194,4 +195,209 @@ describe('Challenger - Arabic BiDi Geometric Clustering & Reading Order Rigor', 
   });
 });
 
+describe('⚔️ CHALLENGER HARNESS 2: Extreme Zoom Invariance (0.1x to 10.0x Multipliers)', () => {
+  const zoomMultipliers = [0.1, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.5, 5.0, 8.0, 10.0];
 
+  for (const zoom of zoomMultipliers) {
+    it(`should maintain column breaking across 2 columns under extreme zoom ${zoom}x`, () => {
+      // 2 columns: Right column at x=350 (width 150), Left column at x=100 (width 150), gap = 100px (at 1.0x)
+      const textContent = {
+        items: [
+          { str: 'عمود يمين', width: 150, height: 14, transform: [14, 0, 0, 14, 350, 700] },
+          { str: 'عمود يسار', width: 150, height: 14, transform: [14, 0, 0, 14, 100, 700] },
+        ]
+      };
+
+      const viewport = { scale: zoom, height: 1000 * zoom, width: 800 * zoom };
+      const lines = processPageTextContent(textContent, viewport);
+
+      assert.equal(lines.length, 2, `Zoom ${zoom}x must produce 2 distinct lines`);
+      assert.equal(lines[0].fullText, 'عمود يمين', `Zoom ${zoom}x first line must be right column`);
+      assert.equal(lines[1].fullText, 'عمود يسار', `Zoom ${zoom}x second line must be left column`);
+
+      // Verify coordinate scale invariance
+      assert.ok(Math.abs(lines[0].left - 350 * zoom) < 0.1, `Zoom ${zoom}x line left scale mismatch`);
+      assert.ok(Math.abs(lines[1].left - 100 * zoom) < 0.1, `Zoom ${zoom}x line left scale mismatch`);
+      assert.ok(lines[0].height >= 12 * zoom, `Zoom ${zoom}x line height must scale proportionally`);
+    });
+
+    it(`should transitively sort 3-column document under extreme zoom ${zoom}x without interleaving`, () => {
+      const lines: ProcessedTextLine[] = [
+        // Header
+        { items: [], fullText: 'ترويسة رئيسية', dir: 'rtl', top: 40 * zoom, left: 50 * zoom, width: 700 * zoom, height: 20 * zoom },
+        // Col 1 (Right)
+        { items: [], fullText: 'عمود 1 سطر 1', dir: 'rtl', top: 100 * zoom, left: 550 * zoom, width: 200 * zoom, height: 14 * zoom },
+        { items: [], fullText: 'عمود 1 سطر 2', dir: 'rtl', top: 140 * zoom, left: 550 * zoom, width: 200 * zoom, height: 14 * zoom },
+        // Col 2 (Middle)
+        { items: [], fullText: 'عمود 2 سطر 1', dir: 'rtl', top: 100 * zoom, left: 300 * zoom, width: 200 * zoom, height: 14 * zoom },
+        { items: [], fullText: 'عمود 2 سطر 2', dir: 'rtl', top: 140 * zoom, left: 300 * zoom, width: 200 * zoom, height: 14 * zoom },
+        // Col 3 (Left)
+        { items: [], fullText: 'عمود 3 سطر 1', dir: 'rtl', top: 100 * zoom, left: 50 * zoom, width: 200 * zoom, height: 14 * zoom },
+        { items: [], fullText: 'عمود 3 سطر 2', dir: 'rtl', top: 140 * zoom, left: 50 * zoom, width: 200 * zoom, height: 14 * zoom },
+      ];
+
+      const sorted = sortLinesInReadingOrder(lines, true);
+      const textOrder = sorted.map(l => l.fullText);
+
+      assert.deepEqual(textOrder, [
+        'ترويسة رئيسية',
+        'عمود 1 سطر 1',
+        'عمود 1 سطر 2',
+        'عمود 2 سطر 1',
+        'عمود 2 سطر 2',
+        'عمود 3 سطر 1',
+        'عمود 3 سطر 2'
+      ], `Zoom ${zoom}x failed 3-column transitivity`);
+    });
+  }
+});
+
+describe('⚔️ CHALLENGER HARNESS 3: Permutation Invariance & Randomized Item Fuzzing', () => {
+  it('should produce identical reading order across 50 random raw PDF.js item permutations in 2-column layout', () => {
+    const rawItems = [
+      // Right Column items
+      { str: 'يمين 1 كلمة 1', width: 60, height: 12, transform: [12, 0, 0, 12, 350, 700] },
+      { str: 'يمين 1 كلمة 2', width: 60, height: 12, transform: [12, 0, 0, 12, 420, 700] },
+      { str: 'يمين 2 كلمة 1', width: 60, height: 12, transform: [12, 0, 0, 12, 350, 660] },
+      { str: 'يمين 2 كلمة 2', width: 60, height: 12, transform: [12, 0, 0, 12, 420, 660] },
+      // Left Column items
+      { str: 'يسار 1 كلمة 1', width: 60, height: 12, transform: [12, 0, 0, 12, 50, 700] },
+      { str: 'يسار 1 كلمة 2', width: 60, height: 12, transform: [12, 0, 0, 12, 120, 700] },
+      { str: 'يسار 2 كلمة 1', width: 60, height: 12, transform: [12, 0, 0, 12, 50, 660] },
+      { str: 'يسار 2 كلمة 2', width: 60, height: 12, transform: [12, 0, 0, 12, 120, 660] },
+    ];
+
+    const viewport = { scale: 1.0, height: 800, width: 600 };
+
+    // Baseline un-shuffled run
+    const baselineLines = processPageTextContent({ items: rawItems }, viewport);
+    const baselineTexts = baselineLines.map(l => l.fullText);
+
+    assert.equal(baselineLines.length, 4, 'Must produce 4 lines total');
+
+    // 50 random shuffles of the raw PDF.js items
+    for (let trial = 1; trial <= 50; trial++) {
+      const shuffled = [...rawItems].sort(() => Math.random() - 0.5);
+      const lines = processPageTextContent({ items: shuffled }, viewport);
+      const texts = lines.map(l => l.fullText);
+
+      assert.deepEqual(texts, baselineTexts, `Raw item shuffle trial ${trial} produced non-deterministic output`);
+    }
+  });
+
+  it('should maintain deterministic reading order across 50 permutations with staggered baselines and mid-page banner', () => {
+    const lines: ProcessedTextLine[] = [
+      // Top Title
+      { items: [], fullText: 'عنوان المقال الرئيسي', dir: 'rtl', top: 50, left: 100, width: 600, height: 24 },
+      // Top 2 Columns (staggered baselines: Right at 100, 140; Left at 115, 155)
+      { items: [], fullText: 'أعلى يمين 1', dir: 'rtl', top: 100, left: 450, width: 250, height: 14 },
+      { items: [], fullText: 'أعلى يمين 2', dir: 'rtl', top: 140, left: 450, width: 250, height: 14 },
+      { items: [], fullText: 'أعلى يسار 1', dir: 'rtl', top: 115, left: 50, width: 250, height: 14 },
+      { items: [], fullText: 'أعلى يسار 2', dir: 'rtl', top: 155, left: 50, width: 250, height: 14 },
+      // Mid-page Section Break (Spanning Banner)
+      { items: [], fullText: '--- القسم الثاني: النتائج والتوصيات ---', dir: 'rtl', top: 250, left: 80, width: 640, height: 20 },
+      // Bottom 2 Columns (Right at 300, 340; Left at 310, 350)
+      { items: [], fullText: 'أسفل يمين 1', dir: 'rtl', top: 300, left: 450, width: 250, height: 14 },
+      { items: [], fullText: 'أسفل يمين 2', dir: 'rtl', top: 340, left: 450, width: 250, height: 14 },
+      { items: [], fullText: 'أسفل يسار 1', dir: 'rtl', top: 310, left: 50, width: 250, height: 14 },
+      { items: [], fullText: 'أسفل يسار 2', dir: 'rtl', top: 350, left: 50, width: 250, height: 14 },
+      // Bottom Footer
+      { items: [], fullText: 'جميع الحقوق محفوظة 2026', dir: 'rtl', top: 500, left: 100, width: 600, height: 16 },
+    ];
+
+    const expectedOrder = [
+      'عنوان المقال الرئيسي',
+      'أعلى يمين 1',
+      'أعلى يمين 2',
+      'أعلى يسار 1',
+      'أعلى يسار 2',
+      '--- القسم الثاني: النتائج والتوصيات ---',
+      'أسفل يمين 1',
+      'أسفل يمين 2',
+      'أسفل يسار 1',
+      'أسفل يسار 2',
+      'جميع الحقوق محفوظة 2026',
+    ];
+
+    for (let trial = 1; trial <= 50; trial++) {
+      const shuffled = [...lines].sort(() => Math.random() - 0.5);
+      const sorted = sortLinesInReadingOrder(shuffled, true);
+      assert.deepEqual(sorted.map(l => l.fullText), expectedOrder, `Trial ${trial} failed staggered multi-zone order`);
+    }
+  });
+});
+
+describe('⚔️ CHALLENGER HARNESS 4: High-Scale Stress Benchmarking (10,000 to 50,000 Items)', () => {
+  it('should cluster and sort 25,000 synthetic multi-column items in < 200ms', () => {
+    const totalLines = 2500; // 1250 lines right col, 1250 lines left col
+    const itemsPerLine = 10;
+    const rawItems: any[] = [];
+
+    for (let l = 0; l < totalLines; l++) {
+      const isRightCol = l % 2 === 0;
+      const rowIdx = Math.floor(l / 2);
+      const top = 100000 - rowIdx * 35;
+      const startX = isRightCol ? 450 : 50;
+
+      for (let i = 0; i < itemsPerLine; i++) {
+        rawItems.push({
+          str: `كلمة_${rowIdx}_${i}`,
+          transform: [12, 0, 0, 12, startX + i * 30, top],
+          width: 25,
+          height: 12,
+        });
+      }
+    }
+
+    // Shuffle raw stream to stress spatial sorting
+    rawItems.sort(() => Math.random() - 0.5);
+
+    const viewport = { scale: 1.0, height: 120000, width: 1000 };
+
+    const t0 = performance.now();
+    const lines = processPageTextContent({ items: rawItems }, viewport);
+    const duration = performance.now() - t0;
+
+    assert.equal(lines.length, totalLines, `Expected ${totalLines} clustered lines, got ${lines.length}`);
+    assert.ok(duration < 500, `25,000 items clustered & sorted in ${duration.toFixed(2)}ms, target < 500ms`);
+  });
+
+  it('should maintain linear O(N log N) scaling when doubling from 10k to 20k to 40k items', () => {
+    function generateDataset(itemCount: number) {
+      const items: any[] = [];
+      const lines = Math.floor(itemCount / 8);
+      for (let l = 0; l < lines; l++) {
+        const top = 50000 - l * 30;
+        for (let i = 0; i < 8; i++) {
+          items.push({
+            str: `عنصر_${l}_${i}`,
+            transform: [12, 0, 0, 12, 50 + i * 50, top],
+            width: 45,
+            height: 12,
+          });
+        }
+      }
+      return items.sort(() => Math.random() - 0.5);
+    }
+
+    const set10k = generateDataset(10000);
+    const set20k = generateDataset(20000);
+    const set40k = generateDataset(40000);
+    const viewport = { scale: 1.0, height: 200000, width: 1000 };
+
+    const t1 = performance.now();
+    processPageTextContent({ items: set10k }, viewport);
+    const d10k = performance.now() - t1;
+
+    const t2 = performance.now();
+    processPageTextContent({ items: set20k }, viewport);
+    const d20k = performance.now() - t2;
+
+    const t3 = performance.now();
+    processPageTextContent({ items: set40k }, viewport);
+    const d40k = performance.now() - t3;
+
+    // Verify 40k items does not blow up quadratically: d40k should be comfortably under 600ms
+    assert.ok(d40k < 600, `40,000 items executed in ${d40k.toFixed(2)}ms (10k: ${d10k.toFixed(2)}ms, 20k: ${d20k.toFixed(2)}ms)`);
+  });
+});

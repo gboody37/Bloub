@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import ArabicTextLayer from './ArabicTextLayer';
+import NotesPanel from './NotesPanel';
 import { ChevronLeft, ChevronRight, PenTool, Save, Check, Highlighter, Type, MousePointer2, ZoomIn, ZoomOut, Eraser, Undo2, Sidebar, Hand, Eye, EyeOff, Square, Baseline } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { updateFrontmatterField } from '@/lib/obsidian/parser';
@@ -141,6 +142,9 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
   const containerRef = React.useRef<HTMLDivElement>(null);
   
   useEffect(() => {
+    let rafId: number | null = null;
+    let latestWidth: number | null = null;
+
     const handleGlobalMouseMove = (e: MouseEvent | TouchEvent) => {
       if (!isDragging || !containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
@@ -151,10 +155,29 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
       } else if ('clientX' in e) {
         clientX = (e as MouseEvent).clientX;
       }
-      const newWidth = rightEdge - clientX;
-      setNotesWidth(Math.max(200, Math.min(newWidth, Math.max(200, rect.width - 300))));
+      const newWidth = Math.max(200, Math.min(rightEdge - clientX, Math.max(200, rect.width - 300)));
+      latestWidth = newWidth;
+
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          if (latestWidth !== null) {
+            setNotesWidth(latestWidth);
+          }
+          rafId = null;
+        });
+      }
     };
-    const handleGlobalMouseUp = () => setIsDragging(false);
+
+    const handleGlobalMouseUp = () => {
+      setIsDragging(false);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      if (latestWidth !== null) {
+        setNotesWidth(latestWidth);
+      }
+    };
     
     if (isDragging) {
       window.addEventListener('mousemove', handleGlobalMouseMove);
@@ -163,6 +186,9 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
       window.addEventListener('touchend', handleGlobalMouseUp);
     }
     return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
       window.removeEventListener('mousemove', handleGlobalMouseMove);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
       window.removeEventListener('touchmove', handleGlobalMouseMove);
@@ -179,7 +205,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
     // If switching notes and previous note had dirty changes, flush save for previous note
     if (prevNoteIdRef.current && prevNoteIdRef.current !== noteId) {
       if (isDirtyRef.current) {
-        handleSave(notesRef.current, annotationsRef.current, prevNoteIdRef.current, prevNotePathRef.current);
+        flushPendingState(notesRef.current, annotationsRef.current, prevNoteIdRef.current, prevNotePathRef.current);
       }
       prevNoteIdRef.current = noteId;
       prevNotePathRef.current = notePath;
@@ -322,6 +348,65 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
     }
   };
 
+  const flushPendingState = useCallback((forceNotes?: any, forceAnnotations?: any, targetNoteId?: string, targetNotePath?: string) => {
+    if (!isDirtyRef.current) return;
+
+    let saveAnnotations = forceAnnotations !== undefined ? forceAnnotations : annotationsRef.current;
+    
+    // Commit any active pending text annotation before persisting
+    if (pendingTextRef.current && pendingTextRef.current.text.trim()) {
+      const pending = pendingTextRef.current;
+      const newAnn = { id: Date.now(), type: 'text', ...pending };
+      saveAnnotations = {
+        ...saveAnnotations,
+        [pageNumber]: [...(saveAnnotations[pageNumber] || []), newAnn]
+      };
+      annotationsRef.current = saveAnnotations;
+      setAnnotations(saveAnnotations);
+      setPendingText(null);
+    }
+
+    const saveNotes = forceNotes !== undefined ? forceNotes : notesRef.current;
+    const effNoteId = targetNoteId || prevNoteIdRef.current || noteId;
+    const effNotePath = targetNotePath || prevNotePathRef.current || notePath || effNoteId;
+
+    if (!effNoteId && !effNotePath) return;
+
+    const payload = {
+      noteId: effNoteId,
+      notePath: effNotePath,
+      pdfNotes: {
+        notes: saveNotes,
+        annotations: saveAnnotations
+      }
+    };
+
+    const payloadStr = JSON.stringify(payload);
+    let beaconSent = false;
+    if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+      try {
+        const blob = new Blob([payloadStr], { type: 'application/json' });
+        beaconSent = navigator.sendBeacon('/api/obsidian/flush', blob);
+      } catch (err) {
+        beaconSent = false;
+      }
+    }
+
+    if (!beaconSent && typeof fetch !== 'undefined') {
+      try {
+        fetch('/api/obsidian/flush', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payloadStr,
+          keepalive: true
+        }).catch(() => {});
+      } catch (err) {}
+    }
+
+    handleSave(saveNotes, saveAnnotations, effNoteId, effNotePath);
+    isDirtyRef.current = false;
+  }, [noteId, notePath, pageNumber]);
+
   useEffect(() => {
     if (!isDirtyRef.current) return;
     
@@ -333,15 +418,15 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
   }, [notes, annotations]);
 
   useEffect(() => {
-    // Unmount & visibility change save
+    // Unmount & visibility change save using beacon flush
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && isDirtyRef.current && prevNoteIdRef.current) {
-        handleSave(notesRef.current, annotationsRef.current, prevNoteIdRef.current, prevNotePathRef.current);
+      if (document.visibilityState === 'hidden' && isDirtyRef.current) {
+        flushPendingState();
       }
     };
     const handleBeforeUnload = () => {
-      if (isDirtyRef.current && prevNoteIdRef.current) {
-        handleSave(notesRef.current, annotationsRef.current, prevNoteIdRef.current, prevNotePathRef.current);
+      if (isDirtyRef.current) {
+        flushPendingState();
       }
     };
 
@@ -351,11 +436,11 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      if (isDirtyRef.current && prevNoteIdRef.current) {
-        handleSave(notesRef.current, annotationsRef.current, prevNoteIdRef.current, prevNotePathRef.current);
+      if (isDirtyRef.current) {
+        flushPendingState();
       }
     };
-  }, []);
+  }, [flushPendingState]);
 
   // Keyboard shortcut Ctrl+S / Cmd+S to immediately save
   useEffect(() => {
@@ -385,6 +470,9 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
               
               for (let i = 0; i < rects.length; i++) {
                 const rect = rects[i];
+                // Filter ghost micro-rectangles (<3px width or height)
+                if (rect.width < 3 || rect.height < 3) continue;
+
                 const newAnn = {
                   id: Date.now() + i,
                   type: 'highlight',
@@ -793,51 +881,24 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-8 bg-slate-600 rounded-full opacity-50 pointer-events-none"></div>
        </div>
 
-         {/* Handwriting Notebook Side */}
-       <div style={{ width: notesWidth }} className={`flex-shrink-0 h-full border-l flex flex-col ${isDark ? 'border-slate-800 bg-[#12141c]' : 'border-gray-200 bg-[#fffdf5]'}`}>
-         
-         <div className={`p-4 border-b flex justify-between items-center ${isDark ? 'border-slate-800 bg-slate-900' : 'border-gray-200 bg-white'}`}>
-           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-purple-400">
-             <PenTool size={14}/> Pg. {pageNumber} Notes
-           </div>
-           
-           <div className="flex items-center gap-3">
-             <select 
-               value={currentNote.lang} 
-               onChange={e => {
-                 isDirtyRef.current = true;
-                 setNotes(n => ({...n, [pageNumber]: {...currentNote, lang: e.target.value as 'en'|'ar'}}));
-               }}
-               className={`text-xs px-2.5 py-1.5 rounded-lg border outline-none cursor-pointer ${isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
-             >
-               <option value="en">English (Caveat)</option>
-               <option value="ar">عربي (Lemonada)</option>
-             </select>
-
-             
-           </div>
-         </div>
-
-         <textarea 
-           value={currentNote.text}
-           onChange={e => {
-             isDirtyRef.current = true;
-             setNotes(n => ({...n, [pageNumber]: {...currentNote, text: e.target.value}}));
-           }}
-           placeholder="Write your notes here..."
-           dir={currentNote.lang === 'ar' ? 'rtl' : 'ltr'}
-           className={`flex-1 w-full p-8 bg-transparent outline-none resize-none leading-[32px] ${
-             currentNote.lang === 'ar' 
-               ? 'font-[family-name:var(--font-lemonada)] text-right text-[1.1rem]' 
-               : 'font-[family-name:var(--font-caveat)] text-left text-2xl tracking-wide'
-           } ${isDark ? 'text-amber-100/90 placeholder:text-amber-100/20' : 'text-slate-800 placeholder:text-slate-300'}`}
-           style={{
-             backgroundImage: `repeating-linear-gradient(transparent, transparent 31px, ${isDark ? 'rgba(167, 139, 250, 0.15)' : 'rgba(167, 139, 250, 0.3)'} 31px, ${isDark ? 'rgba(167, 139, 250, 0.15)' : 'rgba(167, 139, 250, 0.3)'} 32px)`,
-             backgroundAttachment: 'local'
-           }}
-         />
-       </div>
-         </>)}
+        {/* Handwriting Notebook Side */}
+        <NotesPanel
+          pageNumber={pageNumber}
+          notesWidth={notesWidth}
+          isDark={isDark}
+          initialNote={notes[pageNumber] || { text: '', lang: 'en' }}
+          onChange={(pg, noteData) => {
+            isDirtyRef.current = true;
+            setNotes(n => ({
+              ...n,
+              [pg]: noteData
+            }));
+          }}
+          onDirty={() => {
+            isDirtyRef.current = true;
+          }}
+        />
+        </>)}
     </div>
   )
 }

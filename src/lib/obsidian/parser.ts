@@ -261,3 +261,25 @@ export function updateFrontmatterField(content: string, key: string, value: stri
     return `---\n${newLine}\n---\n\n${raw}`;
   }
 }
+
+/**
+ * Safely applies PDF notes JSON/object to frontmatter without altering body content.
+ */
+export function applyPdfNotesToContent(content: string, pdfNotes: string | Record<string, any>): string {
+  const notesStr = typeof pdfNotes === 'object' && pdfNotes !== null
+    ? JSON.stringify(pdfNotes)
+    : (pdfNotes || '{}');
+  return updateFrontmatterField(content, 'pdf_notes', notesStr);
+}
+
+/**
+ * Safely applies multiple frontmatter updates without altering body content.
+ */
+export function applyFrontmatterUpdatesToContent(content: string, updates: Record<string, string>): string {
+  let result = content || '';
+  for (const [key, value] of Object.entries(updates)) {
+    result = updateFrontmatterField(result, key, value);
+  }
+  return result;
+}
+

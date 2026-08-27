@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import type { ParsedObsidianNote } from '@/types/obsidian';
 import dynamic from 'next/dynamic';
+import BlockEditor from '../editor/BlockEditor';
 
 const PdfNotebookViewer = dynamic(() => import('./PdfNotebookViewer'), { ssr: false });
 
@@ -57,6 +58,7 @@ export default function NoteViewer({
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCodeBlockIdx, setCopiedCodeBlockIdx] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [editorMode, setEditorMode] = useState<'blocks' | 'raw'>('blocks');
   const [editContent, setEditContent] = useState('');
   const [showScratchpad, setShowScratchpad] = useState(false);
   const [scratchContent, setScratchContent] = useState('');
@@ -472,29 +474,60 @@ export default function NoteViewer({
               </button>
             )}
 
-            {/* Edit / Save Action */}
+            {/* Edit / Save Action & Mode Toggle */}
             {onUpdateNote && !pdfUrl && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (isEditing) {
-                    onUpdateNote(editContent);
-                    setIsEditing(false);
-                  } else {
-                    setIsEditing(true);
-                  }
-                }}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
-                  isEditing 
-                    ? 'bg-green-600 hover:bg-green-500 text-white shadow-md shadow-green-600/30' 
-                    : isDark 
-                      ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {isEditing ? <Check size={14} /> : <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>}
-                <span>{isEditing ? 'Save Note' : 'Edit Note'}</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                {isEditing && (
+                  <div className={`flex items-center p-0.5 rounded-xl border text-[11px] font-semibold ${
+                    isDark ? 'bg-slate-900 border-slate-700' : 'bg-gray-100 border-gray-200'
+                  }`}>
+                    <button
+                      type="button"
+                      onClick={() => setEditorMode('blocks')}
+                      className={`px-2 py-0.5 rounded-lg transition-all ${
+                        editorMode === 'blocks'
+                          ? 'bg-purple-600 text-white shadow-xs'
+                          : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      Blocks
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditorMode('raw')}
+                      className={`px-2 py-0.5 rounded-lg transition-all ${
+                        editorMode === 'raw'
+                          ? 'bg-purple-600 text-white shadow-xs'
+                          : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      Raw
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isEditing) {
+                      onUpdateNote(editContent);
+                      setIsEditing(false);
+                    } else {
+                      setIsEditing(true);
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                    isEditing 
+                      ? 'bg-green-600 hover:bg-green-500 text-white shadow-md shadow-green-600/30' 
+                      : isDark 
+                        ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {isEditing ? <Check size={14} /> : <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>}
+                  <span>{isEditing ? 'Save Note' : 'Edit Note'}</span>
+                </button>
+              </div>
             )}
 
             {/* Scratchpad Toggle */}
@@ -621,14 +654,30 @@ export default function NoteViewer({
         {/* Visual Document / Markdown Container */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden" dir="auto">
           {isEditing ? (
-            <textarea
-              dir="auto"
-              className={`w-full min-h-[500px] h-full resize-none bg-transparent outline-none p-4 rounded-2xl border ${isDark ? 'border-slate-700 text-slate-200' : 'border-gray-300 text-gray-800'}`}
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              placeholder="Start typing markdown..."
-              spellCheck={false}
-            />
+            <div className="flex-1 flex flex-col min-h-0">
+              {editorMode === 'blocks' ? (
+                <BlockEditor
+                  initialMarkdown={editContent}
+                  isDark={isDark}
+                  onChange={(newMarkdown) => {
+                    setEditContent(newMarkdown);
+                  }}
+                  onSave={(finalMarkdown) => {
+                    setEditContent(finalMarkdown);
+                    if (onUpdateNote) onUpdateNote(finalMarkdown);
+                  }}
+                />
+              ) : (
+                <textarea
+                  dir="auto"
+                  className={`w-full min-h-[500px] h-full resize-none bg-transparent outline-none p-4 rounded-2xl border font-mono text-sm leading-relaxed ${isDark ? 'border-slate-700 text-slate-200 bg-slate-900/30' : 'border-gray-300 text-gray-800 bg-gray-50'}`}
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  placeholder="Start typing markdown..."
+                  spellCheck={false}
+                />
+              )}
+            </div>
           ) : pdfUrl ? (
             <div className={`flex flex-col w-full h-full min-h-0 flex-1 gap-3 ${isPdfFullscreen ? 'fixed inset-0 z-50 p-6 bg-slate-950/95 backdrop-blur-xl' : ''}`}>
               {/* PDF Toolbar Header */}

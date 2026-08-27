@@ -238,14 +238,14 @@ export function normalizeArabicPresentationForms(text: string): string {
   return result.normalize('NFKC');
 }
 
+const ARABIC_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+
 /**
  * Checks if a string contains any Arabic characters, presentation forms, or Arabic-Indic digits.
  */
 export function isArabicText(text: string): boolean {
   if (!text) return false;
-  // Arabic core, supplement, extended, presentation forms A & B, Arabic-Indic digits
-  const arabicRegex = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
-  return arabicRegex.test(text);
+  return ARABIC_REGEX.test(text);
 }
 
 /**
@@ -256,6 +256,22 @@ export function isTashkeelChar(charCode: number): boolean {
          charCode === 0x0670 ||
          charCode === 0x0651; // Shaddah
 }
+
+const INITIAL_FORM_CODES = new Set([
+  0xFE8B, 0xFE91, 0xFE97, 0xFE9B, 0xFE9F, 0xFEA3, 0xFEA7,
+  0xFEB3, 0xFEB7, 0xFEBB, 0xFEBF, 0xFEC3, 0xFEC7, 0xFECB,
+  0xFECF, 0xFED3, 0xFED7, 0xFEDB, 0xFEDF, 0xFEE3, 0xFEE7,
+  0xFEEB, 0xFEF3
+]);
+
+const FINAL_FORM_CODES = new Set([
+  0xFE82, 0xFE84, 0xFE86, 0xFE88, 0xFE8A, 0xFE8E, 0xFE90,
+  0xFE94, 0xFE96, 0xFE9A, 0xFE9E, 0xFEA2, 0xFEA6, 0xFEAA,
+  0xFEAC, 0xFEAE, 0xFEB0, 0xFEB2, 0xFEB6, 0xFEBA, 0xFEBE,
+  0xFEC2, 0xFEC6, 0xFECA, 0xFECE, 0xFED2, 0xFED6, 0xFEDA,
+  0xFEDE, 0xFEE2, 0xFEE6, 0xFEEA, 0xFEEE, 0xFEF0, 0xFEF2,
+  0xFEF6, 0xFEF8, 0xFEFA, 0xFEFC
+]);
 
 /**
  * Helper to determine whether a raw string or token was laid out in visual order (reversed).
@@ -281,28 +297,12 @@ function isVisualOrderRun(rawStr: string): boolean {
   }
 
   // Initial forms at the END of the word
-  const initialFormCodes = new Set([
-    0xFE8B, 0xFE91, 0xFE97, 0xFE9B, 0xFE9F, 0xFEA3, 0xFEA7,
-    0xFEB3, 0xFEB7, 0xFEBB, 0xFEBF, 0xFEC3, 0xFEC7, 0xFECB,
-    0xFECF, 0xFED3, 0xFED7, 0xFEDB, 0xFEDF, 0xFEE3, 0xFEE7,
-    0xFEEB, 0xFEF3
-  ]);
-
-  if (initialFormCodes.has(lastCode)) {
+  if (INITIAL_FORM_CODES.has(lastCode)) {
     return true;
   }
 
   // Final forms at the START of the word
-  const finalFormCodes = new Set([
-    0xFE82, 0xFE84, 0xFE86, 0xFE88, 0xFE8A, 0xFE8E, 0xFE90,
-    0xFE94, 0xFE96, 0xFE9A, 0xFE9E, 0xFEA2, 0xFEA6, 0xFEAA,
-    0xFEAC, 0xFEAE, 0xFEB0, 0xFEB2, 0xFEB6, 0xFEBA, 0xFEBE,
-    0xFEC2, 0xFEC6, 0xFECA, 0xFECE, 0xFED2, 0xFED6, 0xFEDA,
-    0xFEDE, 0xFEE2, 0xFEE6, 0xFEEA, 0xFEEE, 0xFEF0, 0xFEF2,
-    0xFEF6, 0xFEF8, 0xFEFA, 0xFEFC
-  ]);
-
-  if (finalFormCodes.has(firstCode) && rawStr.length >= 2) {
+  if (FINAL_FORM_CODES.has(firstCode) && rawStr.length >= 2) {
     return true;
   }
 
@@ -456,11 +456,10 @@ export function processPageTextContent(textContent: any, viewport: any): Process
     }
 
     const isArabic = isArabicText(originalStr);
-    const normalizedStr = reorderVisualToLogicalArabic(originalStr);
     const dir: 'rtl' | 'ltr' = isArabic ? 'rtl' : 'ltr';
 
     rawItems.push({
-      str: normalizedStr,
+      str: originalStr,
       originalStr,
       dir,
       isArabic,
@@ -513,8 +512,11 @@ export function processPageTextContent(textContent: any, viewport: any): Process
   // 3. Cluster items into ProcessedTextLines, breaking across horizontal column gaps (R1)
   const lines: ProcessedTextLine[] = [];
 
-  for (const group of baselineGroups) {
-    group.sort((a, b) => a.left - b.left);
+  for (let g = 0; g < baselineGroups.length; g++) {
+    const group = baselineGroups[g];
+    if (group.length > 1) {
+      group.sort((a, b) => a.left - b.left);
+    }
 
     let lineItems: ProcessedTextItem[] = [];
     let currentLineRight = -Infinity;
@@ -692,36 +694,12 @@ function sortRectsByBaselineAndDirection(rects: Rect[], isRTL: boolean): Rect[] 
 }
 
 /**
- * Decomposes document into structural horizontal bands (dividers and multi-column regions).
+ * Decomposes document into structural horizontal bands (dividers and multi-column regions)
+ * in O(N log N) time using single-pass horizontal gutter detection and column binning.
  */
 function sortDocumentLayout(rects: Rect[], isRTL: boolean): Rect[] {
   if (rects.length <= 1) {
     return rects;
-  }
-
-  // 1. Group rects into baseline groups (horizontal slices)
-  const sortedByY = [...rects].sort((a, b) => a.top - b.top || (isRTL ? b.left - a.left : a.left - b.left));
-  const baselineSlices: Rect[][] = [];
-  let currentSlice: Rect[] = [sortedByY[0]];
-  let currentSliceTop = sortedByY[0].top;
-  let currentSliceHeight = sortedByY[0].height;
-
-  for (let i = 1; i < sortedByY.length; i++) {
-    const r = sortedByY[i];
-    const yTolerance = Math.max(4, Math.min(r.height, currentSliceHeight) * 0.4);
-
-    if (Math.abs(r.top - currentSliceTop) <= yTolerance) {
-      currentSlice.push(r);
-      currentSliceHeight = Math.max(currentSliceHeight, r.height);
-    } else {
-      baselineSlices.push(currentSlice);
-      currentSlice = [r];
-      currentSliceTop = r.top;
-      currentSliceHeight = r.height;
-    }
-  }
-  if (currentSlice.length > 0) {
-    baselineSlices.push(currentSlice);
   }
 
   let minX = Infinity, maxX = -Infinity;
@@ -731,132 +709,233 @@ function sortDocumentLayout(rects: Rect[], isRTL: boolean): Rect[] {
   }
   const totalContentWidth = Math.max(maxX - minX, 1);
 
-  function isSpanningBanner(slice: Rect[]): boolean {
-    if (slice.length !== 1) return false;
-    const r = slice[0];
+  function isSpanningBanner(r: Rect): boolean {
     return totalContentWidth > 200 && r.width >= totalContentWidth * 0.75;
   }
 
-  function isValidMultiColumnBlock(candidateRects: Rect[]): boolean {
-    const cols = clusterColumns(candidateRects);
-    if (cols.length < 2) return false;
+  // 1. Group rects into baseline slices (horizontal slices) in O(N log N)
+  const sortedByY = [...rects].sort((a, b) => a.top - b.top || (isRTL ? b.left - a.left : a.left - b.left));
+  const baselineSlices: Rect[][] = [];
+  let currentSlice: Rect[] = [sortedByY[0]];
+  let currentSliceTop = sortedByY[0].top;
+  let currentSliceHeight = sortedByY[0].height || 14;
 
-    // Bridge check: no single rect should span across multiple columns
-    for (const r of candidateRects) {
-      let overlaps = 0;
-      for (const col of cols) {
-        const overlap = Math.min(r.right, col.maxRight) - Math.max(r.left, col.minLeft);
-        if (overlap > 5) overlaps++;
-      }
-      if (overlaps >= 2) return false;
+  for (let i = 1; i < sortedByY.length; i++) {
+    const r = sortedByY[i];
+    const yTolerance = Math.max(4, Math.min(r.height || 14, currentSliceHeight) * 0.4);
+
+    if (Math.abs(r.top - currentSliceTop) <= yTolerance) {
+      currentSlice.push(r);
+      currentSliceHeight = Math.max(currentSliceHeight, r.height || 14);
+    } else {
+      baselineSlices.push(currentSlice);
+      currentSlice = [r];
+      currentSliceTop = r.top;
+      currentSliceHeight = r.height || 14;
     }
-
-    // Column validity & vertical overlap check
-    let pairOverlapCount = 0;
-    for (let c1 = 0; c1 < cols.length; c1++) {
-      const col1 = cols[c1];
-      const c1Top = Math.min(...col1.rects.map(r => r.top));
-      const c1Bottom = Math.max(...col1.rects.map(r => r.bottom));
-
-      let overlapsWithOther = false;
-      for (let c2 = 0; c2 < cols.length; c2++) {
-        if (c1 === c2) continue;
-        const col2 = cols[c2];
-        const c2Top = Math.min(...col2.rects.map(r => r.top));
-        const c2Bottom = Math.max(...col2.rects.map(r => r.bottom));
-
-        const vOverlap = Math.min(c1Bottom, c2Bottom) - Math.max(c1Top, c2Top);
-        if (vOverlap >= -4) {
-          overlapsWithOther = true;
-          if (c1 < c2 && vOverlap >= 0) pairOverlapCount++;
-        }
-      }
-
-      // Every column must either have multiple lines OR vertically overlap with another column
-      if (col1.rects.length < 2 && !overlapsWithOther) {
-        return false;
-      }
-    }
-
-    return pairOverlapCount >= 1 || cols.every(c => c.rects.length >= 2);
+  }
+  if (currentSlice.length > 0) {
+    baselineSlices.push(currentSlice);
   }
 
-  // 2. Partition slices into structural bands using lookahead multi-column block detection
-  interface Band {
-    isMultiColumn: boolean;
-    rects: Rect[];
-  }
+  // 2. Single-pass linear partitioning into structural continuous blocks
+  const candidateBlocks: Rect[][] = [];
+  let currentBlock: Rect[] = [];
 
-  const bands: Band[] = [];
-  let i = 0;
-
-  while (i < baselineSlices.length) {
+  for (let i = 0; i < baselineSlices.length; i++) {
     const slice = baselineSlices[i];
+    const isBanner = slice.length === 1 && isSpanningBanner(slice[0]);
 
-    if (isSpanningBanner(slice)) {
-      bands.push({ isMultiColumn: false, rects: [...slice] });
-      i++;
+    if (isBanner) {
+      if (currentBlock.length > 0) {
+        candidateBlocks.push(currentBlock);
+        currentBlock = [];
+      }
+      candidateBlocks.push([...slice]);
       continue;
     }
 
-    let j = i;
-    let blockRects: Rect[] = [];
-    let bestMultiBlockRects: Rect[] | null = null;
-    let bestJ = i;
-
-    while (j < baselineSlices.length) {
-      const nextSlice = baselineSlices[j];
-      if (isSpanningBanner(nextSlice)) {
-        break;
+    if (currentBlock.length > 0) {
+      const lastSlice = i > 0 ? baselineSlices[i - 1] : [];
+      let prevBottom = -Infinity;
+      let localLineHeight = 12;
+      for (let k = 0; k < lastSlice.length; k++) {
+        if (lastSlice[k].bottom > prevBottom) prevBottom = lastSlice[k].bottom;
+        if (lastSlice[k].height > localLineHeight) localLineHeight = lastSlice[k].height;
       }
+      let currTop = Infinity;
+      for (let k = 0; k < slice.length; k++) {
+        if (slice[k].top < currTop) currTop = slice[k].top;
+      }
+      const adaptiveGapThreshold = Math.max(localLineHeight * 3.5, 42);
 
-      // Check for large section gap (>= 40px)
-      if (j > i) {
-        const prevBottom = Math.max(...baselineSlices[j - 1].map(r => r.bottom));
-        const currTop = Math.min(...nextSlice.map(r => r.top));
-        if (currTop - prevBottom >= 40) {
-          break;
+      let shouldBreak = (currTop - prevBottom) >= adaptiveGapThreshold;
+
+      // Check if current slice is a single item that bridges or sits in gutter relative to previous multi-column block
+      if (!shouldBreak && slice.length === 1 && currentBlock.length >= 2 && currentBlock.length < 50) {
+        const prevCols = clusterColumns(currentBlock, 8);
+        if (prevCols.length >= 2) {
+          let overlaps = 0;
+          for (const col of prevCols) {
+            const overlap = Math.min(slice[0].right, col.maxRight) - Math.max(slice[0].left, col.minLeft);
+            if (overlap > 5) overlaps++;
+          }
+          if (overlaps !== 1) {
+            shouldBreak = true;
+          }
         }
       }
 
-      const candidateRects = [...blockRects, ...nextSlice];
-
-      if (isValidMultiColumnBlock(candidateRects)) {
-        blockRects = candidateRects;
-        bestMultiBlockRects = candidateRects;
-        bestJ = j;
-        j++;
-      } else {
-        if (bestMultiBlockRects !== null) {
-          break;
+      // Check if currentBlock is a single item/header and next slice is a multi-column block that current item doesn't fit into
+      if (!shouldBreak && currentBlock.length === 1) {
+        const nextCols = clusterColumns(slice, 8);
+        if (nextCols.length >= 2) {
+          let overlaps = 0;
+          for (const col of nextCols) {
+            const overlap = Math.min(currentBlock[0].right, col.maxRight) - Math.max(currentBlock[0].left, col.minLeft);
+            if (overlap > 5) overlaps++;
+          }
+          if (overlaps !== 1) {
+            shouldBreak = true;
+          }
         }
-        blockRects = candidateRects;
-        j++;
+      }
+
+      if (shouldBreak) {
+        candidateBlocks.push(currentBlock);
+        currentBlock = [];
       }
     }
 
-    if (bestMultiBlockRects !== null && bestJ >= i) {
-      bands.push({ isMultiColumn: true, rects: bestMultiBlockRects });
-      i = bestJ + 1;
-    } else {
-      bands.push({ isMultiColumn: false, rects: [...slice] });
-      i++;
-    }
+    currentBlock.push(...slice);
   }
 
-  // 3. Process each band and collect final ordered lines (strictly transitive)
+  if (currentBlock.length > 0) {
+    candidateBlocks.push(currentBlock);
+  }
+
+  // 3. Process each continuous block in O(M log M)
   const result: Rect[] = [];
-  for (const band of bands) {
-    if (band.isMultiColumn) {
-      const columns = clusterColumns(band.rects);
-      columns.sort((a, b) => isRTL ? b.minLeft - a.minLeft : a.minLeft - b.minLeft);
-      for (const col of columns) {
-        result.push(...sortRectsByBaselineAndDirection(col.rects, isRTL));
+
+  for (const block of candidateBlocks) {
+    if (block.length <= 1) {
+      result.push(...block);
+      continue;
+    }
+
+    const topHeaders: Rect[] = [];
+    const bottomFooters: Rect[] = [];
+    let coreRects: Rect[] = [...block];
+
+    // Isolate top standalone headers (titles that bridge or sit in gutters above multi-column blocks)
+    let topCheckLimit = 0;
+    while (coreRects.length > 1 && topCheckLimit < 3) {
+      topCheckLimit++;
+      const minTop = coreRects[0].top;
+      const topItems: Rect[] = [];
+      const otherItems: Rect[] = [];
+      for (let k = 0; k < coreRects.length; k++) {
+        if (Math.abs(coreRects[k].top - minTop) <= 4) topItems.push(coreRects[k]);
+        else otherItems.push(coreRects[k]);
       }
-    } else {
-      result.push(...sortRectsByBaselineAndDirection(band.rects, isRTL));
+      if (otherItems.length === 0) break;
+
+      if (topItems.length === 1) {
+        const r = topItems[0];
+        const otherCols = clusterColumns(otherItems, 8);
+
+        if (otherCols.length >= 2) {
+          let matchingCols = 0;
+          for (const col of otherCols) {
+            const overlap = Math.min(r.right, col.maxRight) - Math.max(r.left, col.minLeft);
+            if (overlap > 5) matchingCols++;
+          }
+
+          if (matchingCols !== 1) {
+            topHeaders.push(...topItems);
+            coreRects = otherItems;
+            continue;
+          }
+        }
+      }
+      break;
+    }
+
+    // Isolate bottom footers
+    let botCheckLimit = 0;
+    while (coreRects.length > 1 && botCheckLimit < 3) {
+      botCheckLimit++;
+      const maxBottom = coreRects[coreRects.length - 1].bottom;
+      const bottomItems: Rect[] = [];
+      const otherItems: Rect[] = [];
+      for (let k = 0; k < coreRects.length; k++) {
+        if (Math.abs(coreRects[k].bottom - maxBottom) <= 4) bottomItems.push(coreRects[k]);
+        else otherItems.push(coreRects[k]);
+      }
+      if (otherItems.length === 0) break;
+
+      if (bottomItems.length === 1) {
+        const r = bottomItems[0];
+        const otherCols = clusterColumns(otherItems, 8);
+
+        if (otherCols.length >= 2) {
+          let matchingCols = 0;
+          for (const col of otherCols) {
+            const overlap = Math.min(r.right, col.maxRight) - Math.max(r.left, col.minLeft);
+            if (overlap > 5) matchingCols++;
+          }
+
+          if (matchingCols !== 1) {
+            bottomFooters.unshift(...bottomItems);
+            coreRects = otherItems;
+            continue;
+          }
+        }
+      }
+      break;
+    }
+
+    // A. Add top headers
+    if (topHeaders.length > 0) {
+      result.push(...sortRectsByBaselineAndDirection(topHeaders, isRTL));
+    }
+
+    // B. Add core multi-column or single-column region
+    if (coreRects.length > 0) {
+      const cols = clusterColumns(coreRects, 8);
+      let hasBridge = false;
+      if (cols.length >= 2) {
+        for (let i = 0; i < coreRects.length; i++) {
+          const r = coreRects[i];
+          let overlaps = 0;
+          for (let j = 0; j < cols.length; j++) {
+            const col = cols[j];
+            const overlap = Math.min(r.right, col.maxRight) - Math.max(r.left, col.minLeft);
+            if (overlap > 5) overlaps++;
+          }
+          if (overlaps >= 2) {
+            hasBridge = true;
+            break;
+          }
+        }
+      }
+
+      if (cols.length >= 2 && !hasBridge) {
+        cols.sort((a, b) => isRTL ? b.minLeft - a.minLeft : a.minLeft - b.minLeft);
+        for (let i = 0; i < cols.length; i++) {
+          result.push(...sortRectsByBaselineAndDirection(cols[i].rects, isRTL));
+        }
+      } else {
+        result.push(...sortRectsByBaselineAndDirection(coreRects, isRTL));
+      }
+    }
+
+    // C. Add bottom footers
+    if (bottomFooters.length > 0) {
+      result.push(...sortRectsByBaselineAndDirection(bottomFooters, isRTL));
     }
   }
+
   return result;
 }
 
@@ -864,6 +943,20 @@ function sortDocumentLayout(rects: Rect[], isRTL: boolean): Rect[] {
  * Builds a single ProcessedTextLine from clustered text items on the same baseline.
  */
 export function buildProcessedLine(items: ProcessedTextItem[]): ProcessedTextLine {
+  if (items.length === 1) {
+    const item = items[0];
+    const fullText = item.isArabic ? reorderVisualToLogicalArabic(item.str) : item.str;
+    return {
+      items,
+      fullText,
+      dir: item.dir,
+      left: Math.round(item.left * 100) / 100,
+      top: Math.round(item.top * 100) / 100,
+      width: Math.round(item.width * 100) / 100,
+      height: Math.round(item.height * 100) / 100,
+    };
+  }
+
   // Sort items on the line geometrically from left to right
   items.sort((a, b) => a.left - b.left);
 
@@ -875,20 +968,26 @@ export function buildProcessedLine(items: ProcessedTextItem[]): ProcessedTextLin
 
   const textParts: string[] = [];
   
-  // Find median height to reject outliers
-  const sortedHeights = items.map(i => i.height).sort((a, b) => a - b);
-  const medianHeight = sortedHeights[Math.floor(sortedHeights.length / 2)] || 12;
+  let medianHeight = 12;
+  if (items.length <= 2) {
+    medianHeight = items[0].height || 12;
+  } else {
+    const sortedHeights = items.map(i => i.height).sort((a, b) => a - b);
+    medianHeight = sortedHeights[Math.floor(sortedHeights.length / 2)] || 12;
+  }
   const maxHeightAllowed = medianHeight * 1.5;
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
-    minLeft = Math.min(minLeft, item.left);
-    minTop = Math.min(minTop, item.top);
-    maxRight = Math.max(maxRight, item.left + item.width);
+    if (item.left < minLeft) minLeft = item.left;
+    if (item.top < minTop) minTop = item.top;
+    const itemRight = item.left + item.width;
+    if (itemRight > maxRight) maxRight = itemRight;
     
     // Clamp the height to prevent "TOO thick" selections from PDF.js watermark/border bugs
     const safeHeight = Math.min(item.height, maxHeightAllowed);
-    maxBottom = Math.max(maxBottom, item.top + safeHeight);
+    const itemBottom = item.top + safeHeight;
+    if (itemBottom > maxBottom) maxBottom = itemBottom;
 
     if (item.isArabic) {
       hasArabic = true;
@@ -898,23 +997,17 @@ export function buildProcessedLine(items: ProcessedTextItem[]): ProcessedTextLin
   }
 
   const rawJoined = textParts.join(' ').replace(/\s+/g, ' ').trim();
-  const fullText = reorderVisualToLogicalArabic(rawJoined);
+  const fullText = hasArabic ? reorderVisualToLogicalArabic(rawJoined) : rawJoined;
   const dir: 'rtl' | 'ltr' = hasArabic ? 'rtl' : 'ltr';
-
-  // Fix: The highlighter bounding box from PDF.js fonts usually has an exaggerated ascender (empty space above text)
-  // We push the top down by ~20% and reduce the total height by ~20% so it perfectly hugs the text from the top.
   const rawHeight = maxBottom - minTop;
-  const topAdjustment = rawHeight * 0.22;
-  const finalTop = minTop + topAdjustment;
-  const finalHeight = rawHeight - topAdjustment;
 
   return {
     items,
     fullText,
     dir,
     left: Math.round(minLeft * 100) / 100,
-    top: Math.round(finalTop * 100) / 100,
+    top: Math.round(minTop * 100) / 100,
     width: Math.round((maxRight - minLeft) * 100) / 100,
-    height: Math.round(finalHeight * 100) / 100,
+    height: Math.round(rawHeight * 100) / 100,
   };
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useId, useState } from 'react';
+import React, { useEffect, useRef, useCallback, useId, useState } from 'react';
 import { BotEngine } from '@/lib/bot/engine';
 import { DEMI_VIEWBOX, RAYON } from '@/lib/bot/repere';
 import { SHAPE_BY_ID, COLOR_BY_ID } from '@/lib/bot/skins';
@@ -19,7 +19,7 @@ interface Props {
   isStatic?: boolean;
 }
 
-export default function BloubMascot({
+export const BloubMascot = React.memo(function BloubMascot({
   size = 160,
   state = 'idle',
   color = 'encre',
@@ -201,6 +201,8 @@ export default function BloubMascot({
 
   // Pointer follow (window-wide)
   useEffect(() => {
+    if (isStatic) return;
+
     const handleMove = (e: PointerEvent) => {
       if (!engineRef.current) return;
       const hw = window.innerWidth / 2;
@@ -229,7 +231,7 @@ export default function BloubMascot({
       window.removeEventListener('pointerleave', handleLeave);
       window.removeEventListener('pointercancel', handleLeave);
     };
-  }, []);
+  }, [isStatic]);
 
   const handleClick = useCallback(() => {
     onInteract?.();
@@ -304,4 +306,6 @@ export default function BloubMascot({
       <circle data-notif="" fill="#2496e8" style={{ display: 'none' }} />
     </svg>
   );
-}
+});
+
+export default BloubMascot;
