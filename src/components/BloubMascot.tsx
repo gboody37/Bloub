@@ -88,20 +88,11 @@ export const BloubMascot = React.memo(function BloubMascot({
     return () => observer.disconnect();
   }, []);
 
-  // One-time init with immediate look target application
+  // One-time init
   useEffect(() => {
     const shapeRadii = SHAPE_BY_ID.get(shape)?.radii ?? null;
     const expr = EXPRESSION_BY_ID.get(expression) ?? null;
-    const engine = new BotEngine(R, 'idle', shapeRadii, expr);
-    const target = resolveGaze(gazeRef.current);
-    if (target) {
-      engine.setLook(
-        { yaw: target.yaw, pitch: target.pitch, mix: 0.95, spin: 0, wander: 0.05 },
-        0,
-        0
-      );
-    }
-    engineRef.current = engine;
+    engineRef.current = new BotEngine(R, 'idle', shapeRadii, expr);
   }, []); // eslint-disable-line
 
   // React to `state` prop
@@ -115,59 +106,33 @@ export const BloubMascot = React.memo(function BloubMascot({
           if (engineRef.current && engineRef.current.state === 'orbit') {
             engineRef.current.setState('idle', clockRef.current);
             stateRef.current = 'idle';
-            const target = resolveGaze(gazeRef.current);
-            if (target) {
-              engineRef.current.setLook(
-                { yaw: target.yaw, pitch: target.pitch, mix: 0.95, spin: 0, wander: 0.05 },
-                clockRef.current,
-                0.25
-              );
-            }
           }
         }, 3400);
-      } else if (state === 'idle') {
-        const target = resolveGaze(gazeRef.current);
-        if (target) {
-          engineRef.current.setLook(
-            { yaw: target.yaw, pitch: target.pitch, mix: 0.95, spin: 0, wander: 0.05 },
-            clockRef.current,
-            0.25
-          );
-        }
       }
     }
   }, [state]);
-
-  // React to `gaze` prop
-  useEffect(() => {
-    if (isStatic || !engineRef.current) return;
-    const target = resolveGaze(gaze);
-    if (target && state === 'idle') {
-      engineRef.current.setLook(
-        { yaw: target.yaw, pitch: target.pitch, mix: 0.95, spin: 0, wander: 0.05 },
-        clockRef.current,
-        0.25
-      );
-    } else if (!target && state === 'idle') {
-      engineRef.current.setLook(null, clockRef.current, 0.25);
-    }
-  }, [gaze, state, isStatic]);
 
   // React to `expression` prop
   useEffect(() => {
     if (engineRef.current) {
       const expr = EXPRESSION_BY_ID.get(expression) ?? null;
       engineRef.current.setExpression(expr, clockRef.current);
+      if (isStatic) {
+        engineRef.current.setExpression(expr, 0);
+      }
     }
-  }, [expression]);
+  }, [expression, isStatic]);
 
   // React to `shape` prop
   useEffect(() => {
     if (engineRef.current) {
       const shapeRadii = SHAPE_BY_ID.get(shape)?.radii ?? null;
       engineRef.current.setShape(shapeRadii, clockRef.current);
+      if (isStatic) {
+        engineRef.current.setShape(shapeRadii, 0);
+      }
     }
-  }, [shape]);
+  }, [shape, isStatic]);
 
   // Animation loop
   useEffect(() => {
@@ -279,7 +244,7 @@ export const BloubMascot = React.memo(function BloubMascot({
       rafRef.current = requestAnimationFrame(tick);
     }
     return () => cancelAnimationFrame(rafRef.current);
-  }, [color, isVisible, isStatic]);
+  }, [color, shape, expression, isVisible, isStatic]);
 
   // Pointer follow (window-wide)
   useEffect(() => {
@@ -289,26 +254,17 @@ export const BloubMascot = React.memo(function BloubMascot({
       if (!engineRef.current) return;
       const hw = window.innerWidth / 2;
       const hh = window.innerHeight / 2;
-      const yaw = ((e.clientX - hw) / hw) * 55;
-      const pitch = -((e.clientY - hh) / hh) * 35;
+      const yaw = ((e.clientX - hw) / hw) * 35;
+      const pitch = -((e.clientY - hh) / hh) * 22;
       engineRef.current.setLook(
-        { yaw, pitch, mix: 0.65, spin: 0, wander: 0 },
+        { yaw, pitch, mix: 0.5, spin: 0, wander: 0.1 },
         clockRef.current,
         0.25
       );
     };
 
     const handleLeave = () => {
-      const target = resolveGaze(gazeRef.current);
-      if (target && engineRef.current) {
-        engineRef.current.setLook(
-          { yaw: target.yaw, pitch: target.pitch, mix: 0.7, spin: 0, wander: 0.15 },
-          clockRef.current,
-          0.6
-        );
-      } else {
-        engineRef.current?.setLook(null, clockRef.current, 0.6);
-      }
+      engineRef.current?.setLook(null, clockRef.current, 0.6);
     };
 
     window.addEventListener('pointermove', handleMove);

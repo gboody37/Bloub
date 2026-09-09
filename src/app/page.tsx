@@ -27,19 +27,16 @@ import { recordMutation, markMutationSynced, markMutationFailed, type MutationTy
 const PRIORITY_COLOR = { high: '#ef4444', medium: '#f59e0b', low: '#3b82f6' };
 const PRIORITY_LABEL = { high: 'High', medium: 'Medium', low: 'Low' };
 
-const getListMascot = (cat: Category, settings: Record<string, {shape: string, color: string}>) => {
+const getListMascot = (cat: Category, settings: Record<string, {shape: string, color: string}>, defaultShape = 'squircle', defaultColor = 'bleu') => {
   if (cat.type === 'study') {
     return {
       shape: settings[cat.id]?.shape || 'livre',
-      color: settings[cat.id]?.color || 'violet'
+      color: settings[cat.id]?.color || defaultColor
     };
   }
-  const shapes = ['squircle', 'cercle', 'galet', 'hexagone', 'capsule'];
-  const colors = ['vert', 'bleu', 'violet', 'orange', 'rose', 'turquoise', 'ambre'];
-  const hash = (cat.name || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return {
-    shape: settings[cat.id]?.shape || shapes[hash % shapes.length],
-    color: settings[cat.id]?.color || colors[hash % colors.length]
+    shape: settings[cat.id]?.shape || defaultShape,
+    color: settings[cat.id]?.color || defaultColor
   };
 };
 
@@ -82,7 +79,7 @@ export const THEMES = [
   { id: 'bg-[#0c1a30]', name: 'Arctic Navy', color: '#0c1a30' }
 ];
 
-const SHAPE_IDS = ['squircle', 'cercle', 'galet', 'hexagone', 'capsule', 'soleil', 'nuage', 'goutte', 'oeuf'];
+const SHAPE_IDS = ['squircle', 'cercle', 'galet', 'capsule', 'triangle', 'hexagone', 'nuage', 'goutte', 'oeuf', 'soleil', 'fromage', 'livre'];
 
 export default function Home() {
   const supabase = createClient();
@@ -963,13 +960,13 @@ export default function Home() {
   const activeCatObj: Category = categories.find(c => c.id === activeCategory) || { id: 'default', name: 'General', type: 'todo' };
   
   const showListHero = !isListView && activeTab === 'lists';
-  const heroShape = showListHero ? getListMascot(activeCatObj, catSettings).shape : mascotShape;
-  const heroColor = showListHero ? getListMascot(activeCatObj, catSettings).color : mascotColor;
+  const heroShape = showListHero ? getListMascot(activeCatObj, catSettings, mascotShape, mascotColor).shape : mascotShape;
+  const heroColor = showListHero ? getListMascot(activeCatObj, catSettings, mascotShape, mascotColor).color : mascotColor;
   
   const isGlobalTarget = settingsTarget === 'global';
   const targetCatObj: Category = categories.find(c => c.id === settingsTarget) || { id: 'default', name: 'General', type: 'todo' };
-  const targetShape = isGlobalTarget ? mascotShape : getListMascot(targetCatObj, catSettings).shape;
-  const targetColor = isGlobalTarget ? mascotColor : getListMascot(targetCatObj, catSettings).color;
+  const targetShape = isGlobalTarget ? mascotShape : getListMascot(targetCatObj, catSettings, mascotShape, mascotColor).shape;
+  const targetColor = isGlobalTarget ? mascotColor : getListMascot(targetCatObj, catSettings, mascotShape, mascotColor).color;
 
   const updateTargetShape = (s: string) => {
     if (isGlobalTarget) setMascotShape(s);
@@ -1347,7 +1344,7 @@ export default function Home() {
             {/* Left side: HUGE MASCOT */}
             <div className="hidden md:flex md:w-1/2 lg:w-3/5 flex-1 items-center justify-center bg-slate-900/40 relative overflow-visible">
                 <div className="cursor-pointer hover:scale-105 transition-transform duration-300 overflow-visible" onClick={() => triggerMascot('orbit', mascotExpression)}>
-                  <BloubMascot size={320} state={animState} expression={isGlobalTarget ? mascotExpression : (catSettings[settingsTarget]?.expression as ExpressionId || 'neutre')} shape={targetShape} color={targetColor} gaze={mascotGaze} isStatic={false} />
+                  <BloubMascot size={320} state={animState} expression={isGlobalTarget ? mascotExpression : (catSettings[settingsTarget]?.expression as ExpressionId || 'neutre')} shape={targetShape} color={targetColor} isStatic={false} />
                 </div>
             </div>
 
@@ -1357,7 +1354,7 @@ export default function Home() {
               {/* Mascot Preview inside Settings */}
               <div className="bg-slate-900 rounded-3xl p-4 mb-6 border border-slate-800 flex flex-col items-center">
                 <div className="w-32 h-32 flex items-center justify-center mb-4 cursor-pointer hover:scale-105 transition-transform duration-300 overflow-visible" onClick={() => triggerMascot('orbit', mascotExpression)}>
-                  <BloubMascot size={120} state={animState} expression={isGlobalTarget ? mascotExpression : (catSettings[settingsTarget]?.expression as ExpressionId || 'neutre')} shape={targetShape} color={targetColor} gaze={mascotGaze} isStatic={false} />
+                  <BloubMascot size={120} state={animState} expression={isGlobalTarget ? mascotExpression : (catSettings[settingsTarget]?.expression as ExpressionId || 'neutre')} shape={targetShape} color={targetColor} isStatic={false} />
                 </div>
 
                 {/* Horizontal Category Scroller */}
@@ -1430,7 +1427,7 @@ export default function Home() {
                   <Smile size={14} /> Expression
                 </span>
                 <div className="grid grid-cols-4 gap-2">
-                  {['neutre', 'attentif', 'surpris', 'excite', 'heureux', 'hilare', 'colere', 'triste', 'effraye', 'mefiant'].map(expr => (
+                  {['neutre', 'attentif', 'surpris', 'excite', 'heureux', 'hilare', 'colere', 'triste', 'effraye', 'mefiant', 'curieux', 'fier', 'timide', 'blase'].map(expr => (
                     <button
                       key={expr}
                       type="button"
@@ -1504,36 +1501,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Eye Gaze Direction Section */}
-              <div className="mb-6">
-                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
-                  <Sparkles size={14} /> Eye Gaze Direction
-                </span>
-                <div className="grid grid-cols-5 gap-2">
-                  {[
-                    { id: 'center', label: 'Center' },
-                    { id: 'left', label: 'Left' },
-                    { id: 'right', label: 'Right' },
-                    { id: 'up', label: 'Up' },
-                    { id: 'down', label: 'Down' },
-                  ].map(g => (
-                    <button
-                      key={g.id}
-                      type="button"
-                      onClick={() => setMascotGaze(g.id)}
-                      className={`py-2 px-1 text-center rounded-xl border text-xs font-medium transition-all cursor-pointer ${
-                        mascotGaze === g.id
-                          ? 'bg-slate-800 border-blue-500 text-white shadow-md scale-105 ring-1 ring-blue-500/30'
-                          : isDark
-                            ? 'bg-slate-800/50 border-slate-700/50 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                            : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {g.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               {/* Push Notifications Section */}
               <div className="pt-2">
@@ -1672,18 +1639,15 @@ export default function Home() {
               onClick={() => triggerMascot('orbit', 'heureux')}
             >
               {(() => {
-                const pendingContextCount = showListHero ? todos.filter(t => !t.completed && t.categoryId === activeCategory).length : todos.filter(t => !t.completed).length;
-                const dyn = getDynamicMascotProps(heroShape, heroColor, pendingContextCount);
                 const isAnim = animState !== 'idle';
                 const catExpr = showListHero ? (catSettings[activeCategory]?.expression) : null;
-                const heroExpr = catExpr || mascotExpression || dyn.expr;
+                const heroExpr = catExpr || mascotExpression || 'neutre';
                 return (
                   <BloubMascot size={showAddModal ? 96 : 160}
                     state={animState} 
                     expression={isAnim ? (animExpression || mascotExpression) : (heroExpr as ExpressionId)} 
                     shape={heroShape} 
-                    color={dyn.color} 
-                    gaze={mascotGaze}
+                    color={heroColor} 
                     onInteract={() => triggerMascot('orbit', 'heureux')}
                   />
                 );
@@ -1918,7 +1882,7 @@ export default function Home() {
                 const totalPending = todos.filter(t => !t.completed).length;
                 const dynStats = getDynamicMascotProps(mascotShape, mascotColor, totalPending);
                 return (
-                  <div className="w-16 h-16"><BloubMascot size={64} state="idle" expression={dynStats.expr} shape={mascotShape} color={dynStats.color} gaze={mascotGaze} /></div>
+                  <div className="w-16 h-16"><BloubMascot size={64} state="idle" expression={dynStats.expr} shape={mascotShape} color={dynStats.color} /></div>
                 );
               })()}
               <div>

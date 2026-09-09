@@ -503,7 +503,7 @@ export class BotEngine {
       const poses = eyePoses(gaze, R, pose.split)
       for (let i = 0; i < 2; i++) {
         const e = poses[i]!
-        if (e.depth <= 0.02) continue
+        if (e.depth <= -0.15) continue
         const cfg = pose.eyes[i]!
         const fit = bodyRadius(e.x, e.y)
         // Inclinaison propre de l'oeil : on compose le repere tangent avec une
