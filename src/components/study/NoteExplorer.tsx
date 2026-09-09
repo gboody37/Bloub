@@ -245,19 +245,28 @@ export default function NoteExplorer({
       {/* Search and Action Toolbar */}
       <div className="relative flex items-center mb-4 gap-2">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--theme-text-muted)]" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search notes or tags..."
-            className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border outline-none transition-all bg-[var(--theme-surface-subtle)] border-[var(--theme-border-subtle)] text-[var(--theme-text-primary)] placeholder:text-[var(--theme-text-muted)] focus:border-[var(--theme-primary)] focus:ring-1 focus:ring-[var(--theme-primary)]/30"
+            placeholder="Search books, notes, or tags..."
+            className="w-full pl-8 pr-8 py-2.5 text-xs rounded-xl border outline-none transition-all bg-[#241e1a] border-[#382f28] text-[#f5efe6] placeholder-stone-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-200 text-xs p-1"
+            >
+              ✕
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <button 
             onClick={fetchVault} 
-            className="p-2 rounded-xl transition-all bg-[var(--theme-surface-subtle)] hover:bg-[var(--theme-surface-elevated)] border border-[var(--theme-border-subtle)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)]" 
+            className="p-2.5 rounded-xl transition-all bg-[#241e1a] hover:bg-[#2e2621] border border-[#382f28] text-stone-400 hover:text-stone-200" 
             title="Refresh Vault"
           >
             <RotateCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -265,7 +274,7 @@ export default function NoteExplorer({
           
           <button 
             onClick={() => docInputRef.current?.click()} 
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[var(--theme-primary)] hover:brightness-110 text-white shadow-sm transition-all text-xs font-bold active:scale-95" 
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-stone-950 shadow-sm transition-all text-xs font-bold active:scale-95" 
             title="Upload PDF Document"
           >
             <UploadCloud size={14} />
@@ -274,7 +283,7 @@ export default function NoteExplorer({
           
           <button 
             onClick={handleConnectVault} 
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[var(--theme-surface-elevated)] hover:bg-[var(--theme-surface)] border border-[var(--theme-border)] text-[var(--theme-text-primary)] shadow-sm transition-all text-xs font-bold active:scale-95" 
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#241e1a] hover:bg-[#2e2621] border border-[#382f28] text-stone-200 shadow-sm transition-all text-xs font-bold active:scale-95" 
             title="Sync local folder to cloud"
           >
             <RotateCw size={14} />

@@ -23,8 +23,8 @@ const lemonada = Lemonada({
 });
 
 export const metadata: Metadata = {
-  title: "Vibe Todos",
-  description: "A premium AI-powered todo app.",
+  title: "Bloub — Cozy AI Study Companion",
+  description: "The aesthetic, mascot-powered study companion with highlighted notes, books, and flashcards.",
   manifest: "/manifest.json",
 };
 
