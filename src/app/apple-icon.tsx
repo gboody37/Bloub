@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og';
  
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 export const size = { width: 180, height: 180 };
 export const contentType = 'image/png';
  
@@ -9,7 +9,7 @@ export default function Icon() {
     (
       <div
         style={{
-          background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+          background: 'radial-gradient(circle at center, #2a221c, #14110f)',
           width: '100%',
           height: '100%',
           display: 'flex',
@@ -17,15 +17,14 @@ export default function Icon() {
           alignItems: 'center',
           justifyContent: 'center',
           borderRadius: '40px',
+          border: '4px solid #3d3128',
         }}
       >
-        <div style={{ display: 'flex', gap: '24px', marginBottom: '8px', marginTop: '16px' }}>
-          <div style={{ width: 24, height: 40, backgroundColor: 'white', borderRadius: '12px' }} />
-          <div style={{ width: 24, height: 40, backgroundColor: 'white', borderRadius: '12px' }} />
+        <div style={{ display: 'flex', gap: '20px', marginBottom: '8px', marginTop: '10px' }}>
+          <div style={{ width: 16, height: 16, backgroundColor: '#f5efe6', borderRadius: '50%' }} />
+          <div style={{ width: 16, height: 16, backgroundColor: '#f5efe6', borderRadius: '50%' }} />
         </div>
-        <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
+        <div style={{ width: 30, height: 6, backgroundColor: '#e07a38', borderRadius: '4px' }} />
       </div>
     ),
     { ...size }
