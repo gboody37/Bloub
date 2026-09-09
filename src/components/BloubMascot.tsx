@@ -24,10 +24,10 @@ export type Props = BloubMascotProps;
 
 export const GAZE_PRESETS: Record<string, { yaw: number; pitch: number; roll: number }> = {
   center: { yaw: 0, pitch: 0, roll: 0 },
-  left: { yaw: -22, pitch: 0, roll: 0 },
-  right: { yaw: 22, pitch: 0, roll: 0 },
-  up: { yaw: 0, pitch: 20, roll: 0 },
-  down: { yaw: 0, pitch: -20, roll: 0 },
+  left: { yaw: -28, pitch: 0, roll: 0 },
+  right: { yaw: 28, pitch: 0, roll: 0 },
+  up: { yaw: 0, pitch: 24, roll: 0 },
+  down: { yaw: 0, pitch: -24, roll: 0 },
 };
 
 export function resolveGaze(g?: { yaw: number; pitch: number; roll?: number } | string | null): { yaw: number; pitch: number; roll: number } | null {
@@ -88,11 +88,20 @@ export const BloubMascot = React.memo(function BloubMascot({
     return () => observer.disconnect();
   }, []);
 
-  // One-time init
+  // One-time init with immediate look target application
   useEffect(() => {
     const shapeRadii = SHAPE_BY_ID.get(shape)?.radii ?? null;
     const expr = EXPRESSION_BY_ID.get(expression) ?? null;
-    engineRef.current = new BotEngine(R, 'idle', shapeRadii, expr);
+    const engine = new BotEngine(R, 'idle', shapeRadii, expr);
+    const target = resolveGaze(gazeRef.current);
+    if (target) {
+      engine.setLook(
+        { yaw: target.yaw, pitch: target.pitch, mix: 0.95, spin: 0, wander: 0.05 },
+        0,
+        0
+      );
+    }
+    engineRef.current = engine;
   }, []); // eslint-disable-line
 
   // React to `state` prop
@@ -109,20 +118,20 @@ export const BloubMascot = React.memo(function BloubMascot({
             const target = resolveGaze(gazeRef.current);
             if (target) {
               engineRef.current.setLook(
-                { yaw: target.yaw, pitch: target.pitch, mix: 0.7, spin: 0, wander: 0.15 },
+                { yaw: target.yaw, pitch: target.pitch, mix: 0.95, spin: 0, wander: 0.05 },
                 clockRef.current,
-                0.3
+                0.25
               );
             }
           }
-        }, 3600);
+        }, 3400);
       } else if (state === 'idle') {
         const target = resolveGaze(gazeRef.current);
         if (target) {
           engineRef.current.setLook(
-            { yaw: target.yaw, pitch: target.pitch, mix: 0.7, spin: 0, wander: 0.15 },
+            { yaw: target.yaw, pitch: target.pitch, mix: 0.95, spin: 0, wander: 0.05 },
             clockRef.current,
-            0.3
+            0.25
           );
         }
       }
@@ -135,12 +144,12 @@ export const BloubMascot = React.memo(function BloubMascot({
     const target = resolveGaze(gaze);
     if (target && state === 'idle') {
       engineRef.current.setLook(
-        { yaw: target.yaw, pitch: target.pitch, mix: 0.7, spin: 0, wander: 0.15 },
+        { yaw: target.yaw, pitch: target.pitch, mix: 0.95, spin: 0, wander: 0.05 },
         clockRef.current,
-        0.3
+        0.25
       );
     } else if (!target && state === 'idle') {
-      engineRef.current.setLook(null, clockRef.current, 0.3);
+      engineRef.current.setLook(null, clockRef.current, 0.25);
     }
   }, [gaze, state, isStatic]);
 

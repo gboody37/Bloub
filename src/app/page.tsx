@@ -127,7 +127,12 @@ export default function Home() {
   const [showStudyExplorer, setShowStudyExplorer] = useState(false);
   const [showGraphView, setShowGraphView] = useState(false);
   const [showQuizSession, setShowQuizSession] = useState(false);
-  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [geminiApiKey, setGeminiApiKey] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('vibe_geminiApiKey') || localStorage.getItem('guest_geminiApiKey') || '';
+    }
+    return '';
+  });
   const [selectedNote, setSelectedNote] = useState<ParsedObsidianNote | null>(null);
   const [isFetchingNote, setIsFetchingNote] = useState(false);
   const [isNavVisible, setIsNavVisible] = useState(true);
@@ -195,15 +200,48 @@ export default function Home() {
   const [settingsTarget, setSettingsTarget] = useState<string>('global');
 
   // Settings
-  const [bgTheme, setBgTheme] = useState('bg-[#080d2a]');
-  const [catSettings, setCatSettings] = useState<Record<string, {shape: string, color: string, expression?: string}>>({});
+  const [bgTheme, setBgTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('vibe_bgTheme') || localStorage.getItem('guest_bgTheme') || 'bg-[#080d2a]';
+    }
+    return 'bg-[#080d2a]';
+  });
+  const [catSettings, setCatSettings] = useState<Record<string, {shape: string, color: string, expression?: string}>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('vibe_catSettings') || localStorage.getItem('guest_catSettings');
+        return raw ? JSON.parse(raw) : {};
+      } catch {}
+    }
+    return {};
+  });
 
   // Global Mascot - Persistent Customization Settings (saved to storage)
-  const [mascotShape, setMascotShape] = useState('squircle');
-  const [mascotColor, setMascotColor] = useState('bleu');
-  const [mascotExpression, setMascotExpression] = useState<ExpressionId>('timide');
-  const [mascotGaze, setMascotGaze] = useState<string>('center');
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [mascotShape, setMascotShape] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('vibe_mascotShape') || localStorage.getItem('guest_mascotShape') || 'squircle';
+    }
+    return 'squircle';
+  });
+  const [mascotColor, setMascotColor] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('vibe_mascotColor') || localStorage.getItem('guest_mascotColor') || 'bleu';
+    }
+    return 'bleu';
+  });
+  const [mascotExpression, setMascotExpression] = useState<ExpressionId>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('vibe_mascotExpression') || localStorage.getItem('guest_mascotExpression') || 'timide') as ExpressionId;
+    }
+    return 'timide';
+  });
+  const [mascotGaze, setMascotGaze] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('vibe_mascotGaze') || localStorage.getItem('guest_mascotGaze') || 'center';
+    }
+    return 'center';
+  });
+  const [settingsLoaded, setSettingsLoaded] = useState(true);
 
   // Transient Mascot Animation Reactions (ephemeral, never auto-saved)
   const [animState, setAnimState] = useState<StateId>('idle');
@@ -323,105 +361,107 @@ export default function Home() {
     }
   };
 
-  // Load settings when session changes or on mount (guest mode supported)
+  // Load settings when session changes (local storage wins, Supabase as cloud fallback)
   useEffect(() => {
-    const uid = session?.user?.id;
+    if (!session) return;
+    const uid = session.user?.id;
     const prefix = uid ? `${uid}_` : 'guest_';
-    const meta = session?.user?.user_metadata || {};
+    const meta = session.user?.user_metadata || {};
     
-    if (meta.geminiApiKey) setGeminiApiKey(meta.geminiApiKey);
+    // Only import from remote Supabase metadata if localStorage is empty (e.g. new browser/device)
+    const localTheme = localStorage.getItem('vibe_bgTheme') || localStorage.getItem(`${prefix}bgTheme`);
+    if (!localTheme && meta.bgTheme) setBgTheme(meta.bgTheme);
 
-    const savedExpr = (meta.mascotExpression || localStorage.getItem(`${prefix}mascotExpression`) || (uid ? localStorage.getItem('guest_mascotExpression') : null)) as ExpressionId | null;
-    const savedShape = meta.mascotShape || localStorage.getItem(`${prefix}mascotShape`) || (uid ? localStorage.getItem('guest_mascotShape') : null);
-    const savedColor = meta.mascotColor || localStorage.getItem(`${prefix}mascotColor`) || (uid ? localStorage.getItem('guest_mascotColor') : null);
-    const savedGaze = meta.mascotGaze || localStorage.getItem(`${prefix}mascotGaze`) || (uid ? localStorage.getItem('guest_mascotGaze') : null);
-    const savedTheme = meta.bgTheme || localStorage.getItem(`${prefix}bgTheme`) || (uid ? localStorage.getItem('guest_bgTheme') : null);
-    const rawCat = meta.catSettings || localStorage.getItem(`${prefix}catSettings`) || (uid ? localStorage.getItem('guest_catSettings') : null);
-    let savedCatSet = null;
-    if (typeof rawCat === 'string') {
-      try { savedCatSet = JSON.parse(rawCat); } catch {}
-    } else if (rawCat && typeof rawCat === 'object') {
-      savedCatSet = rawCat;
+    const localShape = localStorage.getItem('vibe_mascotShape') || localStorage.getItem(`${prefix}mascotShape`);
+    if (!localShape && meta.mascotShape) setMascotShape(meta.mascotShape);
+
+    const localColor = localStorage.getItem('vibe_mascotColor') || localStorage.getItem(`${prefix}mascotColor`);
+    if (!localColor && meta.mascotColor) setMascotColor(meta.mascotColor);
+
+    const localExpr = localStorage.getItem('vibe_mascotExpression') || localStorage.getItem(`${prefix}mascotExpression`);
+    if (!localExpr && meta.mascotExpression) setMascotExpression(meta.mascotExpression as ExpressionId);
+
+    const localGaze = localStorage.getItem('vibe_mascotGaze') || localStorage.getItem(`${prefix}mascotGaze`);
+    if (!localGaze && meta.mascotGaze) setMascotGaze(meta.mascotGaze);
+
+    const localCat = localStorage.getItem('vibe_catSettings') || localStorage.getItem(`${prefix}catSettings`);
+    if (!localCat && meta.catSettings) {
+      if (typeof meta.catSettings === 'string') {
+        try { setCatSettings(JSON.parse(meta.catSettings)); } catch {}
+      } else if (meta.catSettings && typeof meta.catSettings === 'object') {
+        setCatSettings(meta.catSettings);
+      }
     }
-    
-    if (savedExpr) setMascotExpression(savedExpr);
-    if (savedShape) setMascotShape(savedShape);
-    if (savedColor) setMascotColor(savedColor);
-    if (savedGaze) setMascotGaze(savedGaze);
-    if (savedTheme) setBgTheme(savedTheme);
-    if (savedCatSet) setCatSettings(savedCatSet);
-    
-    // Mark as loaded so the save effect can start syncing changes
-    setSettingsLoaded(true);
+
+    const localApiKey = localStorage.getItem('vibe_geminiApiKey') || localStorage.getItem(`${prefix}geminiApiKey`);
+    if (!localApiKey && meta.geminiApiKey) setGeminiApiKey(meta.geminiApiKey);
   }, [session]);
 
-  // Cross-device settings sync on tab focus / visibility change
+  // Sync tab visibility without destructive network overwrites
   useEffect(() => {
-    const handleVisibility = async () => {
+    const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        if (session) {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user && user.user_metadata) {
-            const meta = user.user_metadata;
-            if (meta.mascotExpression) setMascotExpression(meta.mascotExpression);
-            if (meta.mascotShape) setMascotShape(meta.mascotShape);
-            if (meta.mascotColor) setMascotColor(meta.mascotColor);
-            if (meta.mascotGaze) setMascotGaze(meta.mascotGaze);
-            if (meta.bgTheme) setBgTheme(meta.bgTheme);
-            if (meta.catSettings) setCatSettings(meta.catSettings);
-            if (meta.geminiApiKey) setGeminiApiKey(meta.geminiApiKey);
-          }
-        } else {
-          // Guest fallback on tab focus
-          const savedExpr = localStorage.getItem('guest_mascotExpression') as ExpressionId | null;
-          const savedShape = localStorage.getItem('guest_mascotShape');
-          const savedColor = localStorage.getItem('guest_mascotColor');
-          const savedGaze = localStorage.getItem('guest_mascotGaze');
-          const savedTheme = localStorage.getItem('guest_bgTheme');
-          const savedCat = localStorage.getItem('guest_catSettings');
-          if (savedExpr) setMascotExpression(savedExpr);
-          if (savedShape) setMascotShape(savedShape);
-          if (savedColor) setMascotColor(savedColor);
-          if (savedGaze) setMascotGaze(savedGaze);
-          if (savedTheme) setBgTheme(savedTheme);
-          if (savedCat) {
-            try { setCatSettings(JSON.parse(savedCat)); } catch {}
-          }
-        }
+        try {
+          const savedTheme = localStorage.getItem('vibe_bgTheme');
+          if (savedTheme && savedTheme !== bgTheme) setBgTheme(savedTheme);
+          const savedShape = localStorage.getItem('vibe_mascotShape');
+          if (savedShape && savedShape !== mascotShape) setMascotShape(savedShape);
+          const savedColor = localStorage.getItem('vibe_mascotColor');
+          if (savedColor && savedColor !== mascotColor) setMascotColor(savedColor);
+          const savedGaze = localStorage.getItem('vibe_mascotGaze');
+          if (savedGaze && savedGaze !== mascotGaze) setMascotGaze(savedGaze);
+        } catch {}
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('focus', handleVisibility);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('focus', handleVisibility);
-    };
-  }, [session]);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [bgTheme, mascotShape, mascotColor, mascotGaze]);
 
-  // Save persistent customization settings (never save transient animation reaction state)
+  // Save persistent customization settings (immediate localStorage + debounced Supabase sync)
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    if (!settingsLoaded) return;
-    const prefix = session?.user?.id ? `${session.user.id}_` : 'guest_';
-    localStorage.setItem(`${prefix}mascotExpression`, mascotExpression);
-    localStorage.setItem(`${prefix}mascotShape`, mascotShape);
-    localStorage.setItem(`${prefix}mascotColor`, mascotColor);
-    localStorage.setItem(`${prefix}mascotGaze`, mascotGaze);
-    localStorage.setItem(`${prefix}bgTheme`, bgTheme);
-    localStorage.setItem(`${prefix}catSettings`, JSON.stringify(catSettings));
-    
-    if (session) {
-      supabase.auth.updateUser({
-        data: {
-          mascotExpression,
-          mascotShape,
-          mascotColor,
-          mascotGaze,
-          bgTheme,
-          catSettings
-        }
-      }).catch(console.error);
+    const uid = session?.user?.id;
+    const prefix = uid ? `${uid}_` : 'guest_';
+
+    // 1. Immediate synchronous localStorage write
+    try {
+      localStorage.setItem('vibe_mascotExpression', mascotExpression);
+      localStorage.setItem('vibe_mascotShape', mascotShape);
+      localStorage.setItem('vibe_mascotColor', mascotColor);
+      localStorage.setItem('vibe_mascotGaze', mascotGaze);
+      localStorage.setItem('vibe_bgTheme', bgTheme);
+      localStorage.setItem('vibe_catSettings', JSON.stringify(catSettings));
+
+      // Compatibility with prefix
+      localStorage.setItem(`${prefix}mascotExpression`, mascotExpression);
+      localStorage.setItem(`${prefix}mascotShape`, mascotShape);
+      localStorage.setItem(`${prefix}mascotColor`, mascotColor);
+      localStorage.setItem(`${prefix}mascotGaze`, mascotGaze);
+      localStorage.setItem(`${prefix}bgTheme`, bgTheme);
+      localStorage.setItem(`${prefix}catSettings`, JSON.stringify(catSettings));
+    } catch (e) {
+      console.warn('[Settings] localStorage write warning:', e);
     }
-  }, [session, settingsLoaded, mascotExpression, mascotShape, mascotColor, mascotGaze, bgTheme, catSettings]);
+    
+    // 2. Debounced background Supabase sync
+    if (session) {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(() => {
+        supabase.auth.updateUser({
+          data: {
+            mascotExpression,
+            mascotShape,
+            mascotColor,
+            mascotGaze,
+            bgTheme,
+            catSettings,
+            geminiApiKey
+          }
+        }).catch(err => console.warn('[Settings] Supabase sync error:', err));
+      }, 500);
+    }
+  }, [mascotExpression, mascotShape, mascotColor, mascotGaze, bgTheme, catSettings, geminiApiKey, session]);
 
   useEffect(() => {
     let meta = document.querySelector('meta[name="theme-color"]');
@@ -1307,7 +1347,7 @@ export default function Home() {
             {/* Left side: HUGE MASCOT */}
             <div className="hidden md:flex md:w-1/2 lg:w-3/5 flex-1 items-center justify-center bg-slate-900/40 relative overflow-visible">
                 <div className="cursor-pointer hover:scale-105 transition-transform duration-300 overflow-visible" onClick={() => triggerMascot('orbit', mascotExpression)}>
-                  <BloubMascot size={320} state="idle" expression={mascotExpression} shape={targetShape} color={targetColor} gaze={mascotGaze} isStatic={false} />
+                  <BloubMascot size={320} state={animState} expression={isGlobalTarget ? mascotExpression : (catSettings[settingsTarget]?.expression as ExpressionId || 'neutre')} shape={targetShape} color={targetColor} gaze={mascotGaze} isStatic={false} />
                 </div>
             </div>
 
@@ -1317,7 +1357,7 @@ export default function Home() {
               {/* Mascot Preview inside Settings */}
               <div className="bg-slate-900 rounded-3xl p-4 mb-6 border border-slate-800 flex flex-col items-center">
                 <div className="w-32 h-32 flex items-center justify-center mb-4 cursor-pointer hover:scale-105 transition-transform duration-300 overflow-visible" onClick={() => triggerMascot('orbit', mascotExpression)}>
-                  <BloubMascot size={120} state="idle" expression={mascotExpression} shape={targetShape} color={targetColor} gaze={mascotGaze} isStatic={false} />
+                  <BloubMascot size={120} state={animState} expression={isGlobalTarget ? mascotExpression : (catSettings[settingsTarget]?.expression as ExpressionId || 'neutre')} shape={targetShape} color={targetColor} gaze={mascotGaze} isStatic={false} />
                 </div>
 
                 {/* Horizontal Category Scroller */}
@@ -1394,7 +1434,7 @@ export default function Home() {
                     <button
                       key={expr}
                       type="button"
-                      onClick={() => { updateTargetExpr(expr); setMascotExpression(expr as ExpressionId); } /* onClick={() => setMascotExpression(expr as ExpressionId)} */}
+                      onClick={() => updateTargetExpr(expr)}
                       className={`flex aspect-square flex-col items-center justify-center rounded-2xl border-2 transition-all cursor-pointer ${
                         (settingsTarget === 'global' ? mascotExpression : (catSettings[settingsTarget]?.expression || 'neutre')) === expr
                           ? 'bg-slate-800 border-blue-500 shadow-md ring-2 ring-blue-500/30 ring-offset-1 ring-offset-slate-900 scale-105'
@@ -1538,12 +1578,22 @@ export default function Home() {
                         type="password"
                         placeholder="Paste your Gemini API Key..."
                         value={geminiApiKey}
-                        onChange={(e) => setGeminiApiKey(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setGeminiApiKey(val);
+                          try {
+                            localStorage.setItem('vibe_geminiApiKey', val);
+                            localStorage.setItem('guest_geminiApiKey', val);
+                          } catch {}
+                        }}
                         onBlur={() => {
-                          if (!session) return;
-                          const meta = session.user.user_metadata || {};
-                          meta.geminiApiKey = geminiApiKey;
-                          supabase.auth.updateUser({ data: meta }).catch(console.error);
+                          try {
+                            localStorage.setItem('vibe_geminiApiKey', geminiApiKey);
+                            localStorage.setItem('guest_geminiApiKey', geminiApiKey);
+                          } catch {}
+                          if (session) {
+                            supabase.auth.updateUser({ data: { geminiApiKey } }).catch(console.error);
+                          }
                         }}
                         className={`w-full px-4 py-3.5 text-xs font-mono rounded-2xl border-2 outline-none transition-all shadow-inner ${isDark ? 'bg-[#0f111a] border-slate-800 text-slate-300 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 placeholder:text-slate-700' : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-purple-400 focus:ring-4 focus:ring-purple-500/10'}`}
                       />
@@ -1868,7 +1918,7 @@ export default function Home() {
                 const totalPending = todos.filter(t => !t.completed).length;
                 const dynStats = getDynamicMascotProps(mascotShape, mascotColor, totalPending);
                 return (
-                  <div className="w-16 h-16"><BloubMascot size={64} state="idle" expression={dynStats.expr} shape={mascotShape} color={dynStats.color} /></div>
+                  <div className="w-16 h-16"><BloubMascot size={64} state="idle" expression={dynStats.expr} shape={mascotShape} color={dynStats.color} gaze={mascotGaze} /></div>
                 );
               })()}
               <div>
