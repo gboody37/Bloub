@@ -179,8 +179,14 @@ export class BotEngine {
    * Expression de repos choisie dans le personnalisateur. Comme la forme, elle
    * glisse vers la nouvelle valeur au lieu de sauter.
    */
-  setExpression(expression: BotExpression | null, now = 0) {
+  setExpression(expression: BotExpression | null, now = 0, immediate = false) {
     if (expression === this.expr) return
+    if (immediate) {
+      this.exprPrev = null
+      this.expr = expression
+      this.exprAt = -100
+      return
+    }
     this.exprPrev = this.expr
     this.expr = expression
     this.exprAt = now
@@ -204,8 +210,14 @@ export class BotEngine {
    * Le changement se fait en morph, pas d'un coup : comme toutes les formes sont
    * echantillonnees aux memes angles, il suffit d'interpoler les rayons.
    */
-  setShape(radii: number[] | null, now = 0) {
+  setShape(radii: number[] | null, now = 0, immediate = false) {
     if (radii === this.shape) return
+    if (immediate) {
+      this.shapePrev = null
+      this.shape = radii
+      this.shapeAt = -100
+      return
+    }
     this.shapePrev = this.shape
     this.shape = radii
     this.shapeAt = now
@@ -503,7 +515,7 @@ export class BotEngine {
       const poses = eyePoses(gaze, R, pose.split)
       for (let i = 0; i < 2; i++) {
         const e = poses[i]!
-        if (e.depth <= -0.15) continue
+        if (e.depth <= -0.28) continue
         const cfg = pose.eyes[i]!
         const fit = bodyRadius(e.x, e.y)
         // Inclinaison propre de l'oeil : on compose le repere tangent avec une
@@ -519,10 +531,12 @@ export class BotEngine {
         // Le clignement s'applique APRES tout ca : c'est un ecrasement vertical
         // a l'ecran, pas le long de l'axe de la gelule.
         const k = blinkScale(Math.min(lid, cfg.open))
+        // Both eyes stay visible and clear even during sideways glances
+        const eyeVisibility = e.depth >= -0.05 ? 1 : clamp((e.depth + 0.28) / 0.23, 0.4, 1)
         eyes.push({
           d: capsulePath(cfg.w * R, cfg.h * R),
           matrix: `matrix(${r2(ax)},${r2(ay * k)},${r2(cx2)},${r2(cy2 * k)},${r2(e.x * fit + (offX + decalage.x) * R)},${r2(e.y * fit + (offY + decalage.y) * R)})`,
-          alpha: pose.eyeAlpha * clamp(e.depth / 0.12)
+          alpha: pose.eyeAlpha * eyeVisibility
         })
       }
     }

@@ -37,8 +37,8 @@ function normalize(radii: number[], max = 1): number[] {
 const ANGLES = Array.from({ length: PROFILE_SAMPLES }, (_, i) => (i / PROFILE_SAMPLES) * Math.PI * 2)
 
 const pebble = normalize(
-  ANGLES.map((a) => 1 + 0.075 * Math.cos(2 * a + 0.5) + 0.035 * Math.cos(3 * a + 2.1)),
-  1.02
+  ANGLES.map((a) => 1 + 0.22 * Math.cos(2 * a + 0.4) + 0.12 * Math.cos(3 * a + 1.8)),
+  1.08
 )
 
 const cloud = normalize(
@@ -60,8 +60,25 @@ const droplet = normalize(
 const capsule = profileFromPolygon(hullOfCircles(-0.42, 0, 0.62, 0.42, 0, 0.62), 0, 0)
 
 const sun = normalize(
-  ANGLES.map((a) => 1 + 0.1 * Math.cos(10 * a)),
+  ANGLES.map((a) => 1 + 0.14 * Math.cos(10 * a)),
   1.15
+)
+
+const cheese = normalize(
+  profileFromPolygon(
+    roundedPolygon(
+      [
+        { x: -0.9, y: 0.75 },
+        { x: 0.9, y: 0.75 },
+        { x: 0.85, y: -0.2 },
+        { x: -0.85, y: -0.7 }
+      ],
+      0.18
+    ),
+    0,
+    0
+  ),
+  1.12
 )
 
 const book = normalize(
@@ -86,15 +103,15 @@ const book = normalize(
 export const SHAPES: BotShape[] = [
   { id: 'cercle', radii: new Array(PROFILE_SAMPLES).fill(1) },
   { id: 'galet', radii: pebble },
-  { id: 'squircle', radii: normalize(superellipseProfile(4.2), 1.15) },
+  { id: 'squircle', radii: normalize(superellipseProfile(5.0), 1.18) },
   { id: 'capsule', radii: capsule },
-  { id: 'triangle', radii: regularPolygonProfile(3, 1.12, 0.34, -90) },
-  { id: 'hexagone', radii: regularPolygonProfile(6, 1.04, 0.26, 0) },
+  { id: 'triangle', radii: regularPolygonProfile(3, 1.15, 0.18, -90) },
+  { id: 'hexagone', radii: regularPolygonProfile(6, 1.06, 0.08, 0) },
   { id: 'nuage', radii: cloud },
   { id: 'goutte', radii: droplet },
   { id: 'oeuf', radii: normalize([...PROFILES.egg], 1.05) },
   { id: 'soleil', radii: sun },
-  { id: 'fromage', radii: normalize(superellipseProfile(3.2), 1.1) },
+  { id: 'fromage', radii: cheese },
   { id: 'livre', radii: book }
 ]
 

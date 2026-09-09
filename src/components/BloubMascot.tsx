@@ -116,10 +116,7 @@ export const BloubMascot = React.memo(function BloubMascot({
   useEffect(() => {
     if (engineRef.current) {
       const expr = EXPRESSION_BY_ID.get(expression) ?? null;
-      engineRef.current.setExpression(expr, clockRef.current);
-      if (isStatic) {
-        engineRef.current.setExpression(expr, 0);
-      }
+      engineRef.current.setExpression(expr, clockRef.current, isStatic);
     }
   }, [expression, isStatic]);
 
@@ -127,10 +124,7 @@ export const BloubMascot = React.memo(function BloubMascot({
   useEffect(() => {
     if (engineRef.current) {
       const shapeRadii = SHAPE_BY_ID.get(shape)?.radii ?? null;
-      engineRef.current.setShape(shapeRadii, clockRef.current);
-      if (isStatic) {
-        engineRef.current.setShape(shapeRadii, 0);
-      }
+      engineRef.current.setShape(shapeRadii, clockRef.current, isStatic);
     }
   }, [shape, isStatic]);
 

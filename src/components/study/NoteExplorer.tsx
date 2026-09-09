@@ -245,21 +245,19 @@ export default function NoteExplorer({
       {/* Search and Action Toolbar */}
       <div className="relative flex items-center mb-4 gap-2">
         <div className="relative flex-1">
-          <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--theme-text-muted)]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search notes or tags..."
-            className={`w-full pl-8 pr-3 py-2 text-xs rounded-xl border outline-none transition-all ${
-              isDark ? 'bg-slate-900 border-slate-700 text-slate-200 focus:border-purple-500' : 'bg-white border-gray-200 text-gray-800 focus:border-purple-500'
-            }`}
+            className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border outline-none transition-all bg-[var(--theme-surface-subtle)] border-[var(--theme-border-subtle)] text-[var(--theme-text-primary)] placeholder:text-[var(--theme-text-muted)] focus:border-[var(--theme-primary)] focus:ring-1 focus:ring-[var(--theme-primary)]/30"
           />
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <button 
             onClick={fetchVault} 
-            className={`p-2 rounded-xl transition-colors ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`} 
+            className="p-2 rounded-xl transition-all bg-[var(--theme-surface-subtle)] hover:bg-[var(--theme-surface-elevated)] border border-[var(--theme-border-subtle)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)]" 
             title="Refresh Vault"
           >
             <RotateCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -267,7 +265,7 @@ export default function NoteExplorer({
           
           <button 
             onClick={() => docInputRef.current?.click()} 
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all text-xs font-bold" 
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[var(--theme-primary)] hover:brightness-110 text-white shadow-sm transition-all text-xs font-bold active:scale-95" 
             title="Upload PDF Document"
           >
             <UploadCloud size={14} />
@@ -276,7 +274,7 @@ export default function NoteExplorer({
           
           <button 
             onClick={handleConnectVault} 
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white shadow-sm transition-all text-xs font-bold" 
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[var(--theme-surface-elevated)] hover:bg-[var(--theme-surface)] border border-[var(--theme-border)] text-[var(--theme-text-primary)] shadow-sm transition-all text-xs font-bold active:scale-95" 
             title="Sync local folder to cloud"
           >
             <RotateCw size={14} />
@@ -287,8 +285,8 @@ export default function NoteExplorer({
 
       {/* Syncing / Upload Progress Notification */}
       {isSyncing && syncProgress && (
-        <div className={`mb-4 p-3 rounded-xl flex items-center gap-3 text-xs font-semibold ${isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-50 text-purple-700'}`}>
-          <Loader2 size={16} className="animate-spin flex-shrink-0" />
+        <div className="mb-4 p-3 rounded-xl flex items-center gap-3 text-xs font-semibold bg-[var(--theme-surface-elevated)] border border-[var(--theme-border)] text-[var(--theme-text-primary)] shadow-md">
+          <Loader2 size={16} className="animate-spin flex-shrink-0 text-[var(--theme-primary)]" />
           <div className="truncate">
             {syncProgress.status === 'picking' ? 'Selecting folder...' :
              syncProgress.status === 'scanning' ? `Scanning local vault (${syncProgress.scannedCount} files)...` :
@@ -300,19 +298,19 @@ export default function NoteExplorer({
       {/* Notes Tree Listing */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
         {loading ? (
-          <div className="flex items-center justify-center h-20 opacity-50"><Loader2 className="animate-spin" size={20} /></div>
+          <div className="flex items-center justify-center h-20 opacity-50"><Loader2 className="animate-spin text-[var(--theme-primary)]" size={20} /></div>
         ) : error ? (
-          <div className={`p-4 rounded-xl text-center text-xs ${isDark ? 'bg-red-950/20 text-red-400' : 'bg-red-50 text-red-600'}`}>{error}</div>
+          <div className="p-4 rounded-xl text-center text-xs bg-red-950/20 border border-red-500/30 text-red-400">{error}</div>
         ) : filteredNotes.length === 0 ? (
-          <div className="text-center p-6 opacity-50 text-xs font-medium">No notes found. Upload a PDF or sync your vault to start!</div>
+          <div className="text-center p-6 text-xs font-medium text-[var(--theme-text-muted)]">No notes found. Upload a PDF or sync your vault to start!</div>
         ) : (
           <div className="space-y-6 pb-6">
             {Object.entries(tree).sort((a,b) => a[0].localeCompare(b[0])).map(([folder, folderNotes]) => (
               <div key={folder}>
                 <div className="flex items-center gap-2 mb-3 pl-1">
-                  <FolderOpen size={16} className={isDark ? 'text-indigo-400' : 'text-indigo-500'} />
-                  <h4 className={`text-sm font-bold tracking-tight ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>{folder}</h4>
-                  <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${isDark ? 'bg-slate-800 text-slate-400' : 'bg-gray-100 text-gray-500'}`}>{folderNotes.length}</span>
+                  <FolderOpen size={16} className="text-[var(--theme-primary)]" />
+                  <h4 className="text-sm font-bold tracking-tight text-[var(--theme-text-primary)]">{folder}</h4>
+                  <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--theme-surface-elevated)] border border-[var(--theme-border-subtle)] text-[var(--theme-text-muted)]">{folderNotes.length}</span>
                 </div>
                 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -322,19 +320,19 @@ export default function NoteExplorer({
                       <div key={note.id} className="relative group/note w-full">
                         <button
                           onClick={() => onSelectNote(note)}
-                          className={`w-full flex flex-col items-start text-left p-3.5 rounded-2xl transition-all duration-300 border ${
+                          className={`w-full flex flex-col items-start text-left p-3.5 rounded-2xl transition-all duration-200 border ${
                             isSelected 
-                              ? (isDark ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'bg-indigo-50 border-indigo-200 shadow-sm scale-[0.98]') 
-                              : (isDark ? 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800 hover:border-slate-600' : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm')
+                              ? 'bg-[var(--theme-primary)]/15 border-[var(--theme-primary)] shadow-[0_0_15px_var(--theme-focus-ring)] scale-[0.98]' 
+                              : 'bg-[var(--theme-surface-subtle)] border-[var(--theme-border-subtle)] hover:bg-[var(--theme-surface-elevated)] hover:border-[var(--theme-border)] hover:shadow-md'
                           }`}
                         >
                           <div className="w-full flex justify-between items-start mb-3">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors border ${
                               isSelected 
-                                ? (isDark ? 'bg-indigo-500/30' : 'bg-indigo-100') 
-                                : (isDark ? 'bg-slate-700/50 group-hover:bg-slate-700' : 'bg-gray-50 group-hover:bg-gray-100')
+                                ? 'bg-[var(--theme-primary)]/25 border-[var(--theme-primary)]/40 text-[var(--theme-primary)]' 
+                                : 'bg-[var(--theme-surface-elevated)] border-[var(--theme-border-subtle)] text-[var(--theme-text-muted)] group-hover:text-[var(--theme-text-primary)]'
                             }`}>
-                              <FileText size={18} className={isSelected ? 'text-indigo-500' : (isDark ? 'text-slate-400 group-hover:text-slate-300' : 'text-gray-400 group-hover:text-gray-600')} />
+                              <FileText size={18} />
                             </div>
                             <button
                               onClick={async (e) => {
@@ -350,15 +348,15 @@ export default function NoteExplorer({
                                   alert('Failed to delete: ' + err.message);
                                 }
                               }}
-                              className={`p-1.5 rounded-lg opacity-0 group-hover/note:opacity-100 transition-all ${isDark ? 'hover:bg-red-500/20 text-red-400' : 'hover:bg-red-100 text-red-500'}`}
+                              className="p-1.5 rounded-lg opacity-0 group-hover/note:opacity-100 transition-all hover:bg-red-500/20 text-red-400"
                               title="Delete note"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
                             </button>
                           </div>
-                          <h5 className={`text-xs font-bold truncate w-full mb-1 ${isSelected ? (isDark ? 'text-indigo-300' : 'text-indigo-700') : (isDark ? 'text-slate-300 group-hover:text-white' : 'text-gray-800')}`}>{note.title}</h5>
+                          <h5 className={`text-xs font-bold truncate w-full mb-1 ${isSelected ? 'text-[var(--theme-primary)]' : 'text-[var(--theme-text-primary)]'}`}>{note.title}</h5>
                           {note.tags && note.tags.length > 0 && (
-                            <span className={`text-[9px] font-bold uppercase tracking-wider truncate w-full mt-auto ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
+                            <span className="text-[9px] font-bold uppercase tracking-wider truncate w-full mt-auto text-[var(--theme-text-muted)]">
                               {note.tags.join(', ')}
                             </span>
                           )}

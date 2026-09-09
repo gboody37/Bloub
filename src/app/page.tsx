@@ -23,6 +23,7 @@ import NoteGraph from '@/components/study/NoteGraph';
 import type { ObsidianNoteSummary, ParsedObsidianNote } from '@/types/obsidian';
 import { parseObsidianMarkdown } from '@/lib/obsidian/parser';
 import { recordMutation, markMutationSynced, markMutationFailed, type MutationType } from '@/lib/storage/offline-wal';
+import { getThemeVariables } from '@/lib/theme/tokens';
 
 const PRIORITY_COLOR = { high: '#ef4444', medium: '#f59e0b', low: '#3b82f6' };
 const PRIORITY_LABEL = { high: 'High', medium: 'Medium', low: 'Low' };
@@ -477,6 +478,17 @@ export default function Home() {
     } else {
       document.documentElement.classList.remove('dark');
       document.documentElement.removeAttribute('data-theme');
+    }
+
+    try {
+      const vars = getThemeVariables(bgTheme);
+      if (vars) {
+        Object.entries(vars).forEach(([prop, val]) => {
+          document.documentElement.style.setProperty(prop, val);
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to set theme variables:', e);
     }
   }, [bgTheme]);
 
@@ -965,22 +977,57 @@ export default function Home() {
   
   const isGlobalTarget = settingsTarget === 'global';
   const targetCatObj: Category = categories.find(c => c.id === settingsTarget) || { id: 'default', name: 'General', type: 'todo' };
-  const targetShape = isGlobalTarget ? mascotShape : getListMascot(targetCatObj, catSettings, mascotShape, mascotColor).shape;
-  const targetColor = isGlobalTarget ? mascotColor : getListMascot(targetCatObj, catSettings, mascotShape, mascotColor).color;
+  const targetShape = isGlobalTarget ? mascotShape : (catSettings[settingsTarget]?.shape || getListMascot(targetCatObj, catSettings, mascotShape, mascotColor).shape);
+  const targetColor = isGlobalTarget ? mascotColor : (catSettings[settingsTarget]?.color || getListMascot(targetCatObj, catSettings, mascotShape, mascotColor).color);
+  const targetExpr: ExpressionId = (isGlobalTarget ? mascotExpression : (catSettings[settingsTarget]?.expression as ExpressionId)) || 'neutre';
 
   const updateTargetShape = (s: string) => {
-    if (isGlobalTarget) setMascotShape(s);
-    else setCatSettings(prev => ({ ...prev, [settingsTarget]: { ...prev[settingsTarget], shape: s, color: targetColor } }));
+    if (isGlobalTarget) {
+      setMascotShape(s);
+    } else {
+      setCatSettings(prev => ({
+        ...prev,
+        [settingsTarget]: {
+          ...prev[settingsTarget],
+          shape: s,
+          color: prev[settingsTarget]?.color || targetColor,
+          expression: prev[settingsTarget]?.expression || 'neutre'
+        }
+      }));
+    }
   };
 
   const updateTargetColor = (c: string) => {
-    if (isGlobalTarget) setMascotColor(c);
-    else setCatSettings(prev => ({ ...prev, [settingsTarget]: { ...prev[settingsTarget], shape: targetShape, color: c } }));
+    if (isGlobalTarget) {
+      setMascotColor(c);
+    } else {
+      setCatSettings(prev => ({
+        ...prev,
+        [settingsTarget]: {
+          ...prev[settingsTarget],
+          shape: prev[settingsTarget]?.shape || targetShape,
+          color: c,
+          expression: prev[settingsTarget]?.expression || 'neutre'
+        }
+      }));
+    }
   };
 
   const updateTargetExpr = (expr: string) => {
-    if (isGlobalTarget) setMascotExpression(expr as any);
-    else setCatSettings(prev => ({ ...prev, [settingsTarget]: { ...prev[settingsTarget], expression: expr } }));
+    if (isGlobalTarget) {
+      setMascotExpression(expr as any);
+    } else {
+      setCatSettings(prev => ({
+        ...prev,
+        [settingsTarget]: {
+          ...prev[settingsTarget],
+          shape: prev[settingsTarget]?.shape || targetShape,
+          color: prev[settingsTarget]?.color || targetColor,
+          expression: expr
+        }
+      }));
+    }
+    triggerMascot('idle', expr as any, true);
   };
 
   // Theme Logic
@@ -1343,8 +1390,8 @@ export default function Home() {
           <div className="flex-1 w-full flex flex-col md:flex-row overflow-hidden animate-in fade-in zoom-in-95 duration-300 md:shadow-2xl md:my-6 md:rounded-3xl md:border md:border-white/10">
             {/* Left side: HUGE MASCOT */}
             <div className="hidden md:flex md:w-1/2 lg:w-3/5 flex-1 items-center justify-center bg-slate-900/40 relative overflow-visible">
-                <div className="cursor-pointer hover:scale-105 transition-transform duration-300 overflow-visible" onClick={() => triggerMascot('orbit', mascotExpression)}>
-                  <BloubMascot size={320} state={animState} expression={isGlobalTarget ? mascotExpression : (catSettings[settingsTarget]?.expression as ExpressionId || 'neutre')} shape={targetShape} color={targetColor} isStatic={false} />
+                <div className="cursor-pointer hover:scale-105 transition-transform duration-300 overflow-visible" onClick={() => triggerMascot('orbit', targetExpr)}>
+                  <BloubMascot size={320} state={animState} expression={targetExpr} shape={targetShape} color={targetColor} isStatic={false} />
                 </div>
             </div>
 
@@ -1353,8 +1400,8 @@ export default function Home() {
               
               {/* Mascot Preview inside Settings */}
               <div className="bg-slate-900 rounded-3xl p-4 mb-6 border border-slate-800 flex flex-col items-center">
-                <div className="w-32 h-32 flex items-center justify-center mb-4 cursor-pointer hover:scale-105 transition-transform duration-300 overflow-visible" onClick={() => triggerMascot('orbit', mascotExpression)}>
-                  <BloubMascot size={120} state={animState} expression={isGlobalTarget ? mascotExpression : (catSettings[settingsTarget]?.expression as ExpressionId || 'neutre')} shape={targetShape} color={targetColor} isStatic={false} />
+                <div className="w-32 h-32 flex items-center justify-center mb-4 cursor-pointer hover:scale-105 transition-transform duration-300 overflow-visible" onClick={() => triggerMascot('orbit', targetExpr)}>
+                  <BloubMascot size={120} state={animState} expression={targetExpr} shape={targetShape} color={targetColor} isStatic={false} />
                 </div>
 
                 {/* Horizontal Category Scroller */}
@@ -1375,6 +1422,7 @@ export default function Home() {
                   </button>
                   {categories.map(cat => {
                     const { shape: cShape, color: cColor } = getListMascot(cat, catSettings);
+                    const cExpr = (catSettings[cat.id]?.expression as ExpressionId) || 'neutre';
                     return (
                       <button
                         key={cat.id}
@@ -1387,7 +1435,7 @@ export default function Home() {
                         }`}
                       >
                         <div className="w-8 h-8 flex items-center justify-center pointer-events-none">
-                          <BloubMascot size={48} state="idle" expression="neutre" shape={cShape} color={cColor} isStatic={true} />
+                          <BloubMascot size={48} state="idle" expression={cExpr} shape={cShape} color={cColor} isStatic={true} />
                         </div>
                         <span className="text-[10px] font-bold mt-1 tracking-wide uppercase truncate w-12 text-center">{cat.name}</span>
                       </button>
@@ -1398,24 +1446,31 @@ export default function Home() {
 
               {/* Shape Section */}
               <div className="mb-6">
-                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
-                  <Shapes size={14} /> Shape
-                </span>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                    <Shapes size={14} /> Shape
+                  </span>
+                  <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider capitalize">
+                    {targetShape}
+                  </span>
+                </div>
                 <div className="grid grid-cols-4 gap-2">
                   {SHAPE_IDS.map(s => (
                     <button
                       key={s}
                       type="button"
                       onClick={() => updateTargetShape(s)}
-                      className={`flex aspect-square flex-col items-center justify-center rounded-2xl border-2 transition-all cursor-pointer ${
+                      className={`flex aspect-square flex-col items-center justify-center rounded-2xl border-2 transition-all cursor-pointer p-1 ${
                         targetShape === s
                           ? 'bg-slate-800 border-blue-500 shadow-md ring-2 ring-blue-500/30 ring-offset-1 ring-offset-slate-900 scale-105'
                           : isDark
                             ? 'bg-slate-800/50 border-slate-700/50 hover:bg-slate-800 hover:border-slate-600'
                             : 'bg-white border-gray-200 hover:border-gray-300'
                       }`}
+                      title={s}
                     >
-                      <BloubMascot size={56} state="idle" expression="neutre" shape={s} color={targetColor} isStatic={true} />
+                      <BloubMascot size={48} state="idle" expression="neutre" shape={s} color={targetColor} isStatic={true} />
+                      <span className="text-[9px] font-bold text-slate-400 capitalize truncate max-w-[50px] text-center mt-0.5">{s}</span>
                     </button>
                   ))}
                 </div>
@@ -1423,17 +1478,22 @@ export default function Home() {
 
               {/* Expression Section */}
               <div className="mb-6">
-                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
-                  <Smile size={14} /> Expression
-                </span>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                    <Smile size={14} /> Expression
+                  </span>
+                  <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider capitalize">
+                    {targetExpr}
+                  </span>
+                </div>
                 <div className="grid grid-cols-4 gap-2">
                   {['neutre', 'attentif', 'surpris', 'excite', 'heureux', 'hilare', 'colere', 'triste', 'effraye', 'mefiant', 'curieux', 'fier', 'timide', 'blase'].map(expr => (
                     <button
                       key={expr}
                       type="button"
                       onClick={() => updateTargetExpr(expr)}
-                      className={`flex aspect-square flex-col items-center justify-center rounded-2xl border-2 transition-all cursor-pointer ${
-                        (settingsTarget === 'global' ? mascotExpression : (catSettings[settingsTarget]?.expression || 'neutre')) === expr
+                      className={`flex aspect-square flex-col items-center justify-center rounded-2xl border-2 transition-all cursor-pointer p-1 ${
+                        targetExpr === expr
                           ? 'bg-slate-800 border-blue-500 shadow-md ring-2 ring-blue-500/30 ring-offset-1 ring-offset-slate-900 scale-105'
                           : isDark
                             ? 'bg-slate-800/50 border-slate-700/50 hover:bg-slate-800 hover:border-slate-600'
@@ -1441,7 +1501,8 @@ export default function Home() {
                       }`}
                       title={expr}
                     >
-                      <BloubMascot size={56} state="idle" expression={expr as any} shape={targetShape} color={targetColor} isStatic={true} />
+                      <BloubMascot size={48} state="idle" expression={expr as any} shape="squircle" color={targetColor} isStatic={true} />
+                      <span className="text-[9px] font-bold text-slate-400 capitalize truncate max-w-[50px] text-center mt-0.5">{expr}</span>
                     </button>
                   ))}
                 </div>
@@ -2023,16 +2084,14 @@ export default function Home() {
                   </div>
                 ) : showStudyExplorer ? (
                   <div className={`flex flex-col h-[600px] border rounded-3xl overflow-hidden transition-all animate-in fade-in zoom-in-95 duration-500 ${t.card}`}>
-                    <div className={`p-3 border-b flex items-center justify-between ${isDark ? 'border-slate-800 bg-slate-900/50' : 'border-gray-100 bg-gray-50/50'}`}>
+                    <div className="p-3 border-b flex items-center justify-between border-[var(--theme-border-subtle)] bg-[var(--theme-surface-subtle)]">
                       <button 
                         onClick={() => setShowStudyExplorer(false)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
-                          isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-gray-200 text-gray-700'
-                        }`}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors hover:bg-[var(--theme-surface-elevated)] text-[var(--theme-text-primary)]"
                       >
                         <ChevronRight className="rotate-180" size={14} /> Back to Hub
                       </button>
-                      <span className={`text-xs font-bold uppercase tracking-wider opacity-50 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Cloud Vault</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-[var(--theme-text-muted)]">Cloud Vault</span>
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <NoteExplorer 
