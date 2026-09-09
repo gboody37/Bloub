@@ -4,12 +4,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, HelpCircle, Menu, BookOpen, X, Sparkles, Shapes, Smile, PaintBucket, 
-  ArrowLeft, Check, Smartphone, Monitor
+  ArrowLeft, Check, Smartphone, Monitor, Play, Pause, RotateCcw, Flame, Plus,
+  FileText
 } from 'lucide-react';
 import MochiHeaderBadge from '@/components/mascot/MochiHeaderBadge';
 import CozyDailyQuests from '@/components/todo/CozyDailyQuests';
 import CozyParchmentReader from '@/components/study/CozyParchmentReader';
-import CozyFlashcardQuiz from '@/components/study/CozyFlashcardQuiz';
+import CozyStudyNotepad from '@/components/study/CozyStudyNotepad';
 import NoteExplorer from '@/components/study/NoteExplorer';
 import NoteViewer from '@/components/study/NoteViewer';
 import BloubMascot from '@/components/BloubMascot';
@@ -23,6 +24,12 @@ export default function BloubHome() {
   const [quests, setQuests] = useState<StudyQuest[]>([]);
   const [loadingQuests, setLoadingQuests] = useState(true);
   
+  // Pomodoro & Streak State
+  const [pomodoroSeconds, setPomodoroSeconds] = useState(24 * 60 + 18);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [streakDays, setStreakDays] = useState(4);
+  const [pomodoroSession, setPomodoroSession] = useState(3);
+  
   // Active study note / book
   const [selectedNote, setSelectedNote] = useState<ParsedObsidianNote | null>(null);
   const [isFetchingNote, setIsFetchingNote] = useState(false);
@@ -31,7 +38,26 @@ export default function BloubHome() {
   const [showStudyExplorer, setShowStudyExplorer] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [mobileTab, setMobileTab] = useState<'quests' | 'study' | 'quiz'>('quests');
+  const [mobileTab, setMobileTab] = useState<'quests' | 'study' | 'notepad'>('quests');
+
+  // Pomodoro countdown timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (isTimerRunning && pomodoroSeconds > 0) {
+      interval = setInterval(() => {
+        setPomodoroSeconds(prev => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isTimerRunning, pomodoroSeconds]);
+
+  const formatTimer = (totalSeconds: number) => {
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   // Theme: Amber (#141211) vs Matcha (#101412)
   const [bgTheme, setBgTheme] = useState<'bg-[#141211]' | 'bg-[#101412]'>('bg-[#141211]');
@@ -106,60 +132,116 @@ export default function BloubHome() {
         
         {/* Header */}
         {!selectedNote && (
-          <header className="pt-2 pb-5 flex justify-between items-center select-none">
-            {/* Left: Brand with amber arc */}
-            <div 
-              className="flex items-center gap-2 cursor-pointer group"
-              onClick={() => setSelectedNote(null)}
-            >
-              <span className="text-amber-500 font-bold text-2xl select-none group-hover:scale-110 transition-transform">(</span>
-              <span className="text-xl font-bold tracking-tight text-[#f5efe6] font-sans">
-                Bloub
-              </span>
+          <header className="pt-2 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-3 select-none border-b border-stone-800/40 mb-3">
+            {/* Left: Brand with breadcrumbs */}
+            <div className="flex items-center gap-3">
+              <div 
+                className="flex items-center gap-2 cursor-pointer group"
+                onClick={() => setSelectedNote(null)}
+              >
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 font-black text-xl group-hover:scale-105 transition-transform">
+                  (
+                </div>
+                <span className="text-xl font-bold tracking-tight text-[#f5efe6] font-sans">
+                  Bloub
+                </span>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-1.5 text-xs text-stone-400 font-medium pl-2 border-l border-stone-800">
+                <span className="hover:text-stone-300 cursor-pointer">Physics</span>
+                <span className="text-stone-600">›</span>
+                <span className="text-amber-400/90 truncate max-w-[210px]">Chapter 4: Optics & Quantum Waves</span>
+              </div>
             </div>
 
-            {/* Center: Animated Bloub Mascot Pill */}
+            {/* Center: Interactive Mascot Status & Pomodoro Island */}
             <div className="flex items-center justify-center">
-              <MochiHeaderBadge
-                statusText={
-                  quests.length === 0
-                    ? 'Bloub is resting'
-                    : completedCount === quests.length
-                    ? 'All quests complete!'
-                    : 'Bloub is studying'
-                }
-                themeType={isMatcha ? 'matcha' : 'amber'}
-                onClick={toggleTheme}
-              />
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1c1714] border border-[#332a22] shadow-lg text-xs">
+                <div className="flex items-center gap-1.5 pr-2 border-r border-stone-800">
+                  <span className={`w-2 h-2 rounded-full ${quests.length > 0 && completedCount < quests.length ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                  <span className="font-semibold text-stone-200">
+                    {quests.length === 0
+                      ? 'Bloub is resting'
+                      : completedCount === quests.length
+                      ? 'All quests complete!'
+                      : 'Bloub is studying'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 px-1 font-mono font-bold text-amber-400">
+                  <span>{formatTimer(pomodoroSeconds)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsTimerRunning(!isTimerRunning)}
+                    className="p-1 rounded-full hover:bg-stone-800 text-stone-300 hover:text-white transition-colors"
+                    title={isTimerRunning ? 'Pause timer' : 'Start timer'}
+                  >
+                    {isTimerRunning ? <Pause size={12} /> : <Play size={12} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsTimerRunning(false);
+                      setPomodoroSeconds(25 * 60);
+                    }}
+                    className="p-1 rounded-full hover:bg-stone-800 text-stone-500 hover:text-stone-300 transition-colors"
+                    title="Reset timer"
+                  >
+                    <RotateCcw size={11} />
+                  </button>
+                </div>
+
+                <span className="hidden sm:inline-block px-2 py-0.5 rounded-full bg-stone-900 border border-stone-800 text-[10px] text-stone-400">
+                  Session {pomodoroSession}/4
+                </span>
+              </div>
             </div>
 
-            {/* Right: Ghost action buttons */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Right: Streak & Actions */}
+            <div className="flex items-center gap-2 justify-end">
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-xs font-semibold text-amber-400 select-none">
+                <Flame size={14} className="text-amber-500 fill-amber-500" />
+                <span>{streakDays} Days</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileTab('notepad');
+                  const notepadEl = document.querySelector('textarea');
+                  if (notepadEl) notepadEl.focus();
+                }}
+                className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold transition-all active:scale-[0.98] shadow-sm"
+              >
+                <Plus size={13} />
+                <span>New Note</span>
+              </button>
+
               <button
                 type="button"
                 onClick={toggleTheme}
-                className="w-9 h-9 rounded-full flex items-center justify-center text-stone-500 hover:text-stone-300 hover:bg-stone-900/60 transition-colors"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-stone-400 hover:text-stone-200 hover:bg-stone-900/60 border border-transparent hover:border-stone-800 transition-colors"
                 title="Switch Theme: Amber / Matcha"
               >
-                <Users className="w-4 h-4" />
+                <Users size={14} />
               </button>
 
               <button
                 type="button"
                 onClick={() => setShowHelp(true)}
-                className="w-9 h-9 rounded-full flex items-center justify-center text-stone-500 hover:text-stone-300 hover:bg-stone-900/60 transition-colors"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-stone-400 hover:text-stone-200 hover:bg-stone-900/60 border border-transparent hover:border-stone-800 transition-colors"
                 title="Help & Shortcuts"
               >
-                <HelpCircle className="w-4 h-4" />
+                <HelpCircle size={14} />
               </button>
 
               <button
                 type="button"
                 onClick={() => setShowSettings(true)}
-                className="w-9 h-9 rounded-full flex items-center justify-center text-stone-300 hover:text-white bg-[#221c18] border border-[#332b24] shadow-sm transition-colors"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-stone-300 hover:text-white bg-[#221c18] border border-[#382f27] shadow-sm transition-colors"
                 title="Settings & Mascot"
               >
-                <Menu className="w-4 h-4" />
+                <Menu size={14} />
               </button>
             </div>
           </header>
@@ -217,11 +299,12 @@ export default function BloubHome() {
                 />
               </div>
 
-              {/* Column 3: Flashcard Quiz */}
+              {/* Column 3: Live Study Notepad */}
               <div className="col-span-1 h-full">
-                <CozyFlashcardQuiz
-                  onStartFullQuiz={() => setShowStudyExplorer(true)}
+                <CozyStudyNotepad
                   isMatcha={isMatcha}
+                  activeNoteTitle="Physics Module 4"
+                  onSendToQuests={(text) => handleAddQuest(text)}
                 />
               </div>
             </div>
@@ -249,12 +332,12 @@ export default function BloubHome() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setMobileTab('quiz')}
+                  onClick={() => setMobileTab('notepad')}
                   className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-all ${
-                    mobileTab === 'quiz' ? 'bg-amber-500 text-stone-950 font-bold' : 'text-stone-400'
+                    mobileTab === 'notepad' ? 'bg-amber-500 text-stone-950 font-bold' : 'text-stone-400'
                   }`}
                 >
-                  Quiz
+                  Notepad
                 </button>
               </div>
 
@@ -279,11 +362,14 @@ export default function BloubHome() {
                     />
                   </div>
                 )}
-                {mobileTab === 'quiz' && (
-                  <CozyFlashcardQuiz
-                    onStartFullQuiz={() => setShowStudyExplorer(true)}
-                    isMatcha={isMatcha}
-                  />
+                {mobileTab === 'notepad' && (
+                  <div className="h-[560px]">
+                    <CozyStudyNotepad
+                      isMatcha={isMatcha}
+                      activeNoteTitle="Physics Module 4"
+                      onSendToQuests={(text) => handleAddQuest(text)}
+                    />
+                  </div>
                 )}
               </div>
             </div>
