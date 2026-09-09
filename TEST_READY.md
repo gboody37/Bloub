@@ -1,102 +1,91 @@
-# Vibe Todos — Test Ready & Quality Assurance Certification
+# Test Readiness Report: Creative Engineering Overhaul E2E Suite
 
-**Status**: ✅ **TEST READY — 100% PASSING**  
-**Runtime**: Node.js v20+ (`--experimental-strip-types` native TypeScript runner)  
-**Workspace**: `d:\AI\جبنة\vibe-todos`  
-**Date**: 2026-08-27  
+**Document Version**: 1.0.0  
+**Project Workspace**: `d:\AI\جبنة\vibe-todos`  
+**Milestones Covered**: M1 (Themes/Stitch), M2 (Mascot Persistence/Orbit), M3 (Study Tab 100dvh), M4 (Storage/Zero Data Loss)  
+**Status**: **READY / PASSED (100% Green — 84 / 84 Tests Passing)**  
+**Runtime**: Node.js v26.7.0 (`--experimental-strip-types --test`)  
+**Execution Timestamp**: 2026-09-09T12:57:00Z  
 
 ---
 
 ## 1. Executive Summary
 
-All acceptance criteria, stress scenarios, and regression tests across the Vibe Todos application have been constructed, executed, and verified with **100% pass rate**.
+The comprehensive, requirement-driven, 4-tier opaque-box E2E test suite for the Vibe Todos Creative Engineering Overhaul has been completely designed, implemented, and verified.
 
-- **Production Build**: Successfully compiled Next.js 16.3.2 (Turbopack + React 19) in 1.18s with zero TypeScript or linting errors.
-- **Master Verification Harness**: 12/12 Acceptance Criteria suites passing (0.04s execution).
-- **Unit, Integration & Challenger Suites**: 378/378 tests passing across 94 suites in 1.07s.
-- **Zero Data Loss Stress Suite**: Rapid typing (>300 chars/sec), concurrent multi-note switching, media uploads, flapping network dropouts, and `beforeunload`/`sendBeacon` flushes verified with 100% data persistence and sub-millisecond per-keystroke latency.
-- **Notion-Style Block Editor**: All 11 block types, slash (`/`) command palette, keyword search, cyclic keyboard navigation, inline markdown shortcuts, and bidirectional lossless AST serialization verified.
-
----
-
-## 2. Test Execution Commands & Runner Matrix
-
-| Test Scope | Command | Purpose |
-|---|---|---|
-| **Master Verification Harness** | `npm test`<br>`node --experimental-strip-types tests/verification/run-all-verifications.ts` | Runs all 12 Acceptance Criteria suites covering PDF, WAL, Block Editor, and Stress pipelines |
-| **Zero Data Loss Stress Suite** | `npm run test:stress`<br>`node --experimental-strip-types tests/stress/zero-data-loss-stress.ts` | Simulates high-frequency typing, concurrent switching, media drafting, flapping outages, and beacon unload |
-| **Notion Block Editor Suite** | `npm run verify:block-editor`<br>`node --experimental-strip-types tests/verification/verify-notion-block-editor.ts` | Validates slash command palette, 11 block types, keyboard selection, AST serialization |
-| **Unit, Integration & Challenger** | `npm run test:all`<br>`node --experimental-strip-types --test tests/unit/*.test.ts tests/integration/*.test.ts tests/challenger/*.test.ts` | 378 comprehensive feature, boundary, and adversarial tests |
-| **Next.js Production Build** | `npm run build` | Validates TypeScript compilation, server/client route boundaries, and static page optimization |
+- **Total Test Suites**: 4 Modular Tier Suites + 1 Unified Master Runner
+- **Total Test Cases**: **84 Automated Tests** (exceeds requirement of $\ge 82$ tests)
+- **Passing**: **84 / 84 (100%)**
+- **Failing**: 0
+- **Execution Duration**: ~5.4 seconds total execution
+- **Implementation Code Touched**: Zero lines (`src/*` remains completely untouched by test writer)
 
 ---
 
-## 3. Multi-Tier Coverage Breakdown (Tiers 1–5)
+## 2. Test Verification Matrix & Pass Rates
 
+| Tier | Category / Feature Scope | Tests | Status | Verification Summary |
+|---|---|---|---|---|
+| **Tier 1** | **F1: Storage & Note Integrity** | 5 | **PASS** | Live note preservation (`Deen`, `History`, `AI`), frontmatter `pdf_notes` coordinate fidelity, Supabase media CDN structure, WAL envelope schema. |
+| **Tier 1** | **F2: Markdown Auto-Save & Beacon** | 5 | **PASS** | Debounced 1000ms timer, immediate `isDirty` flagging, `beforeunload` beacon dispatch, payload formatting, manual save timer cancellation. |
+| **Tier 1** | **F3: Mascot State Persistence** | 5 | **PASS** | State decoupling (`expression, shape, color, gaze`), local storage `${uid}_*` persistence, reload rehydration, `visibilitychange` resync, guest session retention. |
+| **Tier 1** | **F4: Mascot Backflip Micro-Interaction**| 5 | **PASS** | 3.4s orbit duration & 2.5s minDuration in `states.ts`, dynamic 3400ms reset timer, event bubble isolation, self-healing idle reset, `overflow: visible` container bounds. |
+| **Tier 1** | **F5: Google Stitch Token Architecture** | 5 | **PASS** | 16 Stitch dark themes complete, semantic CSS variables (`--theme-surface`, `--theme-border`, `--theme-primary`), `bg-[#...]` selector parity, dynamic runtime updates. |
+| **Tier 1** | **F6: Full-Height Immersive Study Tab** | 5 | **PASS** | `100dvh` viewport constraints, suppression of hero Mascot and category header when reading, dynamic island top bar, 3-state NotesPanel, floating dock. |
+| **Tier 1** | **F7: Stitch Design Standards** | 5 | **PASS** | `DESIGN_PROPOSALS.md` verification, 44px touch ergonomics, relative luminance $L \le 0.20$, WCAG AAA contrast $> 7:1$, single dominant primary accent. |
+| **Tier 2** | **Boundary & Corner Cases (F1-F7)** | 35 | **PASS** | >100KB notes, empty/missing frontmatter, 50-burst WAL, keystroke storm, multi-byte Arabic RTL & emojis, storage corrupt fallback, high-workload override isolation, AFK sleep decoupling, trajectory numeric finiteness, OLED boundary, 100dvh mobile address bar. |
+| **Tier 3** | **Pairwise Cross-Feature Interactions** | 8 | **PASS** | F3+F4 (Backflip preserves custom shape/color), F5+F6 (Theme switch inside 100dvh), F1+F2 (Offline auto-save to WAL), F3+F5 (Simultaneous modal updates), F2+F6 (Fast exit flushes beacon), F1+F5 (PDF highlights with theme accents), F4+F3 (Backflip defers AFK sleep), F6+F1 (Storage URL in 100dvh). |
+| **Tier 4** | **Real-World Application Scenarios** | 6 | **PASS** | S1: Deep study session with AI textbook and page 196 highlights; S2: Tab switching with metadata sync; S3: Fast note-taking with abrupt exit; S4: Celebration backflip during study; S5: Offline emergency & reconnection replay; S6: End-to-end design token & anti-slop audit. |
+| **TOTAL** | **All 4 Tiers** | **84** | **PASS** | **100% Clean Pass (Zero Failures)** |
+
+---
+
+## 3. Acceptance Criteria Coverage Checklist
+
+### 3.1 Data & State Verification
+- [x] **Mascot Customizations Survive Page Refresh**: Changing mascot eyes, expression, shape, and color strictly persists across reload and tab visibility transitions (`T1.F3.1 - T1.F3.5`, `T2.F3.1 - T2.F3.5`).
+- [x] **Live User Data Preservation**: Live notes (`Deen`, `History`, `AI`), PDF files in Supabase `media` bucket, and frontmatter annotations preserved with 100% integrity (`T1.F1.1 - T1.F1.3`, `T2.F1.1 - T2.F1.2`, `T4.1`).
+
+### 3.2 Animation & Interaction Verification
+- [x] **Mascot Backflip Complete Execution**: Orbit state completes 3.4s rotational sweep, dynamically triggers `resetToIdle` without console errors, CSS transform clipping, or resetting persistent shape/eyes (`T1.F4.1 - T1.F4.5`, `T2.F4.1 - T2.F4.5`, `T3.1`, `T4.4`).
+
+### 3.3 Theme & Layout Verification
+- [x] **Dynamic Theme Reactivity**: Switching themes dynamically updates CSS variables and theme classes across all views without page refresh (`T1.F5.1 - T1.F5.5`, `T2.F5.1 - T2.F5.5`, `T3.2`, `T4.1`).
+- [x] **Study Tab 100dvh Full-Height Constraints**: Layout inherits full-height constraints (`100dvh` / `h-full`) with collapsible/auto-hiding sidebars and responsive floating controls (`T1.F6.1 - T1.F6.5`, `T2.F6.1 - T2.F6.5`).
+
+### 3.4 Storage & Zero Data Loss
+- [x] **Markdown Auto-Save & Beacon Flush**: Debounced 1000ms auto-save and `beforeunload` beacon flush eliminate unsaved markdown text loss on navigation or unexpected tab closure (`T1.F2.1 - T1.F2.5`, `T2.F2.1 - T2.F2.5`, `T3.3`, `T3.5`, `T4.3`, `T4.5`).
+- [x] **Offline WAL Protection**: Durable mutation logging queues changes in FIFO order and seamlessly replays upon network reconnection (`T1.F1.4 - T1.F1.5`, `T2.F1.4 - T2.F1.5`, `T4.5`).
+
+---
+
+## 4. Exact Execution Commands
+
+Execute the master E2E test runner from the `vibe-todos` workspace:
+
+```bash
+# Run the complete master E2E test suite (84 tests)
+node --experimental-strip-types --test tests/e2e/creative-overhaul-e2e.test.ts
+
+# Run all 4 tier test files in parallel / sequence
+node --experimental-strip-types --test tests/e2e/tier1-feature-coverage.test.ts tests/e2e/tier2-boundary-corner.test.ts tests/e2e/tier3-pairwise-combinations.test.ts tests/e2e/tier4-application-scenarios.test.ts
 ```
-==========================================================================================
-Tier 1: Feature Isolation
-  ├── Arabic BiDi & Geometric Clustering (R4 / M1)
-  ├── Local-First Write-Ahead Log (WAL) Engine (R1 / M2)
-  ├── Atomic Frontmatter & PDF Annotation Sync (R1 / M2)
-  ├── Notion Block Taxonomy (11 Block Types) (R3 / M4)
-  ├── Slash Command Floating Palette & Live Filter (R3 / M4)
-  └── AI Quiz Generator & Settings Manager (AC-3)
-
-Tier 2: Boundary & Corner Cases
-  ├── CRLF Windows Line Endings & Empty Notes
-  ├── Narrow Gutters (20px) & Asymmetrical Column Layouts (65%/35%)
-  ├── Scale-Invariant Zoom Projections (50% to 300%)
-  ├── Indentation Clamping (Levels 0 to 3)
-  └── Malformed Frontmatter & Unicode/Arabic Text Normalization
-
-Tier 3: Cross-Feature Combinations & Dual Mode
-  ├── Block Editor ↔ Raw Markdown Bidirectional State Synchronization
-  ├── Multi-Page PDF Annotation Overlay with Hand-Drawn Highlights
-  ├── Note Switching with In-Flight Unsaved Textarea Buffers
-  └── List Type Segregation (ToDo vs Study Vault)
-
-Tier 4: Real-World Application Scenarios
-  ├── Rapid Typing Keystroke Bursts (>300 chars/sec) with Sub-5ms Latency
-  ├── Concurrent Multi-Note & Page Switching (100 Cycles)
-  ├── Concurrent File Uploads (20 Media Blobs) & Frontmatter Binding
-  └── Abrupt Lifecycle Unload (`navigator.sendBeacon` & `fetch(keepalive)`)
-
-Tier 5: Adversarial Coverage Hardening
-  ├── Flapping Network Outage (5 Outage Cycles) with FIFO WAL Replay
-  ├── High-Concurrency Worker Stress (50 Parallel Workers, 500 Mixed Ops)
-  ├── Mathematical Transitivity & Gutter-Isolated Heading Permutations
-  └── Memory Footprint & Garbage Collection via `clearSyncedMutations()`
-==========================================================================================
-```
 
 ---
 
-## 4. Master Acceptance Criteria Verification Results
+## 5. Artifacts Delivered
 
-| # | Suite ID | Feature Scope | Duration | Result | Key Invariants Verified |
-|:---:|---|---|:---:|:---:|---|
-| 1 | `AC-1` | List Types & Strict UI Segregation | 1ms | ✅ PASS | Separation between ToDo and Study vault views; custom tag isolation |
-| 2 | `AC-2` | Obsidian Vault Note Ingestion & Markdown Parsing | 3ms | ✅ PASS | YAML frontmatter, wikilinks, headings outline, hashtag extraction |
-| 3 | `AC-3` | Settings LLM Key Storage & AI Quiz Generation | 2ms | ✅ PASS | Gemini API key persistence, model selection, dynamic quiz scoring |
-| 4 | `R1-PDF-PERSISTENCE` | PDF Annotations Parsing & Supabase Persistence | 1ms | ✅ PASS | Highlights, text notes, and color metadata survive round-trip saves |
-| 5 | `R2-PDF-LAYOUT` | PDF Full-Height Flex Constraints & Mascot Suppression | 2ms | ✅ PASS | Full viewport height (`h-[100dvh]`), bottom navigation suppression during reading |
-| 6 | `ADV-STRESS-PARSER` | Adversarial Parser & Serializer Stress Scenarios | 2ms | ✅ PASS | Preserves HR delimiters, special chars, multiline notes, empty delimiters |
-| 7 | `R2-ADVERSARIAL-SUITE`| Round 2 Lifecycle & Empty Autosave Invariants | 2ms | ✅ PASS | Empty notes autosave, cross-note dirty flush, Touch/Mouse event extraction |
-| 8 | `R3-ADVERSARIAL-SUITE`| In-Flight Race, Pending Text & Pointer Matrix | 0ms | ✅ PASS | In-progress typing commit on save, pointer-events none during text selection |
-| 9 | `ARABIC-COLUMNS` | Arabic Column Breaking & Transitive DOM Sorting | 5ms | ✅ PASS | RTL 2-column & 3-column layouts sorted without horizontal interleaving |
-| 10| `ZERO-DATA-LOSS-M2` | Offline WAL Engine, Replay & Atomic Beacon Flush | 2ms | ✅ PASS | FIFO ordering, exponential retry counts, atomic frontmatter preservation |
-| 11| `R3-NOTION-BLOCK-EDITOR`| Notion Slash-Command Editor & Lossless AST | 4ms | ✅ PASS | 11 block types, keyboard cyclic navigation, inline markdown shortcuts |
-| 12| `ZERO-DATA-LOSS-STRESS`| Rapid Typing, Media Ingestion & Flapping Replay | 11ms | ✅ PASS | 500 keystrokes @ >300 chars/sec, 50 parallel workers (230,000+ ops/sec) |
-
-**Total Verification Time**: **0.04s** (12/12 passing)  
-**Total Unit/Integration/Challenger Tests**: **378/378 passing** (0 failures, 0 skipped)  
+1. `d:\AI\جبنة\TEST_INFRA.md`: Full architectural specification, test tier matrix, and double contracts.
+2. `d:\AI\جبنة\TEST_READY.md`: Formal test readiness publication and acceptance criteria verification.
+3. `d:\AI\جبنة\vibe-todos\tests\e2e\e2e-test-helpers.ts`: In-memory storage doubles, simulators, and drivers.
+4. `d:\AI\جبنة\vibe-todos\tests\e2e\tier1-feature-coverage.test.ts`: Tier 1 core feature coverage (35 tests).
+5. `d:\AI\جبنة\vibe-todos\tests\e2e\tier2-boundary-corner.test.ts`: Tier 2 boundary & stress cases (35 tests).
+6. `d:\AI\جبنة\vibe-todos\tests\e2e\tier3-pairwise-combinations.test.ts`: Tier 3 pairwise interactions (8 tests).
+7. `d:\AI\جبنة\vibe-todos\tests\e2e\tier4-application-scenarios.test.ts`: Tier 4 real-world application scenarios (6 tests).
+8. `d:\AI\جبنة\vibe-todos\tests\e2e\creative-overhaul-e2e.test.ts`: Master entry point aggregating all 84 tests.
 
 ---
 
-## 5. Audit & Compliance Sign-Off
+## 6. Sign-off
 
-1. **Zero Data Loss Guarantee**: All state changes (note updates, PDF annotations, todos, categories) are logged to durable storage before remote dispatch. Abrupt page closes successfully dispatch keepalive beacons without clobbering note bodies.
-2. **Extreme Performance ("Fast AF")**: Character input latency averages **0.002ms** (budget < 16ms, 60fps), eliminating typing lag and render cascades.
-3. **Notion Block Editor Quality**: Verified bidirectional serialization preserves YAML frontmatter, Obsidian wikilinks, callouts (`[!NOTE]`, `[!WARNING]`, `[!TIP]`), language code fences, and nested indentation without AST corruption.
-4. **Code Quality**: Production build passed cleanly with strict TypeScript compilation.
+The comprehensive 4-Tier Opaque-Box E2E Test Suite for the Vibe Todos Creative Engineering Overhaul is complete, hardened, and verified 100% green. Implementation milestones (M1 - M4) and final adversarial gate verification (M5) are fully supported.

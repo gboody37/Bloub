@@ -10,6 +10,7 @@ import NotesPanel from './NotesPanel';
 import { ChevronLeft, ChevronRight, PenTool, Save, Check, Highlighter, Type, MousePointer2, ZoomIn, ZoomOut, Eraser, Undo2, Sidebar, Hand, Eye, EyeOff, Square, Baseline } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { updateFrontmatterField } from '@/lib/obsidian/parser';
+import { recordMutation, markMutationSynced, markMutationFailed } from '@/lib/storage/offline-wal';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -286,6 +287,27 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
     const effNoteId = targetNoteId || noteId;
     const effNotePath = targetNotePath || notePath || effNoteId;
     setIsSaving(true);
+
+    // Durable Offline WAL logging before network operations
+    const walPayload = {
+      noteId: effNoteId,
+      notePath: effNotePath,
+      pdfNotes: {
+        notes: saveNotes,
+        annotations: saveAnnotations
+      }
+    };
+
+    let walId: string | null = null;
+    try {
+      walId = await recordMutation({
+        type: 'SAVE_PDF_ANNOTATIONS',
+        payload: walPayload
+      });
+    } catch (walErr) {
+      console.warn('[OfflineWAL] Failed to record PDF annotations mutation:', walErr);
+    }
+
     try {
       let currentNote: { id: string; content: string; path: string } | null = null;
 
@@ -328,6 +350,10 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
         }
       }
 
+      if (walId) {
+        await markMutationSynced(walId);
+      }
+
       if (onUpdateNote) {
         if (typeof onUpdateNote === 'function') {
           if (onUpdateNote.length > 1 && effNoteId) {
@@ -341,8 +367,11 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
       isDirtyRef.current = false;
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to save PDF notebook:', e);
+      if (walId) {
+        await markMutationFailed(walId, e?.message || 'Save failed');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -380,6 +409,13 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
         annotations: saveAnnotations
       }
     };
+
+    recordMutation({
+      type: 'SAVE_PDF_ANNOTATIONS',
+      payload
+    }).catch(err => {
+      console.warn('[OfflineWAL] flushPendingState recordMutation warning:', err);
+    });
 
     const payloadStr = JSON.stringify(payload);
     let beaconSent = false;
@@ -508,7 +544,7 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
   const toolsPortal = typeof document !== 'undefined' ? document.getElementById('pdf-tools-portal') : null;
 
   return (
-    <div ref={containerRef} className={`flex w-full flex-1 h-full min-h-[500px] border rounded-2xl overflow-hidden shadow-inner ${isDark ? 'border-slate-800 bg-slate-950' : 'border-gray-200 bg-gray-100'}`}>
+    <div ref={containerRef} className={`flex w-full flex-1 h-full min-h-[500px] border rounded-2xl overflow-hidden shadow-inner ${isDark ? 'border-[var(--theme-border)] bg-[var(--theme-surface)]' : 'border-gray-200 bg-gray-100'}`}>
       <style>{`
         .react-pdf__Page__textContent {
           line-height: 1 !important;
@@ -555,63 +591,165 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
         >
           {/* PDF Toolbar rendered in portal */}
           {toolsPortal && createPortal(
-             <div className="flex items-center gap-1.5">
+             <div className="flex items-center gap-1 sm:gap-1.5">
                {viewerEngine === 'pdfjs' && (
                  <>
-                   <button onClick={() => setPdfTool('pan')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'pan' ? 'text-purple-400 bg-purple-500/20' : 'text-slate-400 hover:text-white'}`} title="Pan Tool"><Hand size={16}/></button>
-                   <button onClick={() => setPdfTool('cursor')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'cursor' ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`} title="Pointer Tool"><MousePointer2 size={16}/></button>
-                   <button onClick={() => setPdfTool('highlight')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'highlight' ? 'bg-yellow-500/20 text-yellow-400' : 'text-slate-400 hover:text-yellow-400'}`} title="Highlighter Tool"><Highlighter size={16}/></button>
+                   <button 
+                     onClick={() => setPdfTool('pan')} 
+                     className={`p-1.5 rounded-lg transition-all active:scale-[0.98] ${
+                       pdfTool === 'pan' 
+                         ? 'text-[var(--theme-primary)] bg-[var(--theme-primary)]/20 border border-[var(--theme-primary)]/30' 
+                         : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-surface)]'
+                     }`} 
+                     title="Pan Tool"
+                     aria-label="Pan Tool"
+                   >
+                     <Hand size={16}/>
+                   </button>
+                   <button 
+                     onClick={() => setPdfTool('cursor')} 
+                     className={`p-1.5 rounded-lg transition-all active:scale-[0.98] ${
+                       pdfTool === 'cursor' 
+                         ? 'bg-[var(--theme-primary)]/20 text-[var(--theme-primary)] border border-[var(--theme-primary)]/30' 
+                         : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-surface)]'
+                     }`} 
+                     title="Pointer Tool"
+                     aria-label="Pointer Tool"
+                   >
+                     <MousePointer2 size={16}/>
+                   </button>
+                   <button 
+                     onClick={() => setPdfTool('highlight')} 
+                     className={`p-1.5 rounded-lg transition-all active:scale-[0.98] ${
+                       pdfTool === 'highlight' 
+                         ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' 
+                         : 'text-[var(--theme-text-muted)] hover:text-yellow-400 hover:bg-[var(--theme-surface)]'
+                     }`} 
+                     title="Highlighter Tool"
+                     aria-label="Highlighter Tool"
+                   >
+                     <Highlighter size={16}/>
+                   </button>
                    
-                   <button onClick={() => setPdfTool('text')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'text' ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-purple-400'}`} title="Text Note Tool"><Type size={16}/></button>
+                   <button 
+                     onClick={() => setPdfTool('text')} 
+                     className={`p-1.5 rounded-lg transition-all active:scale-[0.98] ${
+                       pdfTool === 'text' 
+                         ? 'bg-[var(--theme-primary)]/20 text-[var(--theme-primary)] border border-[var(--theme-primary)]/30' 
+                         : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-surface)]'
+                     }`} 
+                     title="Text Note Tool"
+                     aria-label="Text Note Tool"
+                   >
+                     <Type size={16}/>
+                   </button>
+
                    {pdfTool === 'highlight' && (
-                       <div className="flex items-center gap-1 mx-1 bg-slate-800 rounded-lg p-1">
+                       <div className="flex items-center gap-1 mx-1 bg-[var(--theme-surface-subtle)] border border-[var(--theme-border)] rounded-lg p-1">
                          <button 
                            onPointerDown={(e) => e.preventDefault()} 
                            onClick={() => setHighlightMode(m => m === 'box' ? 'text' : 'box')} 
-                           className={`flex items-center gap-1 px-2 py-0.5 mr-1 rounded border border-slate-700 bg-slate-900 text-xs font-bold text-white transition-colors hover:bg-slate-700`}
+                           className={`flex items-center gap-1 px-2 py-0.5 mr-1 rounded border border-[var(--theme-border)] bg-[var(--theme-surface-elevated)] text-xs font-bold text-[var(--theme-text-primary)] transition-all hover:bg-[var(--theme-surface)] active:scale-[0.98]`}
                            title={highlightMode === 'box' ? "Switch to Text Selection Mode" : "Switch to Box Drawing Mode"}
                          >
                            {highlightMode === 'box' ? <Square size={12}/> : <Baseline size={12}/>}
                            <span className="hidden sm:inline">{highlightMode === 'box' ? 'Box' : 'Text'}</span>
                          </button>
                          {['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#fed7aa', '#e9d5ff'].map(c => (
-                           <button key={c} onPointerDown={(e) => e.preventDefault()} onClick={() => setHighlightColor(c)} className={`w-4 h-4 rounded-full border ${highlightColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
+                           <button 
+                             key={c} 
+                             onPointerDown={(e) => e.preventDefault()} 
+                             onClick={() => setHighlightColor(c)} 
+                             className={`w-4 h-4 rounded-full border ${highlightColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'} transition-all`} 
+                             style={{ backgroundColor: c }} 
+                           />
                          ))}
                        </div>
                    )}
                    {pdfTool === 'text' && (
-                       <div className="flex items-center gap-1 mx-1 bg-slate-800 rounded-lg p-1">
+                       <div className="flex items-center gap-1 mx-1 bg-[var(--theme-surface-subtle)] border border-[var(--theme-border)] rounded-lg p-1">
                          {['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#9333ea', '#ec4899', '#ffffff', '#000000'].map(c => (
-                           <button key={c} onPointerDown={(e) => e.preventDefault()} onClick={() => { setTextColor(c); if (pendingText) setPendingText({ ...pendingText, color: c }); }} className={`w-4 h-4 rounded-full border ${textColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: c }} />
+                           <button 
+                             key={c} 
+                             onPointerDown={(e) => e.preventDefault()} 
+                             onClick={() => { setTextColor(c); if (pendingText) setPendingText({ ...pendingText, color: c }); }} 
+                             className={`w-4 h-4 rounded-full border ${textColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110'} transition-all`} 
+                             style={{ backgroundColor: c }} 
+                           />
                          ))}
                        </div>
                    )}
                    
-                   <button onClick={() => setPdfTool('eraser')} className={`p-1.5 rounded-lg transition-colors ${pdfTool === 'eraser' ? 'bg-pink-500/20 text-pink-400' : 'text-slate-400 hover:text-pink-400'}`} title="Eraser Tool"><Eraser size={16}/></button>
-                   <button onClick={handleUndo} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white" title="Undo Annotation"><Undo2 size={16}/></button>
+                   <button 
+                     onClick={() => setPdfTool('eraser')} 
+                     className={`p-1.5 rounded-lg transition-all active:scale-[0.98] ${
+                       pdfTool === 'eraser' 
+                         ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30' 
+                         : 'text-[var(--theme-text-muted)] hover:text-pink-400 hover:bg-[var(--theme-surface)]'
+                     }`} 
+                     title="Eraser Tool"
+                     aria-label="Eraser Tool"
+                   >
+                     <Eraser size={16}/>
+                   </button>
+                   <button 
+                     onClick={handleUndo} 
+                     className="p-1.5 rounded-lg transition-all active:scale-[0.98] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-surface)]" 
+                     title="Undo Annotation"
+                     aria-label="Undo"
+                   >
+                     <Undo2 size={16}/>
+                   </button>
                  </>
                )}
-               <div className="w-px h-4 bg-slate-700/50 mx-1"></div>
 
-                 <button 
-                   onClick={() => setViewerEngine(v => v === 'pdfjs' ? 'native' : 'pdfjs')} 
-                   className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors border ${viewerEngine === 'native' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-white'}`} 
-                   title="Toggle PDF Engine (Native Browser vs Interactive)"
-                 >
-                   <Eye size={14}/>
-                   <span className="text-xs font-bold hidden sm:inline">{viewerEngine === 'native' ? 'Native Viewer' : 'Interactive Viewer'}</span>
-                 </button>
+               <div className="w-px h-4 bg-[var(--theme-border)] mx-1"></div>
 
-                 <div className="w-px h-4 bg-slate-700/50 mx-1"></div>
+               <button 
+                 onClick={() => setViewerEngine(v => v === 'pdfjs' ? 'native' : 'pdfjs')} 
+                 className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all active:scale-[0.98] border ${
+                   viewerEngine === 'native' 
+                     ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
+                     : 'bg-[var(--theme-surface-subtle)] text-[var(--theme-text-secondary)] border-[var(--theme-border)] hover:bg-[var(--theme-surface)] hover:text-[var(--theme-text-primary)]'
+                 }`} 
+                 title="Toggle PDF Engine (Native Browser vs Interactive)"
+               >
+                 <Eye size={14}/>
+                 <span className="text-xs font-bold hidden sm:inline">{viewerEngine === 'native' ? 'Native' : 'Interactive'}</span>
+               </button>
 
-               <button onClick={() => setShowNotes(!showNotes)} className={`p-1.5 rounded-lg transition-colors ${showNotes ? 'text-blue-400 bg-blue-500/20' : 'text-slate-400 hover:text-white'}`} title="Toggle Notes Panel"><Sidebar size={16}/></button>
-               <div className="w-px h-4 bg-slate-700/50 mx-1"></div>
+               <div className="w-px h-4 bg-[var(--theme-border)] mx-1"></div>
+
+               <button 
+                 onClick={() => setShowNotes(!showNotes)} 
+                 className={`p-1.5 rounded-lg transition-all active:scale-[0.98] ${
+                   showNotes 
+                     ? 'text-[var(--theme-primary)] bg-[var(--theme-primary)]/20 border border-[var(--theme-primary)]/30' 
+                     : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-surface)]'
+                 }`} 
+                 title="Toggle Notes Panel"
+                 aria-label="Toggle Notes"
+               >
+                 <Sidebar size={16}/>
+               </button>
+
+               <div className="w-px h-4 bg-[var(--theme-border)] mx-1"></div>
                
-               <button onClick={() => setZoomLevel(z => Math.max(z - 0.25, 0.5))} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white" title="Zoom Out">
+               <button 
+                 onClick={() => setZoomLevel(z => Math.max(z - 0.25, 0.5))} 
+                 className="p-1.5 rounded-lg transition-all active:scale-[0.98] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-surface)]" 
+                 title="Zoom Out"
+                 aria-label="Zoom Out"
+               >
                  <ZoomOut size={16}/>
                </button>
-               <div className="text-xs font-mono text-slate-400 font-bold min-w-[40px] text-center">{Math.round(zoomLevel * 100)}%</div>
-               <button onClick={() => setZoomLevel(z => Math.min(z + 0.25, 3.0))} className="p-1.5 rounded-lg transition-colors text-slate-400 hover:text-white" title="Zoom In">
+               <div className="text-xs font-mono text-[var(--theme-text-secondary)] font-bold min-w-[36px] text-center">{Math.round(zoomLevel * 100)}%</div>
+               <button 
+                 onClick={() => setZoomLevel(z => Math.min(z + 0.25, 3.0))} 
+                 className="p-1.5 rounded-lg transition-all active:scale-[0.98] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-surface)]" 
+                 title="Zoom In"
+                 aria-label="Zoom In"
+               >
                  <ZoomIn size={16}/>
                </button>
              </div>,
@@ -841,47 +979,64 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
                 className="rounded-lg overflow-hidden shadow-2xl transition-transform duration-300 transform-gpu"
               />
             </div>
-   
           </Document>
-          </div>
-         )}
+        </div>
+      )}
            
-         {viewerEngine === 'pdfjs' && numPages && (
-           <div className="sticky bottom-6 mt-6 left-1/2 -translate-x-1/2 w-max flex items-center gap-4 bg-slate-900/90 backdrop-blur px-6 py-3 rounded-full border border-slate-700 shadow-2xl z-50">
-               <button onClick={() => setPageNumber(p => Math.max(1, p - 1))} disabled={pageNumber <= 1} className="p-1.5 text-white disabled:opacity-30 hover:bg-slate-800 rounded-full transition-colors"><ChevronLeft size={20}/></button>
-               
-               <div className="flex items-center gap-2 text-white text-xs tracking-widest font-bold uppercase">
-                 <span>Page</span>
-                 <input 
-                   type="number" 
-                   min={1} 
-                   max={numPages || 1} 
-                   value={pageNumber} 
-                   onChange={(e) => {
-                     const val = parseInt(e.target.value);
-                     if (!isNaN(val)) setPageNumber(Math.min(Math.max(1, val), numPages || 1));
-                   }}
-                   className="w-12 text-center bg-slate-800/50 border border-slate-600 rounded py-0.5 outline-none focus:border-purple-400 focus:bg-slate-800 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                 />
-                 <span>/ {numPages}</span>
-               </div>
+      {viewerEngine === 'pdfjs' && numPages && (
+        <div className="sticky bottom-6 mt-6 left-1/2 -translate-x-1/2 w-max flex items-center gap-3 bg-[var(--theme-surface-elevated)]/90 backdrop-blur-md px-4 py-2 rounded-full border border-[var(--theme-border)] shadow-xl z-50 text-[var(--theme-text-primary)]">
+          <button 
+            onClick={() => setPageNumber(p => Math.max(1, p - 1))} 
+            disabled={pageNumber <= 1} 
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--theme-text-primary)] disabled:opacity-30 hover:bg-[var(--theme-surface-subtle)] active:scale-95 rounded-full transition-all"
+            aria-label="Previous page"
+            title="Previous page"
+          >
+            <ChevronLeft size={20}/>
+          </button>
+          
+          <div className="flex items-center gap-2 text-xs tracking-widest font-bold uppercase text-[var(--theme-text-secondary)]">
+            <span>Page</span>
+            <input 
+              type="number" 
+              min={1} 
+              max={numPages || 1} 
+              value={pageNumber} 
+              onChange={(e) => {
+                const val = parseInt(e.target.value);
+                if (!isNaN(val)) setPageNumber(Math.min(Math.max(1, val), numPages || 1));
+              }}
+              className="w-12 text-center bg-[var(--theme-surface-subtle)] border border-[var(--theme-border)] text-[var(--theme-text-primary)] rounded py-1 outline-none focus:border-[var(--theme-primary)] focus:ring-1 focus:ring-[var(--theme-primary)] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-mono"
+            />
+            <span>/ {numPages}</span>
+          </div>
 
-               <button onClick={() => setPageNumber(p => Math.min(numPages || 1, p + 1))} disabled={pageNumber >= (numPages||1)} className="p-1.5 text-white disabled:opacity-30 hover:bg-slate-800 rounded-full transition-colors"><ChevronRight size={20}/></button>
-             </div>
-         )}
-       </div>
+          <button 
+            onClick={() => setPageNumber(p => Math.min(numPages || 1, p + 1))} 
+            disabled={pageNumber >= (numPages||1)} 
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--theme-text-primary)] disabled:opacity-30 hover:bg-[var(--theme-surface-subtle)] active:scale-95 rounded-full transition-all"
+            aria-label="Next page"
+            title="Next page"
+          >
+            <ChevronRight size={20}/>
+          </button>
+        </div>
+      )}
+    </div>
 
-       
-       {showNotes && (<>
-         {/* Draggable Resizer */}
-       <div 
-         className="w-1.5 cursor-col-resize bg-transparent hover:bg-blue-500/50 active:bg-blue-500 transition-colors z-20 relative flex-shrink-0"
-         onMouseDown={(e) => { e.preventDefault(); setIsDragging(true); }} onTouchStart={(e) => { e.preventDefault(); setIsDragging(true); }}
-       >
-         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-8 bg-slate-600 rounded-full opacity-50 pointer-events-none"></div>
-       </div>
+    {showNotes && (
+      <>
+        {/* Draggable Resizer */}
+        <div 
+          className="w-2 cursor-col-resize bg-transparent hover:bg-[var(--theme-primary)]/40 active:bg-[var(--theme-primary)] transition-colors z-20 relative flex-shrink-0 group"
+          onMouseDown={(e) => { e.preventDefault(); setIsDragging(true); }} 
+          onTouchStart={(e) => { e.preventDefault(); setIsDragging(true); }}
+          aria-label="Resize Notes Panel"
+        >
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-10 bg-[var(--theme-border)] group-hover:bg-[var(--theme-primary)] rounded-full transition-colors pointer-events-none"></div>
+        </div>
 
-        {/* Handwriting Notebook Side */}
+        {/* Handwriting / Markdown Notes Panel */}
         <NotesPanel
           pageNumber={pageNumber}
           notesWidth={notesWidth}
@@ -897,8 +1052,10 @@ export default function PdfNotebookViewer({ pdfUrl, noteId = '', notePath, initi
           onDirty={() => {
             isDirtyRef.current = true;
           }}
+          onClose={() => setShowNotes(false)}
         />
-        </>)}
-    </div>
+      </>
+    )}
+  </div>
   )
 }

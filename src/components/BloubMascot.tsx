@@ -9,14 +9,33 @@ import { defaultCycle } from '@/lib/bot/cycles';
 import { STATE_BY_ID, type StateId } from '@/lib/bot/states';
 import type { ExpressionId } from '@/lib/bot/expressions';
 
-interface Props {
+export interface BloubMascotProps {
   size?: number;
   state?: StateId;
   color?: string;
   shape?: string;
   expression?: ExpressionId;
+  gaze?: { yaw: number; pitch: number; roll?: number } | string;
   onInteract?: () => void;
   isStatic?: boolean;
+}
+
+export type Props = BloubMascotProps;
+
+export const GAZE_PRESETS: Record<string, { yaw: number; pitch: number; roll: number }> = {
+  center: { yaw: 0, pitch: 0, roll: 0 },
+  left: { yaw: -22, pitch: 0, roll: 0 },
+  right: { yaw: 22, pitch: 0, roll: 0 },
+  up: { yaw: 0, pitch: 20, roll: 0 },
+  down: { yaw: 0, pitch: -20, roll: 0 },
+};
+
+export function resolveGaze(g?: { yaw: number; pitch: number; roll?: number } | string | null): { yaw: number; pitch: number; roll: number } | null {
+  if (!g) return null;
+  if (typeof g === 'object') {
+    return { yaw: g.yaw ?? 0, pitch: g.pitch ?? 0, roll: g.roll ?? 0 };
+  }
+  return GAZE_PRESETS[g] ?? null;
 }
 
 export const BloubMascot = React.memo(function BloubMascot({
@@ -25,6 +44,7 @@ export const BloubMascot = React.memo(function BloubMascot({
   color = 'encre',
   shape = 'squircle',
   expression = 'neutre',
+  gaze,
   onInteract,
   isStatic = false,
 }: Props) {
@@ -32,7 +52,7 @@ export const BloubMascot = React.memo(function BloubMascot({
   const maskId = `bot-mask-${uid}`;
   const VB = DEMI_VIEWBOX;
   const R = RAYON;
-  const ink = COLOR_BY_ID.get(color)?.hex ?? '#0a0a0c';
+  const ink = COLOR_BY_ID.get(color)?.hex ?? (color.startsWith('#') ? color : '#0a0a0c');
   const isBaseBodyActive = STATE_BY_ID.get(state)?.baseBody ?? true;
 
   const svgRef = useRef<SVGSVGElement>(null);
@@ -41,7 +61,19 @@ export const BloubMascot = React.memo(function BloubMascot({
   const clockRef = useRef<number>(0);
   const lastRef = useRef<number>(0);
   const stateRef = useRef(state);
+  const gazeRef = useRef(gaze);
+  const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    gazeRef.current = gaze;
+  }, [gaze]);
+
+  useEffect(() => {
+    return () => {
+      if (animTimerRef.current) clearTimeout(animTimerRef.current);
+    };
+  }, []);
 
   // Visibility Observer
   useEffect(() => {
@@ -68,8 +100,49 @@ export const BloubMascot = React.memo(function BloubMascot({
     stateRef.current = state;
     if (engineRef.current) {
       engineRef.current.setState(state, clockRef.current);
+      if (state === 'orbit') {
+        if (animTimerRef.current) clearTimeout(animTimerRef.current);
+        animTimerRef.current = setTimeout(() => {
+          if (engineRef.current && engineRef.current.state === 'orbit') {
+            engineRef.current.setState('idle', clockRef.current);
+            stateRef.current = 'idle';
+            const target = resolveGaze(gazeRef.current);
+            if (target) {
+              engineRef.current.setLook(
+                { yaw: target.yaw, pitch: target.pitch, mix: 0.7, spin: 0, wander: 0.15 },
+                clockRef.current,
+                0.3
+              );
+            }
+          }
+        }, 3600);
+      } else if (state === 'idle') {
+        const target = resolveGaze(gazeRef.current);
+        if (target) {
+          engineRef.current.setLook(
+            { yaw: target.yaw, pitch: target.pitch, mix: 0.7, spin: 0, wander: 0.15 },
+            clockRef.current,
+            0.3
+          );
+        }
+      }
     }
   }, [state]);
+
+  // React to `gaze` prop
+  useEffect(() => {
+    if (isStatic || !engineRef.current) return;
+    const target = resolveGaze(gaze);
+    if (target && state === 'idle') {
+      engineRef.current.setLook(
+        { yaw: target.yaw, pitch: target.pitch, mix: 0.7, spin: 0, wander: 0.15 },
+        clockRef.current,
+        0.3
+      );
+    } else if (!target && state === 'idle') {
+      engineRef.current.setLook(null, clockRef.current, 0.3);
+    }
+  }, [gaze, state, isStatic]);
 
   // React to `expression` prop
   useEffect(() => {
@@ -217,7 +290,16 @@ export const BloubMascot = React.memo(function BloubMascot({
     };
 
     const handleLeave = () => {
-      engineRef.current?.setLook(null, clockRef.current, 0.6);
+      const target = resolveGaze(gazeRef.current);
+      if (target && engineRef.current) {
+        engineRef.current.setLook(
+          { yaw: target.yaw, pitch: target.pitch, mix: 0.7, spin: 0, wander: 0.15 },
+          clockRef.current,
+          0.6
+        );
+      } else {
+        engineRef.current?.setLook(null, clockRef.current, 0.6);
+      }
     };
 
     window.addEventListener('pointermove', handleMove);
@@ -233,11 +315,28 @@ export const BloubMascot = React.memo(function BloubMascot({
     };
   }, [isStatic]);
 
-  const handleClick = useCallback(() => {
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
     onInteract?.();
     if (engineRef.current) {
       engineRef.current.setState('orbit', clockRef.current);
       stateRef.current = 'idle';
+
+      if (animTimerRef.current) clearTimeout(animTimerRef.current);
+      animTimerRef.current = setTimeout(() => {
+        if (engineRef.current && engineRef.current.state === 'orbit') {
+          engineRef.current.setState('idle', clockRef.current);
+          stateRef.current = 'idle';
+          const target = resolveGaze(gazeRef.current);
+          if (target) {
+            engineRef.current.setLook(
+              { yaw: target.yaw, pitch: target.pitch, mix: 0.7, spin: 0, wander: 0.15 },
+              clockRef.current,
+              0.3
+            );
+          }
+        }
+      }, 3600);
     }
   }, [onInteract]);
 

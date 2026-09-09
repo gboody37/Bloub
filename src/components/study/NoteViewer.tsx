@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { 
@@ -29,6 +29,7 @@ import {
 import type { ParsedObsidianNote } from '@/types/obsidian';
 import dynamic from 'next/dynamic';
 import BlockEditor from '../editor/BlockEditor';
+import { recordMutation } from '@/lib/storage/offline-wal';
 
 const PdfNotebookViewer = dynamic(() => import('./PdfNotebookViewer'), { ssr: false });
 
@@ -69,8 +70,120 @@ export default function NoteViewer({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
+  // Debounced Auto-Save & Beacon Flush State
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'dirty' | 'saving' | 'saved'>('idle');
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isDirtyRef = useRef(false);
+  const editContentRef = useRef(editContent);
+  editContentRef.current = editContent;
+  const noteRef = useRef(note);
+  noteRef.current = note;
+  const onUpdateNoteRef = useRef(onUpdateNote);
+  onUpdateNoteRef.current = onUpdateNote;
+
+  const triggerSave = useCallback((contentToSave: string) => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    setSaveStatus('saving');
+
+    if (noteRef.current) {
+      recordMutation({
+        type: 'UPDATE_NOTE',
+        payload: {
+          path: noteRef.current.relativePath || noteRef.current.id,
+          content: contentToSave,
+          timestamp: Date.now()
+        }
+      }).catch(err => console.warn('[OfflineWAL] triggerSave failed to queue:', err));
+    }
+
+    try {
+      if (onUpdateNoteRef.current) {
+        onUpdateNoteRef.current(contentToSave);
+      }
+      isDirtyRef.current = false;
+      setSaveStatus('saved');
+      setTimeout(() => {
+        setSaveStatus(prev => (prev === 'saved' ? 'idle' : prev));
+      }, 2000);
+    } catch (err) {
+      console.error('Error auto-saving markdown note:', err);
+      setSaveStatus('dirty');
+    }
+  }, []);
+
+  const handleEditContentChange = useCallback((newContent: string) => {
+    setEditContent(newContent);
+    isDirtyRef.current = true;
+    setSaveStatus('dirty');
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      debounceTimerRef.current = null;
+      triggerSave(newContent);
+    }, 1000);
+  }, [triggerSave]);
+
+  // Flush unsaved edits on beforeunload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (isDirtyRef.current && noteRef.current) {
+        const payload = JSON.stringify({
+          path: noteRef.current.relativePath || noteRef.current.id,
+          notePath: noteRef.current.relativePath || noteRef.current.id,
+          noteId: noteRef.current.id,
+          content: editContentRef.current,
+          timestamp: Date.now()
+        });
+
+        recordMutation({
+          type: 'UPDATE_NOTE',
+          payload: {
+            path: noteRef.current.relativePath || noteRef.current.id,
+            content: editContentRef.current,
+            timestamp: Date.now()
+          }
+        }).catch(err => console.warn('[OfflineWAL] handleBeforeUnload failed to queue:', err));
+
+        try {
+          if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+            const blob = new Blob([payload], { type: 'application/json' });
+            navigator.sendBeacon('/api/obsidian/flush', blob);
+          } else {
+            fetch('/api/obsidian/flush', {
+              method: 'POST',
+              body: payload,
+              headers: { 'Content-Type': 'application/json' },
+              keepalive: true
+            }).catch(() => {});
+          }
+        } catch (e) {
+          console.error('Failed to flush note on beforeunload:', e);
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+        if (isDirtyRef.current) {
+          triggerSave(editContentRef.current);
+        }
+      }
+    };
+  }, [triggerSave]);
+
   useEffect(() => {
     setEditContent(note?.bodyContent || '');
+    isDirtyRef.current = false;
+    setSaveStatus('idle');
     setIsEditing(false);
     setPdfViewMode('pdf');
     setIsPdfFullscreen(false);
@@ -432,62 +545,82 @@ export default function NoteViewer({
 
   return (
     <div className="flex flex-col h-full w-full relative font-sans" data-spatial-container="study-viewer">
-      {/* Top Floating Action Bar */}
+      {/* Unified Floating Dynamic Island Top Bar (h-13 / 52px) */}
       {!hideTopHeader && (
-        <div className={`flex items-center justify-between pb-4 mb-4 border-b ${isDark ? 'border-slate-800' : 'border-gray-200'}`}>
-          <div className="flex items-center gap-2">
+        <header
+          className={`h-13 min-h-[52px] shrink-0 px-3 sm:px-4 mb-3 flex items-center justify-between gap-2 sm:gap-3 rounded-2xl border shadow-xl backdrop-blur-xl transition-all ${
+            isDark
+              ? 'border-[var(--theme-border)] bg-[var(--theme-surface-elevated)] text-[var(--theme-text-primary)]'
+              : 'border-gray-200 bg-white/95 text-gray-800'
+          }`}
+          data-spatial-container="dynamic-island-topbar"
+        >
+          {/* Left: Navigation & Document Meta */}
+          <div className="flex items-center gap-2 min-w-0 flex-shrink">
             {onClose && (
               <button
+                type="button"
                 onClick={onClose}
-                className={`p-2 rounded-xl transition-all active:scale-95 ${
-                  isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                className={`p-2 rounded-xl transition-all active:scale-[0.98] min-w-[36px] min-h-[36px] flex items-center justify-center ${
+                  isDark
+                    ? 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-surface)]'
+                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
                 }`}
-                title="Back"
+                title="Back to Vault (Esc)"
+                aria-label="Back to Vault"
               >
                 <ArrowLeft size={16} />
               </button>
             )}
 
-            <div className="flex items-center gap-1.5 text-xs text-purple-400 font-semibold truncate max-w-[200px] sm:max-w-xs">
-              <Folder size={13} className="flex-shrink-0" />
-              <span className="truncate">{note.folder || 'Vault'}</span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              {pdfUrl ? (
+                <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg bg-[var(--theme-primary)]/15 text-[var(--theme-primary)] border border-[var(--theme-primary)]/25 shrink-0">
+                  <FileText size={12} />
+                  <span>PDF</span>
+                </span>
+              ) : (
+                <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--theme-primary)] px-2 py-0.5 rounded-lg bg-[var(--theme-primary)]/10 border border-[var(--theme-primary)]/20 shrink-0">
+                  <Folder size={11} />
+                  <span className="truncate max-w-[80px]">{note.folder || 'Vault'}</span>
+                </span>
+              )}
+
+              <h1
+                className={`text-xs sm:text-sm font-bold tracking-tight truncate max-w-[130px] sm:max-w-xs md:max-w-md ${
+                  isDark ? 'text-[var(--theme-text-primary)]' : 'text-gray-900'
+                }`}
+                title={note.title}
+              >
+                {note.title}
+              </h1>
+
+              {note.wordCount && (
+                <span className="hidden xl:inline-flex items-center gap-1 text-[10px] font-mono text-[var(--theme-text-muted)] px-1.5 py-0.5 rounded-md bg-[var(--theme-surface-subtle)] shrink-0">
+                  <Clock size={10} />
+                  {note.wordCount}w (~{readingTime}m)
+                </span>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Outline Toggle */}
-            {note.headings && note.headings.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setShowOutline(!showOutline)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                  showOutline
-                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                    : isDark
-                      ? 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
-                }`}
-                title="Table of contents outline"
-              >
-                <ListTree size={14} />
-                <span className="hidden sm:inline">Outline</span>
-              </button>
-            )}
-
-            {/* Edit / Save Action & Mode Toggle */}
-            {onUpdateNote && !pdfUrl && (
-              <div className="flex items-center gap-1.5">
+          {/* Center: PDF Tools Portal or Markdown Auto-Save & Mode Pill */}
+          <div className="flex items-center justify-center gap-1.5 flex-1 min-w-0">
+            {pdfUrl ? (
+              <div id="pdf-tools-portal" className="flex items-center justify-center gap-1 overflow-x-auto hide-scrollbar max-w-full"></div>
+            ) : (
+              <div className="flex items-center gap-2">
                 {isEditing && (
                   <div className={`flex items-center p-0.5 rounded-xl border text-[11px] font-semibold ${
-                    isDark ? 'bg-slate-900 border-slate-700' : 'bg-gray-100 border-gray-200'
+                    isDark ? 'bg-[var(--theme-surface-subtle)] border-[var(--theme-border)]' : 'bg-gray-100 border-gray-200'
                   }`}>
                     <button
                       type="button"
                       onClick={() => setEditorMode('blocks')}
-                      className={`px-2 py-0.5 rounded-lg transition-all ${
+                      className={`px-2.5 py-0.5 rounded-lg transition-all ${
                         editorMode === 'blocks'
-                          ? 'bg-purple-600 text-white shadow-xs'
-                          : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-600 hover:text-gray-900'
+                          ? 'bg-[var(--theme-primary)] text-white shadow-xs'
+                          : isDark ? 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)]' : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
                       Blocks
@@ -495,10 +628,10 @@ export default function NoteViewer({
                     <button
                       type="button"
                       onClick={() => setEditorMode('raw')}
-                      className={`px-2 py-0.5 rounded-lg transition-all ${
+                      className={`px-2.5 py-0.5 rounded-lg transition-all ${
                         editorMode === 'raw'
-                          ? 'bg-purple-600 text-white shadow-xs'
-                          : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-600 hover:text-gray-900'
+                          ? 'bg-[var(--theme-primary)] text-white shadow-xs'
+                          : isDark ? 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)]' : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
                       Raw
@@ -506,56 +639,181 @@ export default function NoteViewer({
                   </div>
                 )}
 
+                <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-mono text-[var(--theme-text-muted)]">
+                  {saveStatus === 'saving' ? (
+                    <>
+                      <Loader2 size={11} className="animate-spin text-[var(--theme-primary)]" />
+                      <span>Saving...</span>
+                    </>
+                  ) : saveStatus === 'dirty' ? (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      <span>Unsaved</span>
+                    </>
+                  ) : saveStatus === 'saved' ? (
+                    <>
+                      <Check size={11} className="text-emerald-400" />
+                      <span>Saved</span>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right: Reading Controls, Outlines, Toggles & AI Quiz */}
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            {pdfUrl && (
+              <>
+                {/* View Mode Toggle: Visual PDF vs Extracted Text */}
                 <button
                   type="button"
-                  onClick={() => {
-                    if (isEditing) {
-                      onUpdateNote(editContent);
-                      setIsEditing(false);
-                    } else {
-                      setIsEditing(true);
-                    }
-                  }}
-                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
-                    isEditing 
-                      ? 'bg-green-600 hover:bg-green-500 text-white shadow-md shadow-green-600/30' 
-                      : isDark 
-                        ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  onClick={() => setPdfViewMode(pdfViewMode === 'pdf' ? 'reader' : 'pdf')}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all active:scale-[0.98] ${
+                    pdfViewMode === 'reader'
+                      ? 'bg-[var(--theme-primary)] text-white shadow-md'
+                      : isDark
+                        ? 'bg-[var(--theme-surface-subtle)] hover:bg-[var(--theme-surface)] text-[var(--theme-text-secondary)] border border-[var(--theme-border)]'
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                   }`}
+                  title="Toggle Reader Mode"
                 >
-                  {isEditing ? <Check size={14} /> : <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>}
-                  <span>{isEditing ? 'Save Note' : 'Edit Note'}</span>
+                  {pdfViewMode === 'pdf' ? <BookOpen size={13} /> : <FileText size={13} />}
+                  <span className="hidden md:inline">{pdfViewMode === 'pdf' ? 'Reader' : 'PDF'}</span>
                 </button>
-              </div>
+
+                {/* Copy Link */}
+                <button
+                  type="button"
+                  onClick={() => copyDocumentUrl(pdfUrl)}
+                  className={`p-1.5 sm:p-2 rounded-xl text-xs transition-all active:scale-[0.98] ${
+                    isDark
+                      ? 'bg-[var(--theme-surface-subtle)] hover:bg-[var(--theme-surface)] text-[var(--theme-text-secondary)] border border-[var(--theme-border)]'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                  title="Copy Document URL"
+                >
+                  {copiedLink ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                </button>
+
+                {/* Open in New Tab */}
+                <a
+                  href={pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`hidden md:flex items-center p-2 rounded-xl text-xs transition-all active:scale-[0.98] ${
+                    isDark
+                      ? 'bg-[var(--theme-surface-subtle)] hover:bg-[var(--theme-surface)] text-[var(--theme-text-secondary)] border border-[var(--theme-border)]'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                  title="Open in new window"
+                >
+                  <ExternalLink size={13} />
+                </a>
+
+                {/* Direct Download */}
+                <a
+                  href={pdfUrl}
+                  download={note.title || 'document.pdf'}
+                  className={`hidden md:flex items-center p-2 rounded-xl text-xs transition-all active:scale-[0.98] ${
+                    isDark
+                      ? 'bg-[var(--theme-surface-subtle)] hover:bg-[var(--theme-surface)] text-[var(--theme-text-secondary)] border border-[var(--theme-border)]'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                  title="Download PDF"
+                >
+                  <Download size={13} />
+                </a>
+
+                {/* Fullscreen Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setIsPdfFullscreen(!isPdfFullscreen)}
+                  className={`p-1.5 sm:p-2 rounded-xl text-xs transition-all active:scale-[0.98] ${
+                    isDark
+                      ? 'bg-[var(--theme-surface-subtle)] hover:bg-[var(--theme-surface)] text-[var(--theme-text-secondary)] border border-[var(--theme-border)]'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                  title={isPdfFullscreen ? 'Exit Fullscreen' : 'Fullscreen Viewer'}
+                >
+                  {isPdfFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                </button>
+              </>
+            )}
+
+            {!pdfUrl && onUpdateNote && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (isEditing) {
+                    triggerSave(editContent);
+                    setIsEditing(false);
+                  } else {
+                    setIsEditing(true);
+                  }
+                }}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-[0.98] ${
+                  isEditing
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md'
+                    : isDark
+                      ? 'bg-[var(--theme-surface-subtle)] text-[var(--theme-text-primary)] hover:bg-[var(--theme-surface)] border border-[var(--theme-border)]'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {isEditing ? <Check size={13} /> : <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>}
+                <span>{isEditing ? 'Save' : 'Edit'}</span>
+              </button>
+            )}
+
+            {!pdfUrl && (
+              <button
+                type="button"
+                onClick={copyMarkdown}
+                className={`p-2 rounded-xl transition-all active:scale-[0.98] ${
+                  isDark
+                    ? 'bg-[var(--theme-surface-subtle)] hover:bg-[var(--theme-surface)] text-[var(--theme-text-secondary)] border border-[var(--theme-border)]'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                title="Copy Note Markdown"
+              >
+                {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+              </button>
+            )}
+
+            {/* Outline Toggle */}
+            {note.headings && note.headings.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowOutline(!showOutline)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all active:scale-[0.98] ${
+                  showOutline
+                    ? 'bg-[var(--theme-primary)] text-white shadow-md'
+                    : isDark
+                      ? 'bg-[var(--theme-surface-subtle)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-surface)] border border-[var(--theme-border)]'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
+                }`}
+                title="Table of contents outline"
+              >
+                <ListTree size={13} />
+                <span className="hidden lg:inline">Outline</span>
+              </button>
             )}
 
             {/* Scratchpad Toggle */}
             <button
               type="button"
               onClick={() => setShowScratchpad(!showScratchpad)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
-                showScratchpad 
-                  ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30' 
-                  : isDark 
-                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-[0.98] ${
+                showScratchpad
+                  ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30'
+                  : isDark
+                    ? 'bg-[var(--theme-surface-subtle)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-surface)] border border-[var(--theme-border)]'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
+              title="Toggle Scratchpad"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
-              <span className="hidden sm:inline">Scratchpad</span>
-            </button>
-
-            {/* Copy Markdown */}
-            <button
-              type="button"
-              onClick={copyMarkdown}
-              className={`p-2 rounded-xl transition-all active:scale-95 ${
-                isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-              title="Copy Note Markdown"
-            >
-              {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
+              <span className="hidden xl:inline">Scratch</span>
             </button>
 
             {/* Start Quiz Action */}
@@ -563,73 +821,14 @@ export default function NoteViewer({
               <button
                 type="button"
                 onClick={() => onStartQuiz(note)}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-purple-600/30 transition-all active:scale-95"
+                className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)] text-white text-xs font-bold shadow-md shadow-[var(--theme-primary)]/25 transition-all active:scale-[0.98]"
               >
-                <Sparkles size={14} />
-                <span>AI Quiz</span>
+                <Sparkles size={13} />
+                <span className="hidden sm:inline">AI Quiz</span>
               </button>
             )}
           </div>
-        </div>
-      )}
-
-      {/* Note Header Info: Title & Frontmatter Badges */}
-      {!hideTopHeader && (
-        <div className={`p-5 rounded-3xl mb-5 border shadow-sm ${
-          isDark ? 'bg-slate-900/90 border-slate-800 text-slate-100' : 'bg-white border-gray-200 text-gray-900'
-        }`}>
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight leading-snug text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-indigo-300 to-blue-400 mb-3">
-            {note.title}
-          </h1>
-
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl font-medium ${
-              isDark ? 'bg-slate-800 text-slate-300' : 'bg-gray-100 text-gray-600'
-            }`}>
-              <Clock size={12} className="text-purple-400" />
-              {note.wordCount} words (~{readingTime} min read)
-            </span>
-
-            {pdfUrl && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/20">
-                <FileText size={12} />
-                PDF Document
-              </span>
-            )}
-
-            {note.frontmatter?.status && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl font-semibold bg-green-500/15 text-green-400 border border-green-500/20">
-                <CheckCircle2 size={12} />
-                {note.frontmatter.status}
-              </span>
-            )}
-
-            {note.frontmatter?.created && (
-              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl font-medium ${
-                isDark ? 'bg-slate-800 text-slate-400' : 'bg-gray-100 text-gray-500'
-              }`}>
-                <Calendar size={12} />
-                {note.frontmatter.created}
-              </span>
-            )}
-          </div>
-
-          {note.tags && note.tags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-dashed border-slate-800 dark:border-slate-800/80">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                <Tag size={11} /> Tags:
-              </span>
-              {note.tags.map(t => (
-                <span
-                  key={t}
-                  className="text-xs font-semibold px-2 py-0.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20"
-                >
-                  #{t}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
+        </header>
       )}
 
       {/* Main Document & Outline Body */}
@@ -660,103 +859,40 @@ export default function NoteViewer({
                   initialMarkdown={editContent}
                   isDark={isDark}
                   onChange={(newMarkdown) => {
-                    setEditContent(newMarkdown);
+                    handleEditContentChange(newMarkdown);
                   }}
                   onSave={(finalMarkdown) => {
                     setEditContent(finalMarkdown);
-                    if (onUpdateNote) onUpdateNote(finalMarkdown);
+                    triggerSave(finalMarkdown);
                   }}
                 />
               ) : (
                 <textarea
                   dir="auto"
-                  className={`w-full min-h-[500px] h-full resize-none bg-transparent outline-none p-4 rounded-2xl border font-mono text-sm leading-relaxed ${isDark ? 'border-slate-700 text-slate-200 bg-slate-900/30' : 'border-gray-300 text-gray-800 bg-gray-50'}`}
+                  className={`w-full min-h-[500px] h-full resize-none bg-transparent outline-none p-4 rounded-2xl border font-mono text-sm leading-relaxed ${
+                    isDark ? 'border-[var(--theme-border)] text-[var(--theme-text-primary)] bg-[var(--theme-surface)]' : 'border-gray-300 text-gray-800 bg-gray-50'
+                  }`}
                   value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
+                  onChange={(e) => handleEditContentChange(e.target.value)}
                   placeholder="Start typing markdown..."
                   spellCheck={false}
                 />
               )}
             </div>
           ) : pdfUrl ? (
-            <div className={`flex flex-col w-full h-full min-h-0 flex-1 gap-3 ${isPdfFullscreen ? 'fixed inset-0 z-50 p-6 bg-slate-950/95 backdrop-blur-xl' : ''}`}>
-              {/* PDF Toolbar Header */}
-              <div className={`flex items-center justify-between px-4 py-2.5 rounded-2xl border shadow-sm ${
-                isDark ? 'bg-slate-900/90 border-slate-800 text-slate-300' : 'bg-white border-gray-200 text-gray-700'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <FileText size={15} className="text-purple-400 flex-shrink-0" />
-                  <span className="text-xs font-bold truncate max-w-[200px] sm:max-w-xs">{note.title}</span>
+            <div className={`flex flex-col w-full h-full min-h-0 flex-1 gap-3 ${isPdfFullscreen ? 'fixed inset-0 z-50 p-6 bg-[var(--theme-bg)]/95 backdrop-blur-xl' : ''}`}>
+              {/* If hideTopHeader is true (dual-pane embed), render compact portal bar */}
+              {hideTopHeader && (
+                <div className={`flex items-center justify-between px-3 py-1.5 rounded-xl border text-xs shrink-0 ${
+                  isDark ? 'border-[var(--theme-border)] bg-[var(--theme-surface-elevated)] text-[var(--theme-text-primary)]' : 'border-gray-200 bg-white text-gray-700'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <FileText size={14} className="text-[var(--theme-primary)] shrink-0" />
+                    <span className="text-xs font-bold truncate max-w-[150px]">{note.title}</span>
+                  </div>
+                  <div id="pdf-tools-portal" className="flex items-center gap-1 overflow-x-auto hide-scrollbar"></div>
                 </div>
-
-                <div className="flex items-center gap-1 sm:gap-2">
-                  <div id="pdf-tools-portal" className="flex items-center mr-2 pr-2 border-r border-slate-700/50 overflow-x-auto hide-scrollbar max-w-[150px] sm:max-w-none"></div>
-                  {/* View Mode Toggle: Visual PDF vs Extracted Text */}
-                  <button
-                    type="button"
-                    onClick={() => setPdfViewMode(pdfViewMode === 'pdf' ? 'reader' : 'pdf')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                      pdfViewMode === 'reader'
-                        ? 'bg-purple-600 text-white'
-                        : isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                    }`}
-                    title="Toggle Reader Mode"
-                  >
-                    {pdfViewMode === 'pdf' ? <BookOpen size={13} /> : <FileText size={13} />}
-                    <span className="hidden sm:inline">{pdfViewMode === 'pdf' ? 'Reader View' : 'PDF View'}</span>
-                  </button>
-
-                  {/* Copy Link */}
-                  <button
-                    type="button"
-                    onClick={() => copyDocumentUrl(pdfUrl)}
-                    className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                      isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                    }`}
-                    title="Copy Document URL"
-                  >
-                    {copiedLink ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-                  </button>
-
-                  {/* Open in New Tab */}
-                  <a
-                    href={pdfUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                      isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                    }`}
-                    title="Open in new window"
-                  >
-                    <ExternalLink size={13} />
-                    <span className="hidden sm:inline">New Tab</span>
-                  </a>
-
-                  {/* Direct Download */}
-                  <a
-                    href={pdfUrl}
-                    download={note.title || 'document.pdf'}
-                    className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                      isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                    }`}
-                    title="Download PDF"
-                  >
-                    <Download size={14} />
-                  </a>
-
-                  {/* Fullscreen Toggle */}
-                  <button
-                    type="button"
-                    onClick={() => setIsPdfFullscreen(!isPdfFullscreen)}
-                    className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                      isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                    }`}
-                    title={isPdfFullscreen ? "Exit Fullscreen" : "Fullscreen Viewer"}
-                  >
-                    {isPdfFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-                  </button>
-                </div>
-              </div>
+              )}
 
               {/* Main Visual Frame or Reader Mode */}
               {pdfViewMode === 'pdf' ? (
@@ -770,7 +906,9 @@ export default function NoteViewer({
                   onUpdateNote={onUpdateNote}
                 />
               ) : (
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 rounded-2xl border border-slate-800 bg-slate-900/60 text-slate-200">
+                <div className={`flex-1 overflow-y-auto custom-scrollbar p-6 rounded-2xl border ${
+                  isDark ? 'border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text-primary)]' : 'border-gray-200 bg-white text-gray-800'
+                }`}>
                   {renderMarkdownContent(editContent)}
                 </div>
               )}
@@ -813,17 +951,19 @@ export default function NoteViewer({
               exit={{ opacity: 0, width: 0 }}
               transition={{ duration: 0.2 }}
               className={`p-4 rounded-3xl border overflow-y-auto custom-scrollbar flex-shrink-0 ${
-                isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-gray-50 border-gray-200'
+                isDark ? 'bg-[var(--theme-surface-elevated)] border-[var(--theme-border)] text-[var(--theme-text-primary)]' : 'bg-gray-50 border-gray-200'
               }`}
             >
-              <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1">
+              <div className={`flex items-center justify-between mb-3 pb-2 border-b ${
+                isDark ? 'border-[var(--theme-border)]' : 'border-gray-200'
+              }`}>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--theme-primary)] flex items-center gap-1">
                   <ListTree size={13} /> Outline (H1-H6)
                 </h4>
                 <button
                   type="button"
                   onClick={() => setShowOutline(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-white"
+                  className="p-1 rounded-lg text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)]"
                 >
                   ✕
                 </button>
@@ -838,9 +978,9 @@ export default function NoteViewer({
                     style={{ paddingLeft: `${(h.level - 1) * 12 + 8}px` }}
                     className={`w-full text-left py-1 text-xs rounded-lg transition-colors truncate block ${
                       h.level === 1
-                        ? 'font-bold text-purple-300 hover:text-white hover:bg-purple-500/20'
+                        ? 'font-bold text-[var(--theme-primary)] hover:bg-[var(--theme-surface-subtle)]'
                         : isDark
-                          ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                          ? 'text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-surface)]'
                           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
                     }`}
                   >

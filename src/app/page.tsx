@@ -10,7 +10,7 @@ import {
   Cpu, AlertCircle, Mic, Camera, GraduationCap, BookOpen, Sparkles, Brain, 
   CheckSquare, Layers, FileText, Smile, ArrowLeft 
 } from 'lucide-react';
-import type { StateId } from '@/lib/bot/states';
+import { STATE_BY_ID, type StateId } from '@/lib/bot/states';
 import type { ExpressionId } from '@/lib/bot/expressions';
 import { COLORS } from '@/lib/bot/skins';
 import { createClient } from '@/lib/supabase/client';
@@ -22,6 +22,7 @@ import QuizSession from '@/components/study/QuizSession';
 import NoteGraph from '@/components/study/NoteGraph';
 import type { ObsidianNoteSummary, ParsedObsidianNote } from '@/types/obsidian';
 import { parseObsidianMarkdown } from '@/lib/obsidian/parser';
+import { recordMutation, markMutationSynced, markMutationFailed, type MutationType } from '@/lib/storage/offline-wal';
 
 const PRIORITY_COLOR = { high: '#ef4444', medium: '#f59e0b', low: '#3b82f6' };
 const PRIORITY_LABEL = { high: 'High', medium: 'Medium', low: 'Low' };
@@ -197,13 +198,21 @@ export default function Home() {
   const [bgTheme, setBgTheme] = useState('bg-[#080d2a]');
   const [catSettings, setCatSettings] = useState<Record<string, {shape: string, color: string, expression?: string}>>({});
 
-  // Global Mascot
-  const [mascotState, setMascotState] = useState<StateId>('idle');
-  const [mascotExpression, setMascotExpression] = useState<ExpressionId>('timide');
+  // Global Mascot - Persistent Customization Settings (saved to storage)
   const [mascotShape, setMascotShape] = useState('squircle');
   const [mascotColor, setMascotColor] = useState('bleu');
+  const [mascotExpression, setMascotExpression] = useState<ExpressionId>('timide');
+  const [mascotGaze, setMascotGaze] = useState<string>('center');
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  // Transient Mascot Animation Reactions (ephemeral, never auto-saved)
+  const [animState, setAnimState] = useState<StateId>('idle');
+  const [animExpression, setAnimExpression] = useState<ExpressionId | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Backward compatibility alias
+  const mascotState = animState;
+  const setMascotState = setAnimState;
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -314,23 +323,31 @@ export default function Home() {
     }
   };
 
-  // Load settings when session changes
+  // Load settings when session changes or on mount (guest mode supported)
   useEffect(() => {
-    if (!session) return;
-    const uid = session.user.id;
-    const meta = session.user.user_metadata || {};
+    const uid = session?.user?.id;
+    const prefix = uid ? `${uid}_` : 'guest_';
+    const meta = session?.user?.user_metadata || {};
     
     if (meta.geminiApiKey) setGeminiApiKey(meta.geminiApiKey);
 
-    const savedExpr = localStorage.getItem(`${uid}_mascotExpression`) as ExpressionId;
-    const savedShape = meta.mascotShape || localStorage.getItem(`${uid}_mascotShape`);
-    const savedColor = meta.mascotColor || localStorage.getItem(`${uid}_mascotColor`);
-    const savedTheme = meta.bgTheme || localStorage.getItem(`${uid}_bgTheme`);
-    const savedCatSet = meta.catSettings || JSON.parse(localStorage.getItem(`${uid}_catSettings`) || 'null');
+    const savedExpr = (meta.mascotExpression || localStorage.getItem(`${prefix}mascotExpression`) || (uid ? localStorage.getItem('guest_mascotExpression') : null)) as ExpressionId | null;
+    const savedShape = meta.mascotShape || localStorage.getItem(`${prefix}mascotShape`) || (uid ? localStorage.getItem('guest_mascotShape') : null);
+    const savedColor = meta.mascotColor || localStorage.getItem(`${prefix}mascotColor`) || (uid ? localStorage.getItem('guest_mascotColor') : null);
+    const savedGaze = meta.mascotGaze || localStorage.getItem(`${prefix}mascotGaze`) || (uid ? localStorage.getItem('guest_mascotGaze') : null);
+    const savedTheme = meta.bgTheme || localStorage.getItem(`${prefix}bgTheme`) || (uid ? localStorage.getItem('guest_bgTheme') : null);
+    const rawCat = meta.catSettings || localStorage.getItem(`${prefix}catSettings`) || (uid ? localStorage.getItem('guest_catSettings') : null);
+    let savedCatSet = null;
+    if (typeof rawCat === 'string') {
+      try { savedCatSet = JSON.parse(rawCat); } catch {}
+    } else if (rawCat && typeof rawCat === 'object') {
+      savedCatSet = rawCat;
+    }
     
     if (savedExpr) setMascotExpression(savedExpr);
     if (savedShape) setMascotShape(savedShape);
     if (savedColor) setMascotColor(savedColor);
+    if (savedGaze) setMascotGaze(savedGaze);
     if (savedTheme) setBgTheme(savedTheme);
     if (savedCatSet) setCatSettings(savedCatSet);
     
@@ -338,18 +355,38 @@ export default function Home() {
     setSettingsLoaded(true);
   }, [session]);
 
-  // Cross-device settings sync on tab focus
+  // Cross-device settings sync on tab focus / visibility change
   useEffect(() => {
     const handleVisibility = async () => {
-      if (document.visibilityState === 'visible' && session) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user && user.user_metadata) {
-          const meta = user.user_metadata;
-          if (meta.mascotShape) setMascotShape(meta.mascotShape);
-          if (meta.mascotColor) setMascotColor(meta.mascotColor);
-          if (meta.bgTheme) setBgTheme(meta.bgTheme);
-          if (meta.catSettings) setCatSettings(meta.catSettings);
-          if (meta.geminiApiKey) setGeminiApiKey(meta.geminiApiKey);
+      if (document.visibilityState === 'visible') {
+        if (session) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user && user.user_metadata) {
+            const meta = user.user_metadata;
+            if (meta.mascotExpression) setMascotExpression(meta.mascotExpression);
+            if (meta.mascotShape) setMascotShape(meta.mascotShape);
+            if (meta.mascotColor) setMascotColor(meta.mascotColor);
+            if (meta.mascotGaze) setMascotGaze(meta.mascotGaze);
+            if (meta.bgTheme) setBgTheme(meta.bgTheme);
+            if (meta.catSettings) setCatSettings(meta.catSettings);
+            if (meta.geminiApiKey) setGeminiApiKey(meta.geminiApiKey);
+          }
+        } else {
+          // Guest fallback on tab focus
+          const savedExpr = localStorage.getItem('guest_mascotExpression') as ExpressionId | null;
+          const savedShape = localStorage.getItem('guest_mascotShape');
+          const savedColor = localStorage.getItem('guest_mascotColor');
+          const savedGaze = localStorage.getItem('guest_mascotGaze');
+          const savedTheme = localStorage.getItem('guest_bgTheme');
+          const savedCat = localStorage.getItem('guest_catSettings');
+          if (savedExpr) setMascotExpression(savedExpr);
+          if (savedShape) setMascotShape(savedShape);
+          if (savedColor) setMascotColor(savedColor);
+          if (savedGaze) setMascotGaze(savedGaze);
+          if (savedTheme) setBgTheme(savedTheme);
+          if (savedCat) {
+            try { setCatSettings(JSON.parse(savedCat)); } catch {}
+          }
         }
       }
     };
@@ -361,26 +398,30 @@ export default function Home() {
     };
   }, [session]);
 
-  // Save transient settings
+  // Save persistent customization settings (never save transient animation reaction state)
   useEffect(() => {
-    if (!session || !settingsLoaded) return;
-    const uid = session.user.id;
-    localStorage.setItem(`${uid}_mascotExpression`, mascotExpression);
-    localStorage.setItem(`${uid}_mascotShape`, mascotShape);
-    localStorage.setItem(`${uid}_mascotColor`, mascotColor);
-    localStorage.setItem(`${uid}_bgTheme`, bgTheme);
-    localStorage.setItem(`${uid}_catSettings`, JSON.stringify(catSettings));
+    if (!settingsLoaded) return;
+    const prefix = session?.user?.id ? `${session.user.id}_` : 'guest_';
+    localStorage.setItem(`${prefix}mascotExpression`, mascotExpression);
+    localStorage.setItem(`${prefix}mascotShape`, mascotShape);
+    localStorage.setItem(`${prefix}mascotColor`, mascotColor);
+    localStorage.setItem(`${prefix}mascotGaze`, mascotGaze);
+    localStorage.setItem(`${prefix}bgTheme`, bgTheme);
+    localStorage.setItem(`${prefix}catSettings`, JSON.stringify(catSettings));
     
-    supabase.auth.updateUser({
-      data: {
-        mascotExpression,
-        mascotShape,
-        mascotColor,
-        bgTheme,
-        catSettings
-      }
-    }).catch(console.error);
-  }, [session, settingsLoaded, mascotExpression, mascotShape, mascotColor, bgTheme, catSettings]);
+    if (session) {
+      supabase.auth.updateUser({
+        data: {
+          mascotExpression,
+          mascotShape,
+          mascotColor,
+          mascotGaze,
+          bgTheme,
+          catSettings
+        }
+      }).catch(console.error);
+    }
+  }, [session, settingsLoaded, mascotExpression, mascotShape, mascotColor, mascotGaze, bgTheme, catSettings]);
 
   useEffect(() => {
     let meta = document.querySelector('meta[name="theme-color"]');
@@ -406,13 +447,13 @@ export default function Home() {
     let timeout: NodeJS.Timeout;
     const resetAFK = () => {
       clearTimeout(timeout);
-      if (mascotState === 'sleep') {
-        setMascotState('idle');
-        setMascotExpression(localStorage.getItem(session?.user?.id + '_mascotExpression') as ExpressionId || 'timide');
+      if (animState === 'sleep') {
+        setAnimState('idle');
+        setAnimExpression(null);
       }
       timeout = setTimeout(() => {
-        setMascotState('sleep');
-        setMascotExpression('somnolent');
+        setAnimState('sleep');
+        setAnimExpression('somnolent');
       }, 15000);
     };
     window.addEventListener('mousemove', resetAFK);
@@ -425,21 +466,31 @@ export default function Home() {
       window.removeEventListener('touchstart', resetAFK);
       clearTimeout(timeout);
     };
-  }, [mascotState, session]);
+  }, [animState]);
 
-  const resetToIdle = useCallback(() => {
+  const resetToIdle = useCallback((currentState?: StateId) => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    const targetState = currentState ?? animState;
+    const durationSec = STATE_BY_ID.get(targetState)?.duration ?? 2.4;
     idleTimerRef.current = setTimeout(() => {
-      setMascotState('idle');
-      setMascotExpression(localStorage.getItem(session?.user?.id + '_mascotExpression') as ExpressionId || 'timide');
-    }, 2000);
-  }, [session]);
+      setAnimState('idle');
+      setAnimExpression(null);
+    }, durationSec * 1000);
+  }, [animState]);
 
   const triggerMascot = useCallback((state: StateId, expr: ExpressionId, persist?: boolean) => {
-    setMascotState(state);
-    setMascotExpression(expr);
-    if (!persist) resetToIdle();
-  }, [resetToIdle]);
+    setAnimState(state);
+    setAnimExpression(expr);
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+
+    if (!persist) {
+      const durationSec = STATE_BY_ID.get(state)?.duration ?? 2.4;
+      idleTimerRef.current = setTimeout(() => {
+        setAnimState('idle');
+        setAnimExpression(null);
+      }, durationSec * 1000);
+    }
+  }, []);
 
   const handleSelectNote = async (noteSummary: ObsidianNoteSummary | { note: ObsidianNoteSummary }) => {
     const target = (noteSummary as any)?.note || noteSummary;
@@ -495,24 +546,44 @@ export default function Home() {
 
     setSelectedNote(updatedNote);
 
+    const notePayload = {
+      userId: session?.user?.id,
+      notes: [{
+        title: updatedNote.title,
+        path: (updatedNote as any).path || updatedNote.relativePath || updatedNote.id,
+        content: updatedContent,
+        folder: updatedNote.folder,
+        tags: updatedNote.tags,
+        word_count: updatedNote.wordCount || updatedContent.split(/\s+/).length
+      }]
+    };
+
+    let walId: string | null = null;
     try {
-      await fetch('/api/obsidian/notes', {
+      walId = await recordMutation({
+        type: 'UPDATE_NOTE',
+        payload: notePayload
+      });
+    } catch (walErr) {
+      console.warn('[OfflineWAL] Failed to record note mutation in handleUpdateNote:', walErr);
+    }
+
+    try {
+      const res = await fetch('/api/obsidian/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: session?.user?.id,
-          notes: [{
-            title: updatedNote.title,
-            path: (updatedNote as any).path || updatedNote.relativePath || updatedNote.id,
-            content: updatedContent,
-            folder: updatedNote.folder,
-            tags: updatedNote.tags,
-            word_count: updatedNote.wordCount || updatedContent.split(/\s+/).length
-          }]
-        })
+        body: JSON.stringify(notePayload)
       });
-    } catch (e) {
+      if (res.ok && walId) {
+        await markMutationSynced(walId);
+      } else if (!res.ok && walId) {
+        await markMutationFailed(walId, `HTTP ${res.status}`);
+      }
+    } catch (e: any) {
       console.error('Failed to save note update', e);
+      if (walId) {
+        await markMutationFailed(walId, e?.message || 'Network error');
+      }
     }
   }, [selectedNote, session?.user?.id]);
 
@@ -567,28 +638,57 @@ export default function Home() {
 
   const mutate = async (body: any) => {
     if (!session) return;
-    const res = await fetch('/api/data', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    if (res.status === 401) return;
-    const data = await res.json();
-    setTodos(data.todos);
-    
-    let cats = data.categories || [];
-    if (!cats.find((c: any) => c.id === 'default')) {
-      cats = [{ id: 'default', name: 'General', type: 'todo' as ListType }, ...cats];
+
+    // Durable Offline WAL logging before network fetch
+    const mutationType: MutationType = body?.type?.includes('CATEGORY') ? 'MUTATE_CATEGORY' : 'MUTATE_TODO';
+    let walId: string | null = null;
+    try {
+      walId = await recordMutation({
+        type: mutationType,
+        payload: body
+      });
+    } catch (walErr) {
+      console.warn('[OfflineWAL] Failed to record mutation in mutate():', walErr);
     }
-    const storedTypes2 = session?.user?.user_metadata?.listTypes || JSON.parse(localStorage.getItem(session?.user?.id + '_listTypes') || '{}');
-    cats = cats.map((c: any) => {
-      const dbType = c.type === 'study' ? 'study' : undefined;
-      const localType = storedTypes2[c.id];
-      return { ...c, type: (dbType || localType || 'todo') as ListType };
-    });
-    setCategories(cats);
-    
-    return data;
+
+    try {
+      const res = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (res.status === 401) return;
+      if (!res.ok) {
+        if (walId) await markMutationFailed(walId, `HTTP ${res.status}: ${res.statusText}`);
+        return;
+      }
+
+      if (walId) {
+        await markMutationSynced(walId);
+      }
+
+      const data = await res.json();
+      setTodos(data.todos);
+      
+      let cats = data.categories || [];
+      if (!cats.find((c: any) => c.id === 'default')) {
+        cats = [{ id: 'default', name: 'General', type: 'todo' as ListType }, ...cats];
+      }
+      const storedTypes2 = session?.user?.user_metadata?.listTypes || JSON.parse(localStorage.getItem(session?.user?.id + '_listTypes') || '{}');
+      cats = cats.map((c: any) => {
+        const dbType = c.type === 'study' ? 'study' : undefined;
+        const localType = storedTypes2[c.id];
+        return { ...c, type: (dbType || localType || 'todo') as ListType };
+      });
+      setCategories(cats);
+      
+      return data;
+    } catch (err: any) {
+      console.warn('[mutate] Network request failed, mutation queued in offline WAL:', err);
+      if (walId) {
+        await markMutationFailed(walId, err?.message || 'Network error');
+      }
+    }
   };
 
   const addTodo = async (e: React.FormEvent) => {
@@ -1205,9 +1305,9 @@ export default function Home() {
       {activeTab === 'settings' ? (
           <div className="flex-1 w-full flex flex-col md:flex-row overflow-hidden animate-in fade-in zoom-in-95 duration-300 md:shadow-2xl md:my-6 md:rounded-3xl md:border md:border-white/10">
             {/* Left side: HUGE MASCOT */}
-            <div className="hidden md:flex md:w-1/2 lg:w-3/5 flex-1 items-center justify-center bg-slate-900/40 relative">
-                <div className="cursor-pointer hover:scale-105 transition-transform duration-300" onClick={() => triggerMascot('orbit', mascotExpression)}>
-                  <BloubMascot size={320} state="idle" expression={mascotExpression} shape={targetShape} color={targetColor} isStatic={false} />
+            <div className="hidden md:flex md:w-1/2 lg:w-3/5 flex-1 items-center justify-center bg-slate-900/40 relative overflow-visible">
+                <div className="cursor-pointer hover:scale-105 transition-transform duration-300 overflow-visible" onClick={() => triggerMascot('orbit', mascotExpression)}>
+                  <BloubMascot size={320} state="idle" expression={mascotExpression} shape={targetShape} color={targetColor} gaze={mascotGaze} isStatic={false} />
                 </div>
             </div>
 
@@ -1216,8 +1316,8 @@ export default function Home() {
               
               {/* Mascot Preview inside Settings */}
               <div className="bg-slate-900 rounded-3xl p-4 mb-6 border border-slate-800 flex flex-col items-center">
-                <div className="w-32 h-32 flex items-center justify-center mb-4 cursor-pointer hover:scale-105 transition-transform duration-300" onClick={() => triggerMascot('orbit', mascotExpression)}>
-                  <BloubMascot size={120} state="idle" expression={mascotExpression} shape={targetShape} color={targetColor} isStatic={false} />
+                <div className="w-32 h-32 flex items-center justify-center mb-4 cursor-pointer hover:scale-105 transition-transform duration-300 overflow-visible" onClick={() => triggerMascot('orbit', mascotExpression)}>
+                  <BloubMascot size={120} state="idle" expression={mascotExpression} shape={targetShape} color={targetColor} gaze={mascotGaze} isStatic={false} />
                 </div>
 
                 {/* Horizontal Category Scroller */}
@@ -1364,6 +1464,37 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* Eye Gaze Direction Section */}
+              <div className="mb-6">
+                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
+                  <Sparkles size={14} /> Eye Gaze Direction
+                </span>
+                <div className="grid grid-cols-5 gap-2">
+                  {[
+                    { id: 'center', label: 'Center' },
+                    { id: 'left', label: 'Left' },
+                    { id: 'right', label: 'Right' },
+                    { id: 'up', label: 'Up' },
+                    { id: 'down', label: 'Down' },
+                  ].map(g => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => setMascotGaze(g.id)}
+                      className={`py-2 px-1 text-center rounded-xl border text-xs font-medium transition-all cursor-pointer ${
+                        mascotGaze === g.id
+                          ? 'bg-slate-800 border-blue-500 text-white shadow-md scale-105 ring-1 ring-blue-500/30'
+                          : isDark
+                            ? 'bg-slate-800/50 border-slate-700/50 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                            : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {g.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Push Notifications Section */}
               <div className="pt-2">
                 <button
@@ -1475,16 +1606,36 @@ export default function Home() {
         
         {/* Large Hero Mascot */}
         {!selectedNote && (
-          <div className={`flex justify-center transition-all duration-300 ${showAddModal ? 'mb-2 pt-1' : 'mb-8 pt-4'}`}>
-            <div className="cursor-pointer drop-shadow-xl hover:scale-105 transition-transform duration-300" onClick={() => triggerMascot('orbit', 'heureux')}>
+          <div 
+            data-mascot-container="hero"
+            data-spatial-container="hero"
+            className={`flex justify-center relative items-center transition-all duration-300 overflow-visible p-4 ${showAddModal ? 'mb-2 pt-1' : 'mb-8 pt-4'}`}
+          >
+            {/* Ambient Aura Halo Glow */}
+            <div 
+              className="absolute w-44 h-44 rounded-full opacity-25 pointer-events-none blur-2xl transition-all duration-500"
+              style={{ backgroundColor: COLORS.find(c => c.id === heroColor)?.hex || '#3b82f6' }}
+            />
+
+            <div 
+              className="relative cursor-pointer hover:scale-105 transition-transform duration-300 overflow-visible" 
+              onClick={() => triggerMascot('orbit', 'heureux')}
+            >
               {(() => {
                 const pendingContextCount = showListHero ? todos.filter(t => !t.completed && t.categoryId === activeCategory).length : todos.filter(t => !t.completed).length;
                 const dyn = getDynamicMascotProps(heroShape, heroColor, pendingContextCount);
-                const isAnim = mascotState !== 'idle';
+                const isAnim = animState !== 'idle';
                 const catExpr = showListHero ? (catSettings[activeCategory]?.expression) : null;
                 const heroExpr = catExpr || mascotExpression || dyn.expr;
                 return (
-                  <BloubMascot size={showAddModal ? 96 : 160} state={mascotState} expression={isAnim ? mascotExpression : (heroExpr as ExpressionId)} shape={heroShape} color={dyn.color} />
+                  <BloubMascot size={showAddModal ? 96 : 160}
+                    state={animState} 
+                    expression={isAnim ? (animExpression || mascotExpression) : (heroExpr as ExpressionId)} 
+                    shape={heroShape} 
+                    color={dyn.color} 
+                    gaze={mascotGaze}
+                    onInteract={() => triggerMascot('orbit', 'heureux')}
+                  />
                 );
               })()}
             </div>
@@ -1761,28 +1912,28 @@ export default function Home() {
 
                 {/* Study UI: Side-by-Side Dual-Pane Study View (PDF on Left, Quiz on Right) */}
                 {selectedNote && showQuizSession ? (
-                  <div className={`rounded-3xl overflow-hidden border shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-500 relative ${
-                    isDark ? 'border-purple-500/30 bg-slate-900/95' : 'border-purple-200 bg-white'
+                  <div className={`h-full flex flex-col flex-1 min-h-0 rounded-3xl overflow-hidden border shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-500 relative ${
+                    isDark ? 'border-[var(--theme-border)] bg-[var(--theme-surface)] backdrop-blur-xl' : 'border-purple-200 bg-white'
                   }`}>
                     {/* Dual-Pane Header */}
-                    <div className={`p-4 border-b flex items-center justify-between ${
-                      isDark ? 'border-slate-800 bg-slate-950/60' : 'border-gray-100 bg-gray-50'
+                    <div className={`px-4 py-3 border-b flex items-center justify-between shrink-0 ${
+                      isDark ? 'border-[var(--theme-border)] bg-[var(--theme-surface-elevated)]' : 'border-gray-100 bg-gray-50'
                     }`}>
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => setShowQuizSession(false)}
                           className={`p-2 rounded-xl transition-all active:scale-95 text-xs font-bold flex items-center gap-1.5 ${
-                            isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                            isDark ? 'bg-[var(--theme-surface-subtle)] text-[var(--theme-text-primary)] hover:bg-[var(--theme-surface)] border border-[var(--theme-border)]' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                           }`}
                         >
                           <ArrowLeft size={14} />
                           <span>Exit Quiz</span>
                         </button>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-gradient-to-r from-purple-600/20 to-indigo-600/20 text-purple-400 border border-purple-500/30">
+                          <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-[var(--theme-primary)]/20 text-[var(--theme-primary)] border border-[var(--theme-primary)]/30">
                             Study Mode
                           </span>
-                          <h3 className={`text-sm font-bold truncate max-w-xs sm:max-w-md ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                          <h3 className={`text-sm font-bold truncate max-w-xs sm:max-w-md ${isDark ? 'text-[var(--theme-text-primary)]' : 'text-gray-900'}`}>
                             {selectedNote.title}
                           </h3>
                         </div>
@@ -1790,9 +1941,9 @@ export default function Home() {
                     </div>
 
                     {/* Responsive Dual-Pane Container */}
-                    <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[780px] h-[82vh] divide-y lg:divide-y-0 lg:divide-x divide-slate-800">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 w-full h-full min-h-0 divide-y lg:divide-y-0 lg:divide-x divide-[var(--theme-border)] overflow-hidden">
                       {/* Left Pane: Visual PDF Document Viewer (58% width on desktop) */}
-                      <div className="lg:col-span-7 h-full flex flex-col p-4 overflow-hidden">
+                      <div className="lg:col-span-7 h-full flex flex-col p-2 sm:p-4 overflow-hidden min-h-0">
                         <NoteViewer
                           note={selectedNote}
                           isDark={isDark}
@@ -1803,7 +1954,7 @@ export default function Home() {
                       </div>
 
                       {/* Right Pane: AI Interactive Quiz (42% width on desktop) */}
-                      <div className="lg:col-span-5 h-full flex flex-col overflow-hidden bg-slate-950/40">
+                      <div className="lg:col-span-5 h-full flex flex-col overflow-hidden min-h-0 bg-[var(--theme-surface-subtle)]">
                         <QuizSession
                           note={selectedNote}
                           apiKey={geminiApiKey}
