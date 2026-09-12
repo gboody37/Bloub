@@ -60,19 +60,19 @@
   --radius-thumb: 16px;
 
   /* Universal Stitch Theme Tokens (Baseline / Fallback) */
-  --theme-bg: #080d2a;
-  --theme-surface: rgba(16, 24, 60, 0.80);
-  --theme-surface-elevated: rgba(22, 34, 82, 0.92);
-  --theme-surface-subtle: rgba(16, 24, 60, 0.45);
-  --theme-surface-overlay: rgba(8, 13, 42, 0.88);
-  --theme-border: rgba(59, 130, 246, 0.22);
-  --theme-border-subtle: rgba(59, 130, 246, 0.12);
-  --theme-primary: #3b82f6;
-  --theme-primary-hover: #60a5fa;
+  --theme-bg: #09090b;
+  --theme-surface: rgba(18, 18, 21, 0.90);
+  --theme-surface-elevated: rgba(24, 24, 28, 0.95);
+  --theme-surface-subtle: rgba(18, 18, 21, 0.50);
+  --theme-surface-overlay: rgba(9, 9, 11, 0.92);
+  --theme-border: rgba(255, 255, 255, 0.08);
+  --theme-border-subtle: rgba(255, 255, 255, 0.04);
+  --theme-primary: #f59e0b;
+  --theme-primary-hover: #fbbf24;
   --theme-text-primary: #ffffff;
-  --theme-text-secondary: #bfdbfe;
-  --theme-text-muted: rgba(191, 219, 254, 0.65);
-  --theme-focus-ring: rgba(59, 130, 246, 0.35);
+  --theme-text-secondary: #e4e4e7;
+  --theme-text-muted: rgba(228, 228, 231, 0.65);
+  --theme-focus-ring: rgba(245, 158, 11, 0.35);
 }
 
 @theme inline {

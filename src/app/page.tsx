@@ -56,16 +56,16 @@ export default function BloubHome() {
   const [showHelp, setShowHelp] = useState(false);
 
   // Themes
-  const [themeName, setThemeName] = useState('Dark Loft');
-  const [bgClass, setBgClass] = useState('bg-[#15161b]');
+  const [themeName, setThemeName] = useState('Obsidian Dark');
+  const [bgClass, setBgClass] = useState('bg-[#09090b]');
 
   const handleThemeChange = (name: string) => {
     setThemeName(name);
-    if (name === 'Obsidian Noir') setBgClass('bg-[#0c0d10]');
+    if (name === 'Obsidian Dark' || name === 'Obsidian Noir') setBgClass('bg-[#09090b]');
     else if (name === 'Matcha Garden') setBgClass('bg-[#101f18]');
     else if (name === 'Midnight Abyss') setBgClass('bg-[#0e0f2d]');
     else if (name === 'Warm Sand') setBgClass('bg-[#1e1714]');
-    else setBgClass('bg-[#15161b]');
+    else setBgClass('bg-[#09090b]');
     try {
       localStorage.setItem('bloub_theme_name', name);
     } catch {}
@@ -146,134 +146,150 @@ export default function BloubHome() {
 
   return (
     <div className={`h-screen h-[100dvh] w-full ${bgClass} transition-colors duration-500 font-sans text-stone-100 flex flex-col overflow-hidden`}>
-      {/* Top Navigation Bar */}
-      <header className="h-14 px-4 sm:px-6 flex items-center justify-between gap-3 select-none border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-md shrink-0 z-30">
-        {/* Left: Sleek Bloub Logo & Breadcrumb */}
+      {/* Top Navigation Bar — Slim 50px Refined Monochrome Header */}
+      <header className="h-[50px] px-4 sm:px-6 flex items-center justify-between gap-3 select-none border-b border-white/[0.06] bg-[#09090b]/95 backdrop-blur-md shrink-0 z-30">
+        {/* Left: Authentic Bloub Mochi Mascot Logo & Breadcrumb */}
         <div className="flex items-center gap-3">
           <div 
-            className="flex items-center gap-2.5 cursor-pointer group"
+            className="flex items-center gap-2 cursor-pointer group select-none"
             onClick={() => setActiveTab('library')}
           >
-            <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 group-hover:scale-105 transition-transform shadow-sm">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" />
-                <circle cx="9" cy="10" r="1.5" fill="currentColor" />
-                <circle cx="15" cy="10" r="1.5" fill="currentColor" />
-                <path d="M10 14C10.5 15.2 11.5 15.8 12 15.8C12.5 15.8 13.5 15.2 14 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            {/* Authentic Plump Mochi Bloub Mascot Avatar */}
+            <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center group-hover:scale-105 transition-transform shrink-0 shadow-sm border border-amber-500/20 bg-[#24201c]">
+              <svg viewBox="0 0 32 32" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Mochi Body Base */}
+                <ellipse cx="16" cy="17" rx="12" ry="10.5" fill="#fef3c7" />
+                {/* 3D bottom shading */}
+                <ellipse cx="16" cy="21.5" rx="9" ry="4.5" fill="#fde68a" opacity="0.4" />
+                {/* Rosy Cheeks */}
+                <circle cx="9" cy="18.5" r="2.5" fill="#fca5a5" opacity="0.6" />
+                <circle cx="23" cy="18.5" r="2.5" fill="#fca5a5" opacity="0.6" />
+                {/* Cute wide curious eyes */}
+                <ellipse cx="12" cy="15" rx="1.6" ry="2" fill="#291e14" />
+                <ellipse cx="20" cy="15" rx="1.6" ry="2" fill="#291e14" />
+                {/* Eye sparkle reflection */}
+                <circle cx="12.5" cy="14.3" r="0.6" fill="#ffffff" />
+                <circle cx="20.5" cy="14.3" r="0.6" fill="#ffffff" />
+                {/* Happy Little Smile */}
+                <path d="M 14.5 19 Q 16 21 17.5 19" stroke="#291e14" strokeWidth="1.6" strokeLinecap="round" fill="none" />
               </svg>
             </div>
-            <span className="text-xl font-bold tracking-tight text-[#f5efe6]">
+            <span className="text-base font-semibold tracking-tight text-white">
               Bloub
             </span>
           </div>
 
-          {/* Breadcrumb with clean Lucide ChevronRight */}
-          <div className="hidden sm:flex items-center gap-1.5 text-xs text-stone-400 font-medium pl-2.5 border-l border-zinc-800">
+          {/* Breadcrumb with clean ChevronRight */}
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-zinc-400 font-medium pl-2.5 border-l border-white/[0.08]">
             <span 
               onClick={() => setActiveTab('library')}
-              className="hover:text-stone-300 cursor-pointer"
+              className="hover:text-zinc-200 cursor-pointer"
             >
               Workspace
             </span>
-            <ChevronRight size={12} className="text-zinc-600 shrink-0" />
-            <span className="text-amber-400/90 truncate max-w-[200px] sm:max-w-[280px]">
-              {activeTab === 'library' || activeTab === 'pdf' ? activeItem.title : activeTab === 'quiz' ? 'Study Quiz' : 'Settings & Themes'}
+            <ChevronRight size={11} className="text-zinc-600 shrink-0" />
+            <span className="text-zinc-300 truncate max-w-[200px] sm:max-w-[280px]">
+              {activeTab === 'library' || activeTab === 'pdf' ? activeItem.title : activeTab === 'quiz' ? 'Quiz Arena' : 'Scholar Settings'}
             </span>
           </div>
         </div>
 
-        {/* Center: Top Navigation Tabs + Mascot Status Pill */}
+        {/* Center: Monochrome Segmented Tabs */}
         <div className="flex items-center gap-3 justify-center">
-          <nav className="flex items-center p-1 rounded-full bg-zinc-900 border border-zinc-800 shadow-inner text-xs">
+          <nav className="flex items-center p-0.5 rounded-full bg-zinc-900/90 border border-white/[0.08] shadow-inner text-xs">
             <button
               type="button"
               onClick={() => setActiveTab('library')}
-              className={`px-3 py-1.5 rounded-full font-semibold transition-all ${
+              className={`px-3.5 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 ${
                 activeTab === 'library' || activeTab === 'pdf'
-                  ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
-                  : 'text-stone-400 hover:text-stone-200'
+                  ? 'bg-white/[0.1] text-white shadow-sm border border-white/[0.08]'
+                  : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              Reader &amp; Library
+              {(activeTab === 'library' || activeTab === 'pdf') && (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
+              )}
+              Reader
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('quiz')}
-              className={`px-3 py-1.5 rounded-full font-semibold transition-all ${
+              className={`px-3.5 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 ${
                 activeTab === 'quiz'
-                  ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
-                  : 'text-stone-400 hover:text-stone-200'
+                  ? 'bg-white/[0.1] text-white shadow-sm border border-white/[0.08]'
+                  : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
+              {activeTab === 'quiz' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
+              )}
               Quiz
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('stats')}
-              className={`px-3 py-1.5 rounded-full font-semibold transition-all ${
+              className={`px-3.5 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 ${
                 activeTab === 'stats'
-                  ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
-                  : 'text-stone-400 hover:text-stone-200'
+                  ? 'bg-white/[0.1] text-white shadow-sm border border-white/[0.08]'
+                  : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              Stats &amp; Themes
+              {activeTab === 'stats' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
+              )}
+              Stats
             </button>
           </nav>
-
-          {/* Status Pill with countdown timer */}
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900 border border-zinc-800 shadow-lg text-xs">
-            <div className="flex items-center gap-1.5 pr-2 border-r border-zinc-800">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              <span className="font-semibold text-stone-200">
-                Bloub is studying
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5 px-1 font-mono font-bold text-amber-400">
-              <span>{formatTimer(pomodoroSeconds)}</span>
-              <button
-                type="button"
-                onClick={() => setIsTimerRunning(!isTimerRunning)}
-                className="p-1 rounded-full hover:bg-zinc-800 text-stone-300 hover:text-white transition-colors"
-                title={isTimerRunning ? 'Pause timer' : 'Start timer'}
-                aria-label={isTimerRunning ? 'Pause timer' : 'Start timer'}
-              >
-                {isTimerRunning ? <Pause size={11} /> : <Play size={11} />}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsTimerRunning(false);
-                  setPomodoroSeconds(25 * 60);
-                }}
-                className="p-1 rounded-full hover:bg-zinc-800 text-stone-500 hover:text-stone-300 transition-colors"
-                title="Reset timer"
-                aria-label="Reset timer"
-              >
-                <RotateCcw size={10} />
-              </button>
-            </div>
-          </div>
         </div>
 
-        {/* Right: Streak & Utility Actions (Zero Emojis!) */}
+        {/* Right: Clean Focus Timer, Streak & Settings */}
         <div className="flex items-center gap-2.5 justify-end">
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-xs font-semibold text-amber-400 select-none">
-            <Flame size={14} className="text-amber-500 fill-amber-500" />
-            <span>{streakDays} Days</span>
+          {/* Minimal Focus Timer with Single Amber Dot */}
+          <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-zinc-900/80 border border-white/[0.08] text-xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            <span className="font-mono text-zinc-300 text-[11px] font-medium">
+              {formatTimer(pomodoroSeconds)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsTimerRunning(!isTimerRunning)}
+              className="p-0.5 rounded text-zinc-400 hover:text-white transition-colors"
+              title={isTimerRunning ? 'Pause timer' : 'Start timer'}
+              aria-label={isTimerRunning ? 'Pause timer' : 'Start timer'}
+            >
+              {isTimerRunning ? <Pause size={10} /> : <Play size={10} />}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsTimerRunning(false);
+                setPomodoroSeconds(25 * 60);
+              }}
+              className="p-0.5 rounded text-zinc-500 hover:text-zinc-300 transition-colors"
+              title="Reset timer"
+              aria-label="Reset timer"
+            >
+              <RotateCcw size={9} />
+            </button>
+          </div>
+
+          {/* Neutral Streak Badge */}
+          <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.08] text-xs font-medium text-zinc-300 select-none">
+            <Flame size={12} className="text-zinc-400" />
+            <span className="text-[11px]">{streakDays} Days</span>
           </div>
 
           <button
             type="button"
             onClick={() => setShowHelp(true)}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-stone-400 hover:text-stone-200 hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition-colors"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/[0.04] border border-transparent hover:border-white/[0.08] transition-colors"
             title="Shortcuts & Info"
             aria-label="Shortcuts & Info"
           >
-            <HelpCircle size={15} />
+            <HelpCircle size={14} />
           </button>
 
-          <div className="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-xs font-bold text-amber-300">
+          <div className="w-7 h-7 rounded-full bg-white/[0.08] border border-white/[0.12] flex items-center justify-center text-xs font-semibold text-zinc-200">
             G
           </div>
         </div>
@@ -287,29 +303,29 @@ export default function BloubHome() {
           <aside 
             className={`${
               isLibraryCollapsed ? 'w-12' : 'w-72 sm:w-80'
-            } h-full border-r border-zinc-800 bg-zinc-950 flex flex-col flex-shrink-0 transition-all duration-200 z-10 select-none`}
+            } h-full border-r border-white/[0.06] bg-[#0c0c0e] flex flex-col flex-shrink-0 transition-all duration-200 z-10 select-none`}
           >
             {!isLibraryCollapsed ? (
               <div className="flex flex-col h-full overflow-hidden">
-                <div className="h-12 border-b border-zinc-800 px-3.5 flex items-center justify-between gap-2 shrink-0 bg-zinc-900/60">
+                <div className="h-11 border-b border-white/[0.06] px-3.5 flex items-center justify-between gap-2 shrink-0 bg-[#09090b]">
                   <div className="flex items-center gap-2">
-                    <BookOpen size={16} className="text-amber-400 shrink-0" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-zinc-200 font-mono">
+                    <BookOpen size={14} className="text-zinc-400 shrink-0" />
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-300 font-sans">
                       Study Library
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setIsLibraryCollapsed(true)}
-                    className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 transition-colors"
+                    className="p-1 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04] transition-colors"
                     title="Collapse Library"
                     aria-label="Collapse Library"
                   >
-                    <PanelLeftClose size={16} />
+                    <PanelLeftClose size={15} />
                   </button>
                 </div>
 
-                <div className="flex-1 overflow-hidden p-3">
+                <div className="flex-1 overflow-hidden p-2.5">
                   <NoteExplorer
                     selectedNoteId={activeItem.id}
                     onSelectNote={handleSelectNote}
@@ -318,27 +334,27 @@ export default function BloubHome() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center py-3 gap-3 h-full">
+              <div className="flex flex-col items-center py-3 gap-3 h-full bg-[#0c0c0e]">
                 <button
                   type="button"
                   onClick={() => setIsLibraryCollapsed(false)}
-                  className="w-8 h-8 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all active:scale-95 border border-zinc-800"
+                  className="w-8 h-8 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all active:scale-95 border border-white/[0.06]"
                   title="Expand Library"
                   aria-label="Expand Library"
                 >
-                  <PanelLeftOpen size={16} />
+                  <PanelLeftOpen size={15} />
                 </button>
 
-                <div className="w-6 h-px bg-zinc-800 my-1" />
+                <div className="w-6 h-px bg-white/[0.06] my-1" />
 
                 <button
                   type="button"
                   onClick={() => setIsLibraryCollapsed(false)}
-                  className="w-8 h-8 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center transition-all active:scale-95"
+                  className="w-8 h-8 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 border border-white/[0.08] flex items-center justify-center transition-all active:scale-95"
                   title="Upload PDF to Library"
                   aria-label="Upload PDF"
                 >
-                  <UploadCloud size={16} />
+                  <UploadCloud size={15} />
                 </button>
 
                 <div className="flex-1" />
@@ -351,27 +367,27 @@ export default function BloubHome() {
           </aside>
 
           {/* PANE 2 (CENTER) & PANE 3 (RIGHT): Full-Height Reading Canvas + Integrated Portal Header + Page-Synchronized Notes */}
-          <section className="flex-1 h-full min-w-0 flex flex-col relative bg-zinc-950 overflow-hidden">
+          <section className="flex-1 h-full min-w-0 flex flex-col relative bg-[#09090b] overflow-hidden">
             {/* Integrated Header hosting Document Title & #pdf-tools-portal */}
-            <header className="h-12 border-b border-zinc-800 bg-zinc-900/90 backdrop-blur-md px-3 sm:px-4 flex items-center justify-between gap-2 sm:gap-3 shrink-0 z-20 select-none">
+            <header className="h-11 border-b border-white/[0.06] bg-[#0c0c0e]/95 backdrop-blur-md px-3 sm:px-4 flex items-center justify-between gap-2 sm:gap-3 shrink-0 z-20 select-none">
               {/* Left: Active Document Title & Badges */}
               <div className="flex items-center gap-2 min-w-0">
                 {isLibraryCollapsed && (
                   <button
                     type="button"
                     onClick={() => setIsLibraryCollapsed(false)}
-                    className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors shrink-0"
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04] transition-colors shrink-0"
                     title="Open Library"
                     aria-label="Open Library"
                   >
-                    <PanelLeftOpen size={16} />
+                    <PanelLeftOpen size={15} />
                   </button>
                 )}
-                <FileText size={15} className="text-amber-400 shrink-0" />
-                <span className="text-xs sm:text-sm font-semibold text-zinc-100 truncate max-w-[140px] sm:max-w-xs md:max-w-sm tracking-tight" title={activeItem.title}>
+                <FileText size={14} className="text-zinc-400 shrink-0" />
+                <span className="text-xs sm:text-sm font-medium text-zinc-100 truncate max-w-[140px] sm:max-w-xs md:max-w-sm tracking-tight" title={activeItem.title}>
                   {activeItem.title}
                 </span>
-                <span className="hidden sm:inline-block text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400 font-bold uppercase shrink-0">
+                <span className="hidden sm:inline-block text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-zinc-400 font-medium uppercase shrink-0">
                   {activeItem.pdfUrl ? 'PDF' : 'NOTE'}
                 </span>
               </div>
@@ -384,17 +400,17 @@ export default function BloubHome() {
                 <button
                   type="button"
                   onClick={() => setActiveTab('quiz')}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 text-xs font-semibold transition-all active:scale-95"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 border border-white/[0.08] text-xs font-medium transition-all active:scale-95"
                   title="Start AI Quiz on this Document"
                 >
-                  <Sparkles size={13} />
+                  <Sparkles size={12} className="text-amber-400" />
                   <span className="hidden md:inline">Quiz</span>
                 </button>
               </div>
             </header>
 
             {/* Viewport: Continuous Multi-Page Scrolling PDF Reader with Right-Hand NotesPanel */}
-            <div className="flex-1 h-full min-h-0 relative overflow-hidden bg-zinc-950 flex flex-col">
+            <div className="flex-1 h-full min-h-0 relative overflow-hidden bg-[#09090b] flex flex-col">
               {activeItem.pdfUrl ? (
                 <PdfNotebookViewer
                   key={activeItem.id || activeItem.pdfUrl}

@@ -182,37 +182,37 @@ export default function CozyQuizTab() {
   };
 
   return (
-    <div className="w-full flex-1 flex flex-col gap-4 text-stone-200 select-none pb-8">
+    <div className="w-full flex-1 flex flex-col gap-4 text-zinc-200 select-none pb-8">
       {/* Top Question Progress Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-[#181412] border border-[#2b221b]">
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-[#121215] border border-white/[0.07]">
+        <div className="flex items-center gap-2.5">
+          <span className="text-xs font-mono font-medium text-amber-400 uppercase tracking-wider">
             Question {String(currentIndex + 1).padStart(2, '0')} of {String(QUIZ_QUESTIONS.length).padStart(2, '0')}
           </span>
-          <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-stone-700" />
-          <span className="text-xs font-medium text-stone-400 truncate max-w-[280px] md:max-w-md">
+          <span className="hidden sm:inline-block w-1 h-1 rounded-full bg-zinc-600" />
+          <span className="text-xs text-zinc-400 truncate max-w-[280px] md:max-w-md">
             {currentQ.topic}
           </span>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-mono text-stone-400">
-          <Clock size={13} className="text-amber-500" />
+        <div className="flex items-center gap-2 text-xs font-mono text-zinc-400">
+          <Clock size={12} className="text-amber-500" />
           <span>01:45 remaining</span>
         </div>
       </div>
 
       {/* Progress Bars */}
-      <div className="grid grid-cols-3 gap-2 px-1">
+      <div className="grid grid-cols-3 gap-2 px-0.5">
         {QUIZ_QUESTIONS.map((q, idx) => (
           <div 
             key={q.id}
             onClick={() => setCurrentIndex(idx)}
-            className={`h-1.5 rounded-full transition-all cursor-pointer ${
+            className={`h-1 rounded-full transition-all cursor-pointer ${
               idx === currentIndex
-                ? 'bg-amber-500 shadow-sm shadow-amber-500/50'
+                ? 'bg-amber-500'
                 : selectedAnswers[q.id]
-                ? 'bg-emerald-500/80'
-                : 'bg-stone-800'
+                ? 'bg-zinc-400'
+                : 'bg-zinc-800'
             }`}
           />
         ))}
@@ -225,11 +225,11 @@ export default function CozyQuizTab() {
         <div className="lg:col-span-8 flex flex-col gap-4">
           
           {/* Question Card */}
-          <div className="p-5 sm:p-6 rounded-2xl bg-[#191513] border border-[#2d241d] flex flex-col gap-4">
-            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-[#f5efe6] leading-snug">
+          <div className="p-6 rounded-2xl bg-[#121215] border border-white/[0.07] flex flex-col gap-3 shadow-xl">
+            <h2 className="text-lg sm:text-xl font-medium tracking-tight text-white leading-snug">
               {currentQ.questionEn}
             </h2>
-            <p className="text-base sm:text-lg font-medium text-stone-400 leading-relaxed text-right font-sans" dir="rtl">
+            <p className="text-base sm:text-lg text-zinc-300 leading-relaxed text-right font-sans pt-1" dir="rtl">
               {currentQ.questionAr}
             </p>
           </div>
@@ -246,33 +246,33 @@ export default function CozyQuizTab() {
                   onClick={() => handleSelectOption(opt.id)}
                   className={`w-full text-left p-4 rounded-xl border transition-all duration-150 flex items-start gap-3.5 ${
                     isSelected
-                      ? 'bg-emerald-950/30 border-emerald-500/60 ring-1 ring-emerald-500/40 text-stone-100'
-                      : 'bg-[#181412] hover:bg-[#201a16] border-[#292019] text-stone-300'
+                      ? 'bg-amber-500/[0.06] border-amber-500/80 ring-1 ring-amber-500/40 text-white shadow-sm'
+                      : 'bg-[#121215] hover:bg-[#18181d] border-white/[0.06] text-zinc-300'
                   }`}
                 >
-                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
+                  <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-semibold shrink-0 transition-colors ${
                     isSelected 
-                      ? 'bg-emerald-500 text-stone-950' 
-                      : 'bg-stone-800/80 text-stone-400 group-hover:text-stone-200'
+                      ? 'bg-amber-500 text-zinc-950 font-bold' 
+                      : 'bg-white/[0.04] border border-white/[0.08] text-zinc-400 group-hover:text-zinc-200'
                   }`}>
-                    {isSelected ? <Check size={13} strokeWidth={3} /> : opt.id}
+                    {isSelected ? <Check size={12} strokeWidth={3} /> : opt.id}
                   </div>
 
                   <div className="flex-1 flex flex-col gap-1">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold tracking-wide uppercase text-stone-400">
+                      <span className="text-[11px] font-semibold tracking-wide uppercase text-zinc-400">
                         Option {opt.id}
                       </span>
                       {isSelected && (
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                          Your Selection
+                        <span className="text-[10px] font-medium tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                          Selected
                         </span>
                       )}
                     </div>
-                    <p className="text-sm font-medium text-stone-200 leading-relaxed">
+                    <p className="text-sm font-medium text-zinc-100 leading-relaxed">
                       {opt.en}
                     </p>
-                    <p className="text-sm text-stone-400 text-right font-sans leading-relaxed pt-0.5" dir="rtl">
+                    <p className="text-sm text-zinc-400 text-right font-sans leading-relaxed pt-0.5" dir="rtl">
                       {opt.ar}
                     </p>
                   </div>
@@ -286,43 +286,43 @@ export default function CozyQuizTab() {
             <motion.div 
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-5 rounded-2xl bg-[#1a1512] border border-[#33271f] flex flex-col gap-3.5"
+              className="p-5 rounded-xl bg-[#121215] border border-white/[0.07] flex flex-col gap-3"
             >
-              <div className="flex items-center justify-between border-b border-[#2d221b] pb-2.5">
-                <div className="flex items-center gap-2 text-amber-400 text-xs font-bold">
-                  <Lightbulb size={14} className="text-amber-500" />
+              <div className="flex items-center justify-between border-b border-white/[0.06] pb-2.5">
+                <div className="flex items-center gap-2 text-amber-400 text-xs font-medium">
+                  <Lightbulb size={13} className="text-amber-500" />
                   <span>Explanation & Concept Derivation</span>
                 </div>
-                <span className="text-[11px] font-mono text-stone-500">
+                <span className="text-[11px] font-mono text-zinc-500">
                   {currentQ.tawjihiRef}
                 </span>
               </div>
 
               {/* Formula Highlight */}
-              <div className="p-3.5 rounded-xl bg-[#120f0e] border border-[#261e18] flex items-center justify-between font-mono text-sm text-amber-300">
+              <div className="p-3 rounded-lg bg-[#0c0c0e] border border-white/[0.06] flex items-center justify-between font-mono text-xs text-amber-300">
                 <div>
-                  <span className="text-[10px] text-stone-500 uppercase tracking-wider block font-sans">
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-wider block font-sans">
                     Einstein's Photoelectric Formula
                   </span>
-                  <span className="font-bold">{currentQ.formula}</span>
+                  <span className="font-semibold">{currentQ.formula}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => copyFormulaText(currentQ.formula)}
-                  className="p-1.5 rounded-lg hover:bg-stone-800 text-stone-400 hover:text-stone-200 transition-colors"
+                  className="p-1 rounded hover:bg-white/[0.06] text-zinc-400 hover:text-white transition-colors"
                   title="Copy formula"
                 >
-                  {copiedFormula ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                  {copiedFormula ? <Check size={12} className="text-amber-400" /> : <Copy size={12} />}
                 </button>
               </div>
 
-              <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
+              <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">
                 {currentQ.explanation}
               </p>
 
               {/* Bloub's Memory Tip */}
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-2.5 text-xs text-amber-200/90 leading-relaxed">
-                <div className="w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0 text-amber-400">
+              <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.06] flex items-start gap-2.5 text-xs text-zinc-300 leading-relaxed">
+                <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 text-amber-400">
                   <Sparkles size={11} />
                 </div>
                 <div>
@@ -339,18 +339,18 @@ export default function CozyQuizTab() {
         <div className="lg:col-span-4 flex flex-col gap-4">
           
           {/* Question Navigator Box */}
-          <div className="p-4 rounded-2xl bg-[#181412] border border-[#2b221b] flex flex-col gap-3">
+          <div className="p-4 rounded-xl bg-[#121215] border border-white/[0.07] flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-stone-300 flex items-center gap-1.5">
-                <BookOpen size={13} className="text-amber-500" />
+              <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                <BookOpen size={12} className="text-zinc-400" />
                 Question Navigator
               </span>
-              <span className="text-[11px] font-mono text-emerald-400">
-                {Object.keys(selectedAnswers).length} / {QUIZ_QUESTIONS.length} (100%)
+              <span className="text-[11px] font-mono text-zinc-400">
+                {Object.keys(selectedAnswers).length} / {QUIZ_QUESTIONS.length}
               </span>
             </div>
 
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-5 gap-1.5">
               {QUIZ_QUESTIONS.map((q, idx) => {
                 const isActive = idx === currentIndex;
                 const isAnswered = selectedAnswers[q.id] !== undefined;
@@ -361,76 +361,72 @@ export default function CozyQuizTab() {
                     key={q.id}
                     type="button"
                     onClick={() => setCurrentIndex(idx)}
-                    className={`h-11 rounded-xl flex flex-col items-center justify-center text-xs font-bold transition-all border ${
+                    className={`h-9 rounded-lg flex flex-col items-center justify-center text-xs font-medium transition-all border ${
                       isActive
-                        ? 'bg-amber-500/20 border-amber-500 text-amber-400 shadow-sm'
+                        ? 'bg-amber-500/15 border-amber-500 text-amber-300 font-semibold'
                         : isAnswered
-                        ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-400'
-                        : 'bg-[#201a16] border-[#2e241c] text-stone-400 hover:text-stone-200'
+                        ? 'bg-white/[0.06] border-white/[0.1] text-zinc-200'
+                        : 'bg-[#16161a] border-white/[0.06] text-zinc-500 hover:text-zinc-300'
                     }`}
                   >
                     <span>Q{q.id}</span>
                     {isFlagged ? (
-                      <Flag size={9} className="text-amber-400 fill-amber-400" />
+                      <Flag size={8} className="text-amber-400 fill-amber-400" />
                     ) : isAnswered ? (
-                      <Check size={9} className="text-emerald-400" />
+                      <Check size={8} className="text-zinc-300" />
                     ) : (
-                      <span className="w-1 h-1 rounded-full bg-stone-600" />
+                      <span className="w-1 h-1 rounded-full bg-zinc-700" />
                     )}
                   </button>
                 );
               })}
             </div>
 
-            <div className="flex items-center justify-between text-[10px] text-stone-500 pt-1 border-t border-stone-800/60">
+            <div className="flex items-center justify-between text-[10px] text-zinc-500 pt-1 border-t border-white/[0.06]">
               <span className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Mastered
+                <span className="w-1.5 h-1.5 rounded-full bg-zinc-300" /> Answered
               </span>
               <span className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> Current
               </span>
               <span className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-stone-600" /> Pending
+                <span className="w-1.5 h-1.5 rounded-full bg-zinc-700" /> Pending
               </span>
             </div>
           </div>
 
           {/* Formula Companion Card */}
-          <div className="p-4 rounded-2xl bg-[#181412] border border-[#2b221b] flex flex-col gap-3">
-            <div className="flex items-center justify-between border-b border-[#2b221b] pb-2">
-              <span className="text-xs font-bold text-stone-300 flex items-center gap-1.5">
-                <Calculator size={13} className="text-amber-500" />
-                Formula Companion
+          <div className="p-4 rounded-xl bg-[#121215] border border-white/[0.07] flex flex-col gap-3">
+            <div className="flex items-center justify-between border-b border-white/[0.06] pb-2">
+              <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                <Calculator size={12} className="text-zinc-400" />
+                Formula Reference
               </span>
-              <span className="text-[10px] font-mono text-stone-500">
+              <span className="text-[10px] font-mono text-zinc-500">
                 Chapter 4
               </span>
             </div>
 
             <div className="flex flex-col gap-2 font-mono text-xs">
-              <div className="p-2.5 rounded-xl bg-[#120f0e] border border-[#251d18] flex items-center justify-between">
+              <div className="p-2 rounded-lg bg-[#0c0c0e] border border-white/[0.06] flex items-center justify-between">
                 <div>
-                  <span className="text-amber-300 font-bold block">E_photon = h·v = hc / λ</span>
-                  <span className="text-[10px] text-stone-500 font-sans">Photon Energy</span>
+                  <span className="text-zinc-200 font-medium block">E = h·v = hc / λ</span>
+                  <span className="text-[10px] text-zinc-500 font-sans">Photon Energy</span>
                 </div>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-[#120f0e] border border-[#251d18] flex items-center justify-between">
+              <div className="p-2 rounded-lg bg-[#0c0c0e] border border-white/[0.06] flex items-center justify-between">
                 <div>
-                  <span className="text-amber-300 font-bold block">Φ = h·v0 = hc / λ0</span>
-                  <span className="text-[10px] text-stone-500 font-sans">Work Function</span>
+                  <span className="text-zinc-200 font-medium block">Φ = h·v0 = hc / λ0</span>
+                  <span className="text-[10px] text-zinc-500 font-sans">Work Function</span>
                 </div>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-[#120f0e] border border-[#251d18] flex items-center justify-between">
+              <div className="p-2 rounded-lg bg-[#0c0c0e] border border-white/[0.06] flex items-center justify-between">
                 <div>
-                  <span className="text-amber-300 font-bold block">e·V0 = Ek(max)</span>
-                  <span className="text-[10px] text-stone-500 font-sans">Stopping Potential</span>
+                  <span className="text-zinc-200 font-medium block">e·V0 = Ek(max)</span>
+                  <span className="text-[10px] text-zinc-500 font-sans">Stopping Potential</span>
                 </div>
-              </div>
-
-              <div className="p-2 rounded-lg bg-stone-900/50 border border-stone-800/50 text-[10px] text-stone-400 font-mono">
-                Planck constant: h ≈ 6.626 × 10^-34 J·s
               </div>
             </div>
           </div>
@@ -440,10 +436,10 @@ export default function CozyQuizTab() {
             <button
               type="button"
               onClick={handleNext}
-              className="w-full py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-stone-950 font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10 transition-all"
+              className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-zinc-950 font-semibold text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
             >
-              <span>{currentIndex === QUIZ_QUESTIONS.length - 1 ? 'Finish Quiz Session' : 'Submit & Next Question'}</span>
-              <ChevronRight size={16} />
+              <span>{currentIndex === QUIZ_QUESTIONS.length - 1 ? 'Finish Quiz Session' : 'Next Question →'}</span>
+              <ChevronRight size={14} />
             </button>
 
             <div className="grid grid-cols-2 gap-2">

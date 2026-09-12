@@ -303,134 +303,126 @@ export default function NoteExplorer({
       <input type="file" accept=".pdf,.doc,.docx" ref={docInputRef} className="hidden" onChange={handleDocumentUpload} />
 
       {/* Search and Action Toolbar */}
-      <div className="relative flex items-center mb-4 gap-2">
+      <div className="relative flex items-center mb-3 gap-1.5">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search books, notes, or tags..."
-            className="w-full pl-8 pr-8 py-2.5 text-xs rounded-xl border outline-none transition-all bg-[#241e1a] border-[#382f28] text-[#f5efe6] placeholder-stone-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
+            placeholder="Search documents..."
+            className="w-full pl-7 pr-7 py-1.5 text-xs rounded-lg border outline-none transition-all bg-[#141417] border-white/[0.08] text-zinc-200 placeholder-zinc-500 focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/20"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-200 text-xs p-1"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-xs p-0.5"
               title="Clear search"
               aria-label="Clear search"
             >
-              <X size={13} />
+              <X size={12} />
             </button>
           )}
         </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        <div className="flex items-center gap-1 flex-shrink-0">
           <button 
             onClick={fetchVault} 
-            className="p-2.5 rounded-xl transition-all bg-[#241e1a] hover:bg-[#2e2621] border border-[#382f28] text-stone-400 hover:text-stone-200" 
+            className="p-1.5 rounded-lg transition-all bg-[#141417] hover:bg-[#1c1c22] border border-white/[0.08] text-zinc-400 hover:text-zinc-200" 
             title="Refresh Vault"
           >
-            <RotateCw size={14} className={loading ? 'animate-spin' : ''} />
+            <RotateCw size={13} className={loading ? 'animate-spin' : ''} />
           </button>
           
           <button 
             onClick={() => docInputRef.current?.click()} 
-            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-stone-950 shadow-sm transition-all text-xs font-bold active:scale-95" 
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-zinc-200 border border-white/[0.08] shadow-sm transition-all text-xs font-medium active:scale-95" 
             title="Upload PDF Document"
           >
-            <UploadCloud size={14} />
+            <UploadCloud size={13} />
             <span>PDF</span>
-          </button>
-          
-          <button 
-            onClick={handleConnectVault} 
-            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#241e1a] hover:bg-[#2e2621] border border-[#382f28] text-stone-200 shadow-sm transition-all text-xs font-bold active:scale-95" 
-            title="Sync local folder to cloud"
-          >
-            <RotateCw size={14} />
-            <span>Sync</span>
           </button>
         </div>
       </div>
 
       {/* Syncing / Upload Progress Notification */}
       {isSyncing && syncProgress && (
-        <div className="mb-4 p-3 rounded-xl flex items-center gap-3 text-xs font-semibold bg-[var(--theme-surface-elevated)] border border-[var(--theme-border)] text-[var(--theme-text-primary)] shadow-md">
-          <Loader2 size={16} className="animate-spin flex-shrink-0 text-[var(--theme-primary)]" />
-          <div className="truncate">
+        <div className="mb-3 p-2.5 rounded-lg flex items-center gap-2.5 text-xs font-medium bg-[#141417] border border-white/[0.08] text-zinc-300 shadow-sm">
+          <Loader2 size={14} className="animate-spin flex-shrink-0 text-amber-500" />
+          <div className="truncate text-[11px]">
             {syncProgress.status === 'picking' ? 'Selecting folder...' :
              syncProgress.status === 'scanning' ? `Scanning local vault (${syncProgress.scannedCount} files)...` :
-             `Uploading to Cloud: ${syncProgress.uploadedCount} / ${syncProgress.totalCount}...`}
+             `Uploading: ${syncProgress.uploadedCount} / ${syncProgress.totalCount}...`}
           </div>
         </div>
       )}
 
       {/* Notes Tree Listing */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-0.5">
         {loading ? (
-          <div className="flex items-center justify-center h-20 opacity-50"><Loader2 className="animate-spin text-[var(--theme-primary)]" size={20} /></div>
+          <div className="flex items-center justify-center h-20 opacity-50"><Loader2 className="animate-spin text-amber-500" size={18} /></div>
         ) : error ? (
-          <div className="p-4 rounded-xl text-center text-xs bg-red-950/20 border border-red-500/30 text-red-400">{error}</div>
+          <div className="p-3 rounded-lg text-center text-xs bg-red-950/20 border border-red-500/20 text-red-400">{error}</div>
         ) : filteredNotes.length === 0 ? (
-          <div className="text-center p-6 text-xs font-medium text-[var(--theme-text-muted)]">No notes found. Upload a PDF or sync your vault to start!</div>
+          <div className="text-center p-6 text-xs font-medium text-zinc-500">No documents found. Upload a PDF to start!</div>
         ) : (
-          <div className="space-y-6 pb-6">
+          <div className="space-y-4 pb-4">
             {Object.entries(tree).sort((a,b) => a[0].localeCompare(b[0])).map(([folder, folderNotes]) => (
               <div key={folder}>
-                <div className="flex items-center gap-2 mb-3 pl-1">
-                  <FolderOpen size={16} className="text-[var(--theme-primary)]" />
-                  <h4 className="text-sm font-bold tracking-tight text-[var(--theme-text-primary)]">{folder}</h4>
-                  <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--theme-surface-elevated)] border border-[var(--theme-border-subtle)] text-[var(--theme-text-muted)]">{folderNotes.length}</span>
+                <div className="flex items-center gap-1.5 mb-2 pl-0.5">
+                  <FolderOpen size={13} className="text-zinc-500" />
+                  <h4 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">{folder}</h4>
+                  <span className="ml-auto text-[10px] font-medium px-1.5 py-0.2 rounded bg-white/[0.04] text-zinc-500">{folderNotes.length}</span>
                 </div>
                 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
                   {folderNotes.map(note => {
                     const isSelected = selectedNoteId === note.id || selectedNoteId === note.relativePath;
                     return (
                       <div key={note.id} className="relative group/note w-full">
                         <button
                           onClick={() => onSelectNote(note)}
-                          className={`w-full flex flex-col items-start text-left p-3.5 rounded-2xl transition-all duration-200 border ${
+                          className={`w-full flex items-center text-left p-2.5 rounded-lg transition-all duration-150 border gap-2.5 ${
                             isSelected 
-                              ? 'bg-[var(--theme-primary)]/15 border-[var(--theme-primary)] shadow-[0_0_15px_var(--theme-focus-ring)] scale-[0.98]' 
-                              : 'bg-[var(--theme-surface-subtle)] border-[var(--theme-border-subtle)] hover:bg-[var(--theme-surface-elevated)] hover:border-[var(--theme-border)] hover:shadow-md'
+                              ? 'bg-white/[0.06] border-amber-500/80 shadow-sm' 
+                              : 'bg-[#121215] border-white/[0.06] hover:bg-[#17171c] hover:border-white/[0.1]'
                           }`}
                         >
-                          <div className="w-full flex justify-between items-start mb-3">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors border ${
-                              isSelected 
-                                ? 'bg-[var(--theme-primary)]/25 border-[var(--theme-primary)]/40 text-[var(--theme-primary)]' 
-                                : 'bg-[var(--theme-surface-elevated)] border-[var(--theme-border-subtle)] text-[var(--theme-text-muted)] group-hover:text-[var(--theme-text-primary)]'
-                            }`}>
-                              <FileText size={18} />
-                            </div>
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                if (!confirm('Delete this note?')) return;
-                                try {
-                                  const deleteQuery = supabase.from('vault_notes').delete().eq('path', note.relativePath || note.id);
-                                  if (userId) deleteQuery.eq('user_id', userId);
-                                  const { error: deleteError } = await deleteQuery;
-                                  if (deleteError) throw new Error(deleteError.message);
-                                  await fetchVault();
-                                } catch (err: any) {
-                                  alert('Failed to delete: ' + err.message);
-                                }
-                              }}
-                              className="p-1.5 rounded-lg opacity-0 group-hover/note:opacity-100 transition-all hover:bg-red-500/20 text-red-400"
-                              title="Delete note"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                            </button>
+                          <div className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors shrink-0 ${
+                            isSelected 
+                              ? 'bg-amber-500/10 text-amber-400' 
+                              : 'bg-white/[0.04] text-zinc-400 group-hover/note:text-zinc-200'
+                          }`}>
+                            <FileText size={14} />
                           </div>
-                          <h5 className={`text-xs font-bold truncate w-full mb-1 ${isSelected ? 'text-[var(--theme-primary)]' : 'text-[var(--theme-text-primary)]'}`}>{note.title}</h5>
-                          {note.tags && note.tags.length > 0 && (
-                            <span className="text-[9px] font-bold uppercase tracking-wider truncate w-full mt-auto text-[var(--theme-text-muted)]">
-                              {note.tags.join(', ')}
-                            </span>
-                          )}
+
+                          <div className="flex-1 min-w-0">
+                            <h5 className={`text-xs font-medium truncate ${isSelected ? 'text-white' : 'text-zinc-200'}`}>{note.title}</h5>
+                            <div className="flex items-center gap-2 mt-0.5 text-[10px] text-zinc-500">
+                              <span>{note.title.toLowerCase().endsWith('.pdf') ? 'PDF Document' : 'Note'}</span>
+                              {note.wordCount ? <span>• {note.wordCount} words</span> : null}
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (!confirm('Delete this note?')) return;
+                              try {
+                                const deleteQuery = supabase.from('vault_notes').delete().eq('path', note.relativePath || note.id);
+                                if (userId) deleteQuery.eq('user_id', userId);
+                                const { error: deleteError } = await deleteQuery;
+                                if (deleteError) throw new Error(deleteError.message);
+                                await fetchVault();
+                              } catch (err: any) {
+                                alert('Failed to delete: ' + err.message);
+                              }
+                            }}
+                            className="p-1 rounded opacity-0 group-hover/note:opacity-100 transition-all hover:bg-red-500/20 text-red-400 shrink-0"
+                            title="Delete note"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                          </button>
                         </button>
                       </div>
                     );
