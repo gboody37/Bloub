@@ -14,7 +14,8 @@ import {
   AlertCircle, 
   Cloud, 
   UploadCloud, 
-  Loader2 
+  Loader2,
+  X 
 } from 'lucide-react';
 import type { ObsidianNoteSummary, VaultScanSummary } from '@/types/obsidian';
 import { pickAndSyncObsidianVault, syncNotesFromFileList, type SyncProgress } from '@/lib/obsidian/vault-sync';
@@ -48,6 +49,7 @@ export default function NoteExplorer({
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
 
@@ -81,8 +83,7 @@ export default function NoteExplorer({
   /**
    * High-Performance Direct Supabase Storage PDF & Document Ingestion
    */
-  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const processDocumentUpload = async (file: File) => {
     if (!file) return;
 
     try {
@@ -99,7 +100,7 @@ export default function NoteExplorer({
         const cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         const storagePath = `vault_pdfs/${currentUserId}/${Date.now()}_${cleanFileName}`;
 
-        const { data: uploadData, error: uploadErr } = await supabase.storage
+        const { error: uploadErr } = await supabase.storage
           .from('media')
           .upload(storagePath, file, {
             contentType: 'application/pdf',
@@ -127,23 +128,29 @@ export default function NoteExplorer({
             document.head.appendChild(script);
           });
           pdfjsLib = (window as any).pdfjsLib;
-          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          if (pdfjsLib?.GlobalWorkerOptions) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          }
         }
 
-        const loadingTask = pdfjsLib.getDocument(new Uint8Array(arrayBuffer));
-        const pdf = await loadingTask.promise;
-        const maxPages = Math.min(pdf.numPages, 50);
+        if (pdfjsLib) {
+          const loadingTask = pdfjsLib.getDocument(new Uint8Array(arrayBuffer));
+          const pdf = await loadingTask.promise;
+          const maxPages = Math.min(pdf.numPages, 50);
 
-        for (let i = 1; i <= maxPages; i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          const strings = content.items.map((item: any) => item.str);
-          extractedText += strings.join(' ') + '\n';
-        }
+          for (let i = 1; i <= maxPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            const strings = content.items.map((item: any) => item.str);
+            extractedText += strings.join(' ') + '\n';
+          }
 
-        if (pdf.numPages > 50) {
-          extractedText += `\n\n... (Extracted first 50 pages of document for search and AI quizzes)`;
+          if (pdf.numPages > 50) {
+            extractedText += `\n\n... (Extracted first 50 pages of document for search and AI quizzes)`;
+          }
         }
+      } else {
+        extractedText = await file.text();
       }
 
       // 4. Construct clean Markdown note with lightweight public URL in frontmatter
@@ -158,7 +165,7 @@ export default function NoteExplorer({
         content: noteContent,
         path: `Documents/${file.name}.md`,
         folder: 'Documents',
-        tags: ['document', 'pdf'],
+        tags: file.name.toLowerCase().endsWith('.pdf') ? ['document', 'pdf'] : ['document', 'note'],
         word_count: extractedText.split(/\s+/).filter(Boolean).length,
         updated_at: new Date().toISOString()
       };
@@ -172,6 +179,15 @@ export default function NoteExplorer({
 
       await fetchVault();
       onRefresh?.();
+      onSelectNote({
+        id: newNote.path,
+        title: newNote.title,
+        relativePath: newNote.path,
+        folder: newNote.folder,
+        tags: newNote.tags,
+        wordCount: newNote.word_count,
+        lastModifiedMs: Date.now()
+      });
     } catch (err: any) {
       console.error('Document upload error:', err);
       alert('Failed to upload document: ' + err.message);
@@ -179,6 +195,11 @@ export default function NoteExplorer({
       setSyncProgress(null);
       if (docInputRef.current) docInputRef.current.value = '';
     }
+  };
+
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) await processDocumentUpload(file);
   };
 
   const handleConnectVault = async () => {
@@ -237,7 +258,46 @@ export default function NoteExplorer({
   }, [filteredNotes]);
 
   return (
-    <div className="flex flex-col h-full w-full font-sans" data-spatial-container="study-explorer">
+    <div 
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingOver(true);
+      }}
+      onDragEnter={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingOver(true);
+      }}
+      onDragLeave={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+        setIsDraggingOver(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingOver(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) processDocumentUpload(file);
+      }}
+      className="flex flex-col h-full w-full font-sans relative" 
+      data-spatial-container="study-explorer"
+    >
+      {/* Drag & Drop Visual Overlay */}
+      {isDraggingOver && (
+        <div className="absolute inset-0 z-50 rounded-2xl bg-[#181412]/90 border-2 border-dashed border-amber-500 backdrop-blur-sm flex flex-col items-center justify-center gap-3 p-6 text-center animate-in fade-in duration-150">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-lg">
+            <UploadCloud className="w-6 h-6 animate-bounce" />
+          </div>
+          <div>
+            <h4 className="font-bold text-sm text-[#f5efe6] tracking-tight">Drop PDF to Upload</h4>
+            <p className="text-xs text-amber-300/80 mt-1">Uploads binary to Supabase media bucket &amp; syncs to Vault</p>
+          </div>
+        </div>
+      )}
+
       {/* Hidden file inputs */}
       <input ref={fileInputRef} type="file" {...{webkitdirectory: "", directory: ""}} multiple className="hidden" onChange={handleFallbackFileSelect} />
       <input type="file" accept=".pdf,.doc,.docx" ref={docInputRef} className="hidden" onChange={handleDocumentUpload} />
@@ -258,8 +318,10 @@ export default function NoteExplorer({
               type="button"
               onClick={() => setSearchQuery('')}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-200 text-xs p-1"
+              title="Clear search"
+              aria-label="Clear search"
             >
-              ✕
+              <X size={13} />
             </button>
           )}
         </div>

@@ -333,8 +333,9 @@ DO NOT reveal the answer, correct option index, or exact option text. Guide the 
     const prompt = `Question: ${question}\n\nNote Context:\n${(noteContext || '').slice(0, 3000)}`;
 
     const text = await this.callGenerateContent(apiKey, model, prompt, systemPrompt, false);
+    const cleaned = text.trim().replace(/^[\u{1F4A1}]\s*/u, '');
     return {
-      hint: text.trim().startsWith('💡') ? text.trim() : `💡 Bloub's Hint: ${text.trim()}`
+      hint: cleaned.startsWith("Bloub's Hint:") ? cleaned : `Bloub's Hint: ${cleaned}`
     };
   }
 

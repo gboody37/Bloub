@@ -4,18 +4,9 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   BookOpen, 
-  Clock, 
-  Flame, 
-  CheckCircle2, 
-  Award, 
   Upload, 
   Search, 
   Sparkles, 
-  Volume2, 
-  VolumeX, 
-  Play, 
-  Pause, 
-  FileText, 
   Check, 
   ChevronRight, 
   Sliders, 
@@ -23,7 +14,7 @@ import {
   ShieldCheck, 
   Palette,
   Compass,
-  ArrowUpRight
+  Bot
 } from 'lucide-react';
 import type { StudyItem } from './CozyBooksAndNotes';
 
@@ -46,11 +37,6 @@ export default function CozyStatsThemesTab({
   const [highContrast, setHighContrast] = useState(true);
   const [arabicBidi, setArabicBidi] = useState(true);
 
-  // Audio Player State
-  const [isPlayingAudio, setIsPlayingAudio] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
-  const [personalityMode, setPersonalityMode] = useState<'focus' | 'encouraging' | 'exam'>('encouraging');
-
   const themes = [
     { name: 'Dark Loft', color: '#15161b', accent: '#f59e0b', hex: '#15161b' },
     { name: 'Obsidian Noir', color: '#0c0d10', accent: '#94a3b8', hex: '#0c0d10' },
@@ -63,7 +49,7 @@ export default function CozyStatsThemesTab({
     {
       id: 'book-1',
       title: 'Chapter 4: Optics & Quantum Waves',
-      category: 'PHYSICS 12 • 148 PAGES',
+      category: 'PHYSICS 12 / 148 PAGES',
       description: 'Photoelectric effect, stopping potential, and Einsteinian wave-particle duality.',
       badge: 'Active Now',
       badgeColor: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
@@ -75,7 +61,7 @@ export default function CozyStatsThemesTab({
     {
       id: 'book-2',
       title: 'Photoelectric Effect Derivation Notes',
-      category: 'PHYSICS • FORMULAS',
+      category: 'PHYSICS / FORMULAS',
       description: 'Step-by-step LaTeX formulas, threshold frequency derivations, and work function...',
       badge: 'Completed',
       badgeColor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
@@ -220,136 +206,7 @@ export default function CozyStatsThemesTab({
         </div>
       </div>
 
-      {/* 2. Stats & Learning Metrics Section */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles size={14} className="text-amber-500" />
-            <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-stone-400">
-              Stats & Learning Metrics
-            </h3>
-          </div>
-          <span className="text-[10px] font-mono text-stone-500">
-            Updated 4m ago • Synced to Cloud
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          {/* Card 1: Total Focus Time */}
-          <div className="p-4 rounded-2xl bg-[#181412] border border-[#2b221b] flex flex-col justify-between gap-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-stone-400">Total Focus Time</span>
-              <div className="w-6 h-6 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
-                <Clock size={13} />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-black text-[#f5efe6] font-mono">38.5</span>
-                <span className="text-xs text-stone-400 font-semibold">hrs</span>
-              </div>
-              <span className="text-[11px] text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
-                <ArrowUpRight size={12} /> +12% this week vs last
-              </span>
-            </div>
-
-            {/* Sparkline curve */}
-            <div className="h-6 w-full flex items-end gap-1 pt-1">
-              {[30, 45, 25, 60, 50, 75, 90].map((val, i) => (
-                <div 
-                  key={i} 
-                  className={`flex-1 rounded-t-sm ${i === 6 ? 'bg-amber-500' : 'bg-stone-800'}`}
-                  style={{ height: `${val}%` }}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Card 2: Study Streak */}
-          <div className="p-4 rounded-2xl bg-[#181412] border border-[#2b221b] flex flex-col justify-between gap-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-stone-400">Study Streak</span>
-              <div className="w-6 h-6 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
-                <Flame size={13} className="text-amber-500 fill-amber-500" />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-black text-[#f5efe6] font-mono">4</span>
-                <span className="text-xs text-stone-400 font-semibold">Days Active</span>
-              </div>
-              <span className="text-[11px] text-stone-400 font-medium block mt-0.5">
-                Best streak: 12 days
-              </span>
-            </div>
-
-            {/* 7-day dot progress */}
-            <div className="flex items-center justify-between pt-1">
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-                <div key={i} className="flex flex-col items-center gap-1">
-                  <span className="text-[9px] font-mono text-stone-500">{day}</span>
-                  <div className={`w-2 h-2 rounded-full ${i < 4 ? 'bg-amber-500 shadow-sm shadow-amber-500/50' : 'bg-stone-800'}`} />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Card 3: Quiz Mastery */}
-          <div className="p-4 rounded-2xl bg-[#181412] border border-[#2b221b] flex flex-col justify-between gap-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-stone-400">Quiz Mastery</span>
-              <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                <CheckCircle2 size={13} />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-black text-emerald-400 font-mono">89%</span>
-                <span className="text-xs text-stone-400 font-semibold">Accuracy</span>
-              </div>
-              <span className="text-[11px] text-stone-400 font-medium block mt-0.5">
-                Across 42 Photoelectric questions
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between text-[11px] font-mono pt-1 text-stone-400">
-              <span>Mastered: <strong className="text-emerald-400">37</strong></span>
-              <span>Review: <strong className="text-amber-400">5</strong></span>
-            </div>
-          </div>
-
-          {/* Card 4: Scholar Level */}
-          <div className="p-4 rounded-2xl bg-[#181412] border border-[#2b221b] flex flex-col justify-between gap-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-stone-400">Scholar Level</span>
-              <div className="w-6 h-6 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-                <Award size={13} />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-base font-bold text-stone-100 block">Level 5 Scholar</span>
-                <span className="text-[11px] font-mono text-amber-400">650 / 1,000 XP</span>
-                <span className="text-[10px] text-stone-500 block mt-0.5">+350 XP to Level 6</span>
-              </div>
-
-              <div className="w-11 h-11 rounded-full border-2 border-amber-500/30 flex items-center justify-center font-mono font-bold text-xs text-amber-400">
-                65%
-              </div>
-            </div>
-
-            <div className="w-full h-1.5 rounded-full bg-stone-900 overflow-hidden">
-              <div className="h-full rounded-full bg-amber-500" style={{ width: '65%' }} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Visual Themes & Bloub Companion Split */}
+      {/* Visual Themes & Preferences */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         
         {/* Left 7 Cols: Themes & Preferences */}
@@ -505,104 +362,28 @@ export default function CozyStatsThemesTab({
             {/* Mascot Avatar Card */}
             <div className="p-4 rounded-xl bg-[#14110f] border border-[#292019] flex items-center gap-4">
               <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0">
-                <div className="w-10 h-9 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-stone-900 font-mono text-sm font-bold shadow-sm">
-                  (•~•)
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-sm">
+                  <Bot size={20} className="text-amber-400" />
                 </div>
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
-                  ● Ready to assist in Chapter 4
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 animate-pulse" />
+                  Ready to assist in Study Workspace
                 </span>
                 <p className="text-xs text-stone-300 leading-relaxed italic">
-                  "You've got 89% accuracy on Photoelectric Derivations today. Keep this momentum for tomorrow's Tawjihi mock test!"
+                  &ldquo;Your study workspace is synced with local notes and cloud storage. Focus on one concept at a time!&rdquo;
                 </p>
               </div>
             </div>
 
-            {/* Interaction Personality */}
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-semibold text-stone-400 block">
-                Interaction Personality
+            <div className="p-3.5 rounded-xl bg-[#14110f] border border-[#292019] flex items-center justify-between text-xs text-stone-400">
+              <span className="flex items-center gap-2">
+                <ShieldCheck size={14} className="text-emerald-400" />
+                <span>Zero Data Loss Protection</span>
               </span>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPersonalityMode('focus')}
-                  className={`p-2.5 rounded-xl border text-center transition-all ${
-                    personalityMode === 'focus'
-                      ? 'bg-amber-500/20 border-amber-500 text-amber-400'
-                      : 'bg-[#14110f] border-[#292019] text-stone-400 hover:text-stone-200'
-                  }`}
-                >
-                  <span className="text-xs font-bold block">Focus Mode</span>
-                  <span className="text-[9px] text-stone-500 block">Silent & quiet</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPersonalityMode('encouraging')}
-                  className={`p-2.5 rounded-xl border text-center transition-all ${
-                    personalityMode === 'encouraging'
-                      ? 'bg-amber-500/20 border-amber-500 text-amber-400'
-                      : 'bg-[#14110f] border-[#292019] text-stone-400 hover:text-stone-200'
-                  }`}
-                >
-                  <span className="text-xs font-bold block">Encouraging</span>
-                  <span className="text-[9px] text-stone-500 block">Helpful hints</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPersonalityMode('exam')}
-                  className={`p-2.5 rounded-xl border text-center transition-all ${
-                    personalityMode === 'exam'
-                      ? 'bg-amber-500/20 border-amber-500 text-amber-400'
-                      : 'bg-[#14110f] border-[#292019] text-stone-400 hover:text-stone-200'
-                  }`}
-                >
-                  <span className="text-xs font-bold block">Exam Voice</span>
-                  <span className="text-[9px] text-stone-500 block">Timer alerts</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Lo-Fi Study Rain Audio Player */}
-            <div className="p-3.5 rounded-xl bg-[#14110f] border border-[#292019] flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsPlayingAudio(!isPlayingAudio)}
-                  className="w-8 h-8 rounded-full bg-amber-500 hover:bg-amber-400 text-stone-950 flex items-center justify-center transition-transform active:scale-95"
-                >
-                  {isPlayingAudio ? <Pause size={13} /> : <Play size={13} />}
-                </button>
-
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-stone-200">
-                      Lo-Fi Study Rain Audio
-                    </span>
-                    {isPlayingAudio && (
-                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 font-mono">
-                        Playing
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[10px] text-stone-500 block font-mono">
-                    45Hz binaural brown noise + warm rain
-                  </span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsMuted(!isMuted)}
-                className="p-1.5 rounded-lg hover:bg-stone-800 text-stone-400 hover:text-stone-200 transition-colors"
-                title={isMuted ? 'Unmute' : 'Mute'}
-              >
-                {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-              </button>
+              <span className="font-mono text-[10px] text-emerald-400 font-bold">WAL ACTIVE</span>
             </div>
 
           </div>
@@ -614,7 +395,7 @@ export default function CozyStatsThemesTab({
       <footer className="pt-4 border-t border-stone-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-stone-500">
         <div className="flex items-center gap-2">
           <span className="font-mono font-bold text-stone-400">Bloub Studio v2.4</span>
-          <span>•</span>
+          <span className="text-stone-700">/</span>
           <span className="flex items-center gap-1 text-emerald-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> All Changes Auto-Saved
           </span>
@@ -622,7 +403,7 @@ export default function CozyStatsThemesTab({
 
         <div className="flex items-center gap-4 text-stone-400">
           <span className="hover:text-stone-200 cursor-pointer">Keyboard Shortcuts</span>
-          <span>•</span>
+          <span className="text-stone-700">/</span>
           <span className="hover:text-stone-200 cursor-pointer">Ministerial Exam Syllabus 2024</span>
         </div>
       </footer>

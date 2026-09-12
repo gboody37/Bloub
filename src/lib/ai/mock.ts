@@ -175,12 +175,12 @@ export class MockGeminiClient {
     const isArch = (question || '').toLowerCase().includes('skill') || (question || '').toLowerCase().includes('agent');
     if (isArch) {
       return {
-        hint: `💡 Bloub's Hint: Think about how instructions are loaded incrementally rather than all at once to save context space!`
+        hint: `Bloub's Hint: Think about how instructions are loaded incrementally rather than all at once to save context space!`
       };
     }
 
     return {
-      hint: `💡 Bloub's Hint: Re-read the introductory definition in the note regarding core objectives.`
+      hint: `Bloub's Hint: Re-read the introductory definition in the note regarding core objectives.`
     };
   }
 

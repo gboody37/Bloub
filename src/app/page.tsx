@@ -1,28 +1,36 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  Users, HelpCircle, BookOpen, X, Sparkles, 
-  ArrowLeft, Check, Play, Pause, RotateCcw, Flame, Plus,
-  FileText, Bell, Compass, LayoutGrid, CheckCircle2, ChevronRight
+  HelpCircle, 
+  BookOpen, 
+  X, 
+  Sparkles, 
+  Play, 
+  Pause, 
+  RotateCcw, 
+  Flame, 
+  FileText, 
+  ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
+  UploadCloud,
+  RotateCw
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import CozyBooksAndNotes, { type StudyItem, INITIAL_STUDY_ITEMS } from '@/components/study/CozyBooksAndNotes';
-import CozyParchmentReader from '@/components/study/CozyParchmentReader';
-import CozyStudyNotepad from '@/components/study/CozyStudyNotepad';
+import { type StudyItem, INITIAL_STUDY_ITEMS } from '@/components/study/CozyBooksAndNotes';
+import NoteExplorer from '@/components/study/NoteExplorer';
 import CozyQuizTab from '@/components/study/CozyQuizTab';
 import CozyStatsThemesTab from '@/components/study/CozyStatsThemesTab';
-import NoteViewer from '@/components/study/NoteViewer';
-import type { ParsedObsidianNote } from '@/types/obsidian';
+import type { ObsidianNoteSummary } from '@/types/obsidian';
 
-// Dynamic import for PDF Notebook Viewer with Arabic BiDi support
+// Dynamic import for PDF Notebook Viewer with continuous scrolling & Arabic BiDi support
 const PdfNotebookViewer = dynamic(() => import('@/components/study/PdfNotebookViewer'), { 
   ssr: false,
   loading: () => (
-    <div className="w-full h-full flex flex-col items-center justify-center min-h-[500px] text-stone-400 gap-3">
+    <div className="w-full h-full flex flex-col items-center justify-center min-h-[500px] text-zinc-400 gap-3 bg-zinc-950">
       <div className="w-8 h-8 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
-      <span className="text-xs font-mono">Loading Arabic PDF Engine...</span>
+      <span className="text-xs font-mono text-zinc-400">Loading Continuous PDF Engine...</span>
     </div>
   )
 });
@@ -30,24 +38,22 @@ const PdfNotebookViewer = dynamic(() => import('@/components/study/PdfNotebookVi
 type TopTab = 'library' | 'pdf' | 'quiz' | 'stats';
 
 export default function BloubHome() {
-  // Navigation Tabs matching Stitch
+  // Navigation Tabs
   const [activeTab, setActiveTab] = useState<TopTab>('library');
 
   // Active study item
   const [activeItem, setActiveItem] = useState<StudyItem>(INITIAL_STUDY_ITEMS[0]);
   
+  // Library Sidebar Collapsible State
+  const [isLibraryCollapsed, setIsLibraryCollapsed] = useState(false);
+
   // Pomodoro & Streak State
   const [pomodoroSeconds, setPomodoroSeconds] = useState(24 * 60 + 18);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [streakDays, setStreakDays] = useState(4);
-  const [pomodoroSession, setPomodoroSession] = useState(3);
   
-  // Full Reader Mode for specific notes
-  const [fullViewNote, setFullViewNote] = useState<ParsedObsidianNote | null>(null);
-
   // Modals
   const [showHelp, setShowHelp] = useState(false);
-  const [mobileTab, setMobileTab] = useState<'library' | 'reader' | 'notepad'>('library');
 
   // Themes
   const [themeName, setThemeName] = useState('Dark Loft');
@@ -93,339 +99,361 @@ export default function BloubHome() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Convert active study item to ParsedObsidianNote for Parchment reader
-  const currentParsedNote: ParsedObsidianNote = useMemo(() => ({
-    id: activeItem.id,
-    title: activeItem.title,
-    relativePath: activeItem.title,
-    absolutePath: activeItem.title,
-    folder: activeItem.folder || 'Physics 12',
-    frontmatter: {
-      tags: activeItem.tags || [],
-      pdf_url: activeItem.pdfUrl
-    },
-    bodyContent: activeItem.content || '',
-    rawContent: activeItem.content || '',
-    wikilinks: [],
-    tags: activeItem.tags || [],
-    headings: [],
-    wordCount: activeItem.wordCount || 0,
-    lastModifiedMs: Date.now(),
-    stats: {
-      wordCount: activeItem.wordCount || 0,
-      characterCount: activeItem.content?.length || 0,
-      lineCount: 0
+  const handleSelectNote = useCallback(async (noteSummary: ObsidianNoteSummary) => {
+    // Check if it matches an existing study item
+    const existing = INITIAL_STUDY_ITEMS.find(i => i.id === noteSummary.id || i.title === noteSummary.title);
+    if (existing) {
+      setActiveItem(existing);
+      return;
     }
-  }), [activeItem]);
+
+    // Query note details from API route
+    try {
+      const res = await fetch(`/api/obsidian/note?path=${encodeURIComponent(noteSummary.relativePath || noteSummary.title)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.note) {
+          const n = data.note;
+          const pdfUrl = n.frontmatter?.pdf_url || (n.title.toLowerCase().endsWith('.pdf') ? `/api/obsidian/read?file=${encodeURIComponent(n.relativePath)}` : undefined);
+          setActiveItem({
+            id: n.id,
+            title: n.title,
+            type: pdfUrl ? 'pdf' : 'note',
+            folder: n.folder || noteSummary.folder,
+            tags: n.tags || [],
+            wordCount: n.wordCount,
+            content: n.bodyContent || n.rawContent || '',
+            pdfUrl: pdfUrl
+          });
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Could not fetch note details:', err);
+    }
+
+    // Fallback item from summary
+    setActiveItem({
+      id: noteSummary.id,
+      title: noteSummary.title,
+      type: noteSummary.title.toLowerCase().endsWith('.pdf') ? 'pdf' : 'note',
+      folder: noteSummary.folder,
+      tags: noteSummary.tags || [],
+      wordCount: noteSummary.wordCount,
+      content: ''
+    });
+  }, []);
 
   return (
-    <div className={`min-h-screen w-full ${bgClass} transition-colors duration-500 font-sans text-stone-100 flex flex-col`}>
-      <main className="w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 mx-auto flex-1 flex flex-col relative py-3">
-        
-        {/* Top Bar matching user reference & Stitch Design */}
-        {!fullViewNote && (
-          <header className="pt-2 pb-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-3 select-none border-b border-stone-800/40 mb-4">
-            
-            {/* Left: Fixed Logo & Breadcrumb */}
-            <div className="flex items-center gap-3">
-              <div 
-                className="flex items-center gap-2.5 cursor-pointer group"
-                onClick={() => {
-                  setActiveTab('library');
-                  setFullViewNote(null);
-                }}
-              >
-                {/* Fixed Sleek Bloub Logo Mark (No parenthesis) */}
-                <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 group-hover:scale-105 transition-transform shadow-sm">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" />
-                    <circle cx="9" cy="10" r="1.5" fill="currentColor" />
-                    <circle cx="15" cy="10" r="1.5" fill="currentColor" />
-                    <path d="M10 14C10.5 15.2 11.5 15.8 12 15.8C12.5 15.8 13.5 15.2 14 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                </div>
-                <span className="text-xl font-bold tracking-tight text-[#f5efe6]">
-                  Bloub
-                </span>
-              </div>
+    <div className={`h-screen h-[100dvh] w-full ${bgClass} transition-colors duration-500 font-sans text-stone-100 flex flex-col overflow-hidden`}>
+      {/* Top Navigation Bar */}
+      <header className="h-14 px-4 sm:px-6 flex items-center justify-between gap-3 select-none border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-md shrink-0 z-30">
+        {/* Left: Sleek Bloub Logo & Breadcrumb */}
+        <div className="flex items-center gap-3">
+          <div 
+            className="flex items-center gap-2.5 cursor-pointer group"
+            onClick={() => setActiveTab('library')}
+          >
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 group-hover:scale-105 transition-transform shadow-sm">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" />
+                <circle cx="9" cy="10" r="1.5" fill="currentColor" />
+                <circle cx="15" cy="10" r="1.5" fill="currentColor" />
+                <path d="M10 14C10.5 15.2 11.5 15.8 12 15.8C12.5 15.8 13.5 15.2 14 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </div>
+            <span className="text-xl font-bold tracking-tight text-[#f5efe6]">
+              Bloub
+            </span>
+          </div>
 
-              {/* Breadcrumb */}
-              <div className="hidden sm:flex items-center gap-1.5 text-xs text-stone-400 font-medium pl-2.5 border-l border-stone-800">
-                <span 
-                  onClick={() => setActiveTab('library')}
-                  className="hover:text-stone-300 cursor-pointer"
-                >
-                  Workspace
-                </span>
-                <span className="text-stone-600">›</span>
-                <span className="text-amber-400/90 truncate max-w-[220px]">
-                  {activeTab === 'library' ? activeItem.title : activeTab === 'pdf' ? 'Modern Physics PDF' : activeTab === 'quiz' ? 'Chapter 4 Quiz' : 'Settings & Themes'}
-                </span>
-              </div>
+          {/* Breadcrumb with clean Lucide ChevronRight */}
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-stone-400 font-medium pl-2.5 border-l border-zinc-800">
+            <span 
+              onClick={() => setActiveTab('library')}
+              className="hover:text-stone-300 cursor-pointer"
+            >
+              Workspace
+            </span>
+            <ChevronRight size={12} className="text-zinc-600 shrink-0" />
+            <span className="text-amber-400/90 truncate max-w-[200px] sm:max-w-[280px]">
+              {activeTab === 'library' || activeTab === 'pdf' ? activeItem.title : activeTab === 'quiz' ? 'Study Quiz' : 'Settings & Themes'}
+            </span>
+          </div>
+        </div>
+
+        {/* Center: Top Navigation Tabs + Mascot Status Pill */}
+        <div className="flex items-center gap-3 justify-center">
+          <nav className="flex items-center p-1 rounded-full bg-zinc-900 border border-zinc-800 shadow-inner text-xs">
+            <button
+              type="button"
+              onClick={() => setActiveTab('library')}
+              className={`px-3 py-1.5 rounded-full font-semibold transition-all ${
+                activeTab === 'library' || activeTab === 'pdf'
+                  ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              Reader &amp; Library
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('quiz')}
+              className={`px-3 py-1.5 rounded-full font-semibold transition-all ${
+                activeTab === 'quiz'
+                  ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              Quiz
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('stats')}
+              className={`px-3 py-1.5 rounded-full font-semibold transition-all ${
+                activeTab === 'stats'
+                  ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              Stats &amp; Themes
+            </button>
+          </nav>
+
+          {/* Status Pill with countdown timer */}
+          <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900 border border-zinc-800 shadow-lg text-xs">
+            <div className="flex items-center gap-1.5 pr-2 border-r border-zinc-800">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="font-semibold text-stone-200">
+                Bloub is studying
+              </span>
             </div>
 
-            {/* Center: Top Navigation Tabs + Mascot Status Pill */}
-            <div className="flex items-center gap-3 justify-center flex-wrap">
-              {/* Navigation Tabs */}
-              <nav className="flex items-center p-1 rounded-full bg-[#1b1714] border border-[#2e251e] shadow-inner text-xs">
+            <div className="flex items-center gap-1.5 px-1 font-mono font-bold text-amber-400">
+              <span>{formatTimer(pomodoroSeconds)}</span>
+              <button
+                type="button"
+                onClick={() => setIsTimerRunning(!isTimerRunning)}
+                className="p-1 rounded-full hover:bg-zinc-800 text-stone-300 hover:text-white transition-colors"
+                title={isTimerRunning ? 'Pause timer' : 'Start timer'}
+                aria-label={isTimerRunning ? 'Pause timer' : 'Start timer'}
+              >
+                {isTimerRunning ? <Pause size={11} /> : <Play size={11} />}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsTimerRunning(false);
+                  setPomodoroSeconds(25 * 60);
+                }}
+                className="p-1 rounded-full hover:bg-zinc-800 text-stone-500 hover:text-stone-300 transition-colors"
+                title="Reset timer"
+                aria-label="Reset timer"
+              >
+                <RotateCcw size={10} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Streak & Utility Actions (Zero Emojis!) */}
+        <div className="flex items-center gap-2.5 justify-end">
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-xs font-semibold text-amber-400 select-none">
+            <Flame size={14} className="text-amber-500 fill-amber-500" />
+            <span>{streakDays} Days</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowHelp(true)}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-stone-400 hover:text-stone-200 hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition-colors"
+            title="Shortcuts & Info"
+            aria-label="Shortcuts & Info"
+          >
+            <HelpCircle size={15} />
+          </button>
+
+          <div className="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-xs font-bold text-amber-300">
+            G
+          </div>
+        </div>
+      </header>
+
+      {/* Main Full-Height Study Workspace (Tri-Pane Split Reader) */}
+      {(activeTab === 'library' || activeTab === 'pdf') && (
+        <div className="flex-1 h-full min-h-0 w-full flex overflow-hidden relative">
+          
+          {/* PANE 1 (LEFT): Sleek Collapsible Authentic Library */}
+          <aside 
+            className={`${
+              isLibraryCollapsed ? 'w-12' : 'w-72 sm:w-80'
+            } h-full border-r border-zinc-800 bg-zinc-950 flex flex-col flex-shrink-0 transition-all duration-200 z-10 select-none`}
+          >
+            {!isLibraryCollapsed ? (
+              <div className="flex flex-col h-full overflow-hidden">
+                <div className="h-12 border-b border-zinc-800 px-3.5 flex items-center justify-between gap-2 shrink-0 bg-zinc-900/60">
+                  <div className="flex items-center gap-2">
+                    <BookOpen size={16} className="text-amber-400 shrink-0" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-zinc-200 font-mono">
+                      Study Library
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsLibraryCollapsed(true)}
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 transition-colors"
+                    title="Collapse Library"
+                    aria-label="Collapse Library"
+                  >
+                    <PanelLeftClose size={16} />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-hidden p-3">
+                  <NoteExplorer
+                    selectedNoteId={activeItem.id}
+                    onSelectNote={handleSelectNote}
+                    isDark={true}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center py-3 gap-3 h-full">
                 <button
                   type="button"
-                  onClick={() => setActiveTab('library')}
-                  className={`px-3 py-1.5 rounded-full font-semibold transition-all ${
-                    activeTab === 'library'
-                      ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
-                      : 'text-stone-400 hover:text-stone-200'
-                  }`}
+                  onClick={() => setIsLibraryCollapsed(false)}
+                  className="w-8 h-8 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all active:scale-95 border border-zinc-800"
+                  title="Expand Library"
+                  aria-label="Expand Library"
                 >
-                  Library
+                  <PanelLeftOpen size={16} />
                 </button>
+
+                <div className="w-6 h-px bg-zinc-800 my-1" />
+
                 <button
                   type="button"
-                  onClick={() => setActiveTab('pdf')}
-                  className={`px-3 py-1.5 rounded-full font-semibold transition-all ${
-                    activeTab === 'pdf'
-                      ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
-                      : 'text-stone-400 hover:text-stone-200'
-                  }`}
+                  onClick={() => setIsLibraryCollapsed(false)}
+                  className="w-8 h-8 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center transition-all active:scale-95"
+                  title="Upload PDF to Library"
+                  aria-label="Upload PDF"
                 >
-                  PDF Reader
+                  <UploadCloud size={16} />
                 </button>
+
+                <div className="flex-1" />
+
+                <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest [writing-mode:vertical-rl] rotate-180 select-none pb-2">
+                  LIBRARY
+                </div>
+              </div>
+            )}
+          </aside>
+
+          {/* PANE 2 (CENTER) & PANE 3 (RIGHT): Full-Height Reading Canvas + Integrated Portal Header + Page-Synchronized Notes */}
+          <section className="flex-1 h-full min-w-0 flex flex-col relative bg-zinc-950 overflow-hidden">
+            {/* Integrated Header hosting Document Title & #pdf-tools-portal */}
+            <header className="h-12 border-b border-zinc-800 bg-zinc-900/90 backdrop-blur-md px-3 sm:px-4 flex items-center justify-between gap-2 sm:gap-3 shrink-0 z-20 select-none">
+              {/* Left: Active Document Title & Badges */}
+              <div className="flex items-center gap-2 min-w-0">
+                {isLibraryCollapsed && (
+                  <button
+                    type="button"
+                    onClick={() => setIsLibraryCollapsed(false)}
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors shrink-0"
+                    title="Open Library"
+                    aria-label="Open Library"
+                  >
+                    <PanelLeftOpen size={16} />
+                  </button>
+                )}
+                <FileText size={15} className="text-amber-400 shrink-0" />
+                <span className="text-xs sm:text-sm font-semibold text-zinc-100 truncate max-w-[140px] sm:max-w-xs md:max-w-sm tracking-tight" title={activeItem.title}>
+                  {activeItem.title}
+                </span>
+                <span className="hidden sm:inline-block text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400 font-bold uppercase shrink-0">
+                  {activeItem.pdfUrl ? 'PDF' : 'NOTE'}
+                </span>
+              </div>
+
+              {/* Center: Essential #pdf-tools-portal Container hosting Pan, Highlighter, Text, Eraser, Undo, Zoom & Notes toggle */}
+              <div id="pdf-tools-portal" className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar"></div>
+
+              {/* Right: Quick Action Shortcuts */}
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setActiveTab('quiz')}
-                  className={`px-3 py-1.5 rounded-full font-semibold transition-all ${
-                    activeTab === 'quiz'
-                      ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
-                      : 'text-stone-400 hover:text-stone-200'
-                  }`}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 text-xs font-semibold transition-all active:scale-95"
+                  title="Start AI Quiz on this Document"
                 >
-                  Quiz
+                  <Sparkles size={13} />
+                  <span className="hidden md:inline">Quiz</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('stats')}
-                  className={`px-3 py-1.5 rounded-full font-semibold transition-all ${
-                    activeTab === 'stats'
-                      ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
-                      : 'text-stone-400 hover:text-stone-200'
-                  }`}
-                >
-                  Stats & Themes
-                </button>
-              </nav>
-
-              {/* Exact Status Pill matching user screenshot */}
-              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1c1714] border border-[#332a22] shadow-lg text-xs">
-                <div className="flex items-center gap-1.5 pr-2 border-r border-stone-800">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                  <span className="font-semibold text-stone-200">
-                    Bloub is studying
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1.5 px-1 font-mono font-bold text-amber-400">
-                  <span>{formatTimer(pomodoroSeconds)}</span>
-                  <button
-                    type="button"
-                    onClick={() => setIsTimerRunning(!isTimerRunning)}
-                    className="p-1 rounded-full hover:bg-stone-800 text-stone-300 hover:text-white transition-colors"
-                    title={isTimerRunning ? 'Pause timer' : 'Start timer'}
-                  >
-                    {isTimerRunning ? <Pause size={11} /> : <Play size={11} />}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsTimerRunning(false);
-                      setPomodoroSeconds(25 * 60);
-                    }}
-                    className="p-1 rounded-full hover:bg-stone-800 text-stone-500 hover:text-stone-300 transition-colors"
-                    title="Reset timer"
-                  >
-                    <RotateCcw size={10} />
-                  </button>
-                </div>
               </div>
-            </div>
+            </header>
 
-            {/* Right: Streak & Utility Actions (Zero Emojis!) */}
-            <div className="flex items-center gap-2.5 justify-end">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-xs font-semibold text-amber-400 select-none">
-                <Flame size={14} className="text-amber-500 fill-amber-500" />
-                <span>{streakDays} Days</span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowHelp(true)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-stone-400 hover:text-stone-200 hover:bg-stone-900/60 border border-transparent hover:border-stone-800 transition-colors"
-                title="Shortcuts & Info"
-              >
-                <HelpCircle size={15} />
-              </button>
-
-              <div className="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-xs font-bold text-amber-300">
-                G
-              </div>
-            </div>
-          </header>
-        )}
-
-        {/* Tab Views */}
-        {activeTab === 'library' && (
-          fullViewNote ? (
-            <div className="flex-1 flex flex-col h-full min-h-0 py-2">
-              <div className="flex items-center justify-between pb-3 mb-2 px-1">
-                <button
-                  type="button"
-                  onClick={() => setFullViewNote(null)}
-                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#241e1a] border border-[#382f28] text-xs font-semibold text-stone-300 hover:text-white transition-colors"
-                >
-                  <ArrowLeft size={14} />
-                  <span>Back to Study Workspace</span>
-                </button>
-                <span className="text-xs text-stone-400 font-mono truncate max-w-sm">
-                  {fullViewNote.title}
-                </span>
-              </div>
-              <div className="flex-1 rounded-[28px] overflow-hidden border border-[#2e2620] bg-[#181412] shadow-2xl min-h-[620px] flex flex-col">
-                <NoteViewer
-                  note={fullViewNote}
-                  onClose={() => setFullViewNote(null)}
+            {/* Viewport: Continuous Multi-Page Scrolling PDF Reader with Right-Hand NotesPanel */}
+            <div className="flex-1 h-full min-h-0 relative overflow-hidden bg-zinc-950 flex flex-col">
+              {activeItem.pdfUrl ? (
+                <PdfNotebookViewer
+                  key={activeItem.id || activeItem.pdfUrl}
+                  pdfUrl={activeItem.pdfUrl}
+                  noteId={activeItem.id}
+                  notePath={activeItem.title}
+                  initialNotesStr={activeItem.content}
                   isDark={true}
                 />
-              </div>
-            </div>
-          ) : (
-            /* 3-Column Workspace */
-            <div className="flex-1 flex flex-col mb-4">
-              <div className="hidden lg:grid grid-cols-3 gap-5 items-stretch min-h-[620px]">
-                {/* Column 1: Books & Notes Library */}
-                <div className="col-span-1 h-full">
-                  <CozyBooksAndNotes
-                    activeItemId={activeItem.id}
-                    onSelectItem={(item) => setActiveItem(item)}
-                    isMatcha={themeName === 'Matcha Garden'}
-                  />
-                </div>
-
-                {/* Column 2: Reading Sheet / Active Document */}
-                <div className="col-span-1 h-full">
-                  <CozyParchmentReader
-                    note={currentParsedNote}
-                    onOpenVault={() => setFullViewNote(currentParsedNote)}
-                    isMatcha={themeName === 'Matcha Garden'}
-                  />
-                </div>
-
-                {/* Column 3: Live Study Notepad */}
-                <div className="col-span-1 h-full">
-                  <CozyStudyNotepad
-                    isMatcha={themeName === 'Matcha Garden'}
-                    activeNoteTitle={activeItem.title}
-                  />
-                </div>
-              </div>
-
-              {/* Mobile (< 1024px) */}
-              <div className="flex lg:hidden flex-col gap-4">
-                <div className="flex items-center justify-center p-1 rounded-2xl bg-[#1c1917] border border-stone-800">
-                  <button
-                    type="button"
-                    onClick={() => setMobileTab('library')}
-                    className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-all ${
-                      mobileTab === 'library' ? 'bg-amber-500 text-stone-950 font-bold' : 'text-stone-400'
-                    }`}
-                  >
-                    Books & Notes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMobileTab('reader')}
-                    className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-all ${
-                      mobileTab === 'reader' ? 'bg-amber-500 text-stone-950 font-bold' : 'text-stone-400'
-                    }`}
-                  >
-                    Reading Sheet
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMobileTab('notepad')}
-                    className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-all ${
-                      mobileTab === 'notepad' ? 'bg-amber-500 text-stone-950 font-bold' : 'text-stone-400'
-                    }`}
-                  >
-                    Notepad
-                  </button>
-                </div>
-
-                <div className="min-h-[540px]">
-                  {mobileTab === 'library' && (
-                    <CozyBooksAndNotes
-                      activeItemId={activeItem.id}
-                      onSelectItem={(item) => {
-                        setActiveItem(item);
-                        setMobileTab('reader');
-                      }}
-                      isMatcha={themeName === 'Matcha Garden'}
-                    />
-                  )}
-                  {mobileTab === 'reader' && (
-                    <div className="h-[560px]">
-                      <CozyParchmentReader
-                        note={currentParsedNote}
-                        onOpenVault={() => setFullViewNote(currentParsedNote)}
-                        isMatcha={themeName === 'Matcha Garden'}
-                      />
+              ) : (
+                <div className="flex-1 h-full overflow-y-auto custom-scrollbar p-6 sm:p-8 flex flex-col items-center">
+                  <div className="w-full max-w-3xl flex flex-col gap-4">
+                    <div className="pb-4 border-b border-zinc-800">
+                      <h1 className="text-2xl font-bold tracking-tight text-zinc-100">{activeItem.title}</h1>
+                      <div className="flex items-center gap-2 mt-2 text-xs font-mono text-zinc-400">
+                        <span>{activeItem.folder || 'Root'}</span>
+                        <span>/</span>
+                        <span>{activeItem.wordCount || 0} words</span>
+                      </div>
                     </div>
-                  )}
-                  {mobileTab === 'notepad' && (
-                    <div className="h-[560px]">
-                      <CozyStudyNotepad
-                        isMatcha={themeName === 'Matcha Garden'}
-                        activeNoteTitle={activeItem.title}
-                      />
+                    <div className="prose prose-invert max-w-none text-zinc-300 text-sm leading-relaxed whitespace-pre-wrap font-sans">
+                      {activeItem.content || 'This note does not have text content yet.'}
                     </div>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
-          )
-        )}
+          </section>
 
-        {/* PDF Reader Tab (Stitch Screen 2: Continuous scroll, Arabic text layer, highlighter box, text box, and per-page notes) */}
-        {activeTab === 'pdf' && (
-          <div className="flex-1 flex flex-col min-h-[680px] rounded-3xl overflow-hidden border border-[#2d241d] bg-[#181412] shadow-2xl p-2 sm:p-4">
-            <PdfNotebookViewer
-              pdfUrl={activeItem.pdfUrl || 'https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf'}
-              noteId={activeItem.id}
-              notePath={activeItem.title}
-              isDark={true}
+        </div>
+      )}
+
+      {/* QUIZ TAB */}
+      {activeTab === 'quiz' && (
+        <div className="flex-1 h-full min-h-0 overflow-y-auto custom-scrollbar p-4 sm:p-6 flex justify-center">
+          <div className="w-full max-w-5xl">
+            <CozyQuizTab />
+          </div>
+        </div>
+      )}
+
+      {/* STATS & THEMES TAB */}
+      {activeTab === 'stats' && (
+        <div className="flex-1 h-full min-h-0 overflow-y-auto custom-scrollbar p-4 sm:p-6 flex justify-center">
+          <div className="w-full max-w-6xl">
+            <CozyStatsThemesTab
+              activeTheme={themeName}
+              onThemeChange={handleThemeChange}
+              onSelectBook={(title) => {
+                const matched = INITIAL_STUDY_ITEMS.find(i => i.title.includes(title) || title.includes(i.title));
+                if (matched) {
+                  setActiveItem(matched);
+                  setActiveTab('library');
+                }
+              }}
             />
           </div>
-        )}
-
-        {/* Quiz Tab (Stitch Screen 3: Bilingual questions, LaTeX derivations, instant feedback, question navigator) */}
-        {activeTab === 'quiz' && (
-          <CozyQuizTab />
-        )}
-
-        {/* Stats & Themes Tab (Stitch Screen 4: 4 textbooks, focus hours, streak, quiz mastery, scholar level, theme swatches, companion presence) */}
-        {activeTab === 'stats' && (
-          <CozyStatsThemesTab
-            activeTheme={themeName}
-            onThemeChange={handleThemeChange}
-            onSelectBook={(title) => {
-              const matched = INITIAL_STUDY_ITEMS.find(i => i.title.includes(title) || title.includes(i.title));
-              if (matched) {
-                setActiveItem(matched);
-                setActiveTab('library');
-              }
-            }}
-          />
-        )}
-
-      </main>
+        </div>
+      )}
 
       {/* Help Modal */}
       {showHelp && (
@@ -434,35 +462,36 @@ export default function BloubHome() {
           onClick={() => setShowHelp(false)}
         >
           <div 
-            className="bg-[#181412] border border-[#2e2620] rounded-[28px] p-6 max-w-sm w-full shadow-2xl animate-pop-in relative"
+            className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-pop-in relative select-none"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#2e2620]">
-              <h3 className="text-base font-bold text-[#f5efe6]">Study Shortcuts</h3>
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-zinc-800">
+              <h3 className="text-base font-bold text-zinc-100">Study Shortcuts</h3>
               <button
                 type="button"
                 onClick={() => setShowHelp(false)}
-                className="w-8 h-8 rounded-full bg-[#241e1a] border border-[#382f28] flex items-center justify-center text-stone-400 hover:text-stone-200"
+                className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-colors"
+                aria-label="Close"
               >
                 <X size={16} />
               </button>
             </div>
-            <div className="space-y-3 text-xs text-stone-300">
-              <div className="flex justify-between py-1 border-b border-stone-800/60">
-                <span>Toggle Pomodoro Timer</span>
-                <kbd className="px-2 py-0.5 rounded bg-[#241e1a] font-mono text-[10px] text-amber-400">Click Timer</kbd>
+            <div className="space-y-3 text-xs text-zinc-300">
+              <div className="flex justify-between py-1 border-b border-zinc-800/60">
+                <span>Toggle Focus Timer</span>
+                <kbd className="px-2 py-0.5 rounded bg-zinc-800 font-mono text-[10px] text-amber-400">Click Timer</kbd>
               </div>
-              <div className="flex justify-between py-1 border-b border-stone-800/60">
-                <span>Select Book / Chapter</span>
-                <kbd className="px-2 py-0.5 rounded bg-[#241e1a] font-mono text-[10px] text-amber-400">Column 1 Click</kbd>
+              <div className="flex justify-between py-1 border-b border-zinc-800/60">
+                <span>Select Document / Book</span>
+                <kbd className="px-2 py-0.5 rounded bg-zinc-800 font-mono text-[10px] text-amber-400">Library Click</kbd>
               </div>
-              <div className="flex justify-between py-1 border-b border-stone-800/60">
-                <span>Quick Thought Capture</span>
-                <kbd className="px-2 py-0.5 rounded bg-[#241e1a] font-mono text-[10px] text-amber-400">Enter in Notepad</kbd>
+              <div className="flex justify-between py-1 border-b border-zinc-800/60">
+                <span>Annotation Tools</span>
+                <kbd className="px-2 py-0.5 rounded bg-zinc-800 font-mono text-[10px] text-amber-400">Top Portal Bar</kbd>
               </div>
               <div className="flex justify-between py-1">
-                <span>Insert Formula</span>
-                <kbd className="px-2 py-0.5 rounded bg-[#241e1a] font-mono text-[10px] text-amber-400">+ Insert in Formulas</kbd>
+                <span>Page-by-Page Notes</span>
+                <kbd className="px-2 py-0.5 rounded bg-zinc-800 font-mono text-[10px] text-amber-400">Sidebar Icon</kbd>
               </div>
             </div>
           </div>

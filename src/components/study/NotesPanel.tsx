@@ -159,6 +159,14 @@ export const NotesPanel = React.memo(function NotesPanel({
     onChangeRef.current(currentPageRef.current, updated);
   }, []);
 
+  const handleBlur = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+      onChangeRef.current(currentPageRef.current, localNoteRef.current);
+    }
+  }, []);
+
   // Safe clamped width between 240px and 650px
   const clampedWidth = Math.max(240, Math.min(notesWidth || 450, 650));
   const hasPageNotes = localNote.text.trim().length > 0;
@@ -337,6 +345,7 @@ export const NotesPanel = React.memo(function NotesPanel({
       <textarea
         value={localNote.text}
         onChange={handleTextChange}
+        onBlur={handleBlur}
         placeholder="Write your notes here..."
         dir={localNote.lang === 'ar' ? 'rtl' : 'ltr'}
         className={`flex-1 w-full p-8 bg-transparent outline-none resize-none leading-[32px] ${

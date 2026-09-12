@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, MoreHorizontal } from 'lucide-react';
+import { Check, MoreHorizontal, Lightbulb } from 'lucide-react';
 
 interface QuizQuestion {
   id: number;
@@ -165,9 +165,10 @@ export default function CozyFlashcardQuiz({
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="mt-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200/90 leading-relaxed overflow-hidden"
+              className="mt-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200/90 leading-relaxed overflow-hidden flex items-center gap-1.5"
             >
-              💡 {q.hint}
+              <Lightbulb size={14} className="text-amber-400 inline shrink-0" />
+              <span>{q.hint}</span>
             </motion.div>
           )}
         </AnimatePresence>

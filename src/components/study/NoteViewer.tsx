@@ -24,7 +24,8 @@ import {
   Maximize2, 
   Minimize2,
   Image as ImageIcon, 
-  Loader2 
+  Loader2,
+  X 
 } from 'lucide-react';
 import type { ParsedObsidianNote } from '@/types/obsidian';
 import dynamic from 'next/dynamic';
@@ -964,8 +965,10 @@ export default function NoteViewer({
                   type="button"
                   onClick={() => setShowOutline(false)}
                   className="p-1 rounded-lg text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)]"
+                  title="Close outline"
+                  aria-label="Close outline"
                 >
-                  ✕
+                  <X size={13} />
                 </button>
               </div>
 
