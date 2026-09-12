@@ -100,29 +100,29 @@ export default function BloubHome() {
   };
 
   const handleSelectNote = useCallback(async (noteSummary: ObsidianNoteSummary) => {
-    // Check if it matches an existing study item
+    // Quick preview from static list if available
     const existing = INITIAL_STUDY_ITEMS.find(i => i.id === noteSummary.id || i.title === noteSummary.title);
     if (existing) {
       setActiveItem(existing);
-      return;
     }
 
-    // Query note details from API route
+    // Query full note details from API route to get real frontmatter with pdf_notes
     try {
-      const res = await fetch(`/api/obsidian/note?path=${encodeURIComponent(noteSummary.relativePath || noteSummary.title)}`);
+      const lookupParam = noteSummary.relativePath || noteSummary.title || noteSummary.id;
+      const res = await fetch(`/api/obsidian/note?path=${encodeURIComponent(lookupParam)}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.note) {
           const n = data.note;
-          const pdfUrl = n.frontmatter?.pdf_url || (n.title.toLowerCase().endsWith('.pdf') ? `/api/obsidian/read?file=${encodeURIComponent(n.relativePath)}` : undefined);
+          const pdfUrl = n.frontmatter?.pdf_url || existing?.pdfUrl || (n.title.toLowerCase().endsWith('.pdf') ? `/api/obsidian/read?file=${encodeURIComponent(n.relativePath)}` : undefined);
           setActiveItem({
-            id: n.id,
-            title: n.title,
+            id: n.id || existing?.id || noteSummary.id,
+            title: n.title || existing?.title || noteSummary.title,
             type: pdfUrl ? 'pdf' : 'note',
             folder: n.folder || noteSummary.folder,
             tags: n.tags || [],
             wordCount: n.wordCount,
-            content: n.bodyContent || n.rawContent || '',
+            content: n.rawContent || n.content || existing?.content || '',
             pdfUrl: pdfUrl
           });
           return;
@@ -132,16 +132,49 @@ export default function BloubHome() {
       console.warn('Could not fetch note details:', err);
     }
 
-    // Fallback item from summary
-    setActiveItem({
-      id: noteSummary.id,
-      title: noteSummary.title,
-      type: noteSummary.title.toLowerCase().endsWith('.pdf') ? 'pdf' : 'note',
-      folder: noteSummary.folder,
-      tags: noteSummary.tags || [],
-      wordCount: noteSummary.wordCount,
-      content: ''
-    });
+    if (!existing) {
+      // Fallback item from summary
+      setActiveItem({
+        id: noteSummary.id,
+        title: noteSummary.title,
+        type: noteSummary.title.toLowerCase().endsWith('.pdf') ? 'pdf' : 'note',
+        folder: noteSummary.folder,
+        tags: noteSummary.tags || [],
+        wordCount: noteSummary.wordCount,
+        content: ''
+      });
+    }
+  }, []);
+
+  // On initial mount, fetch the active note's full content (including pdf_notes) from Supabase
+  useEffect(() => {
+    let isCancelled = false;
+    async function loadActiveNote() {
+      try {
+        const lookup = activeItem.title || activeItem.id;
+        const res = await fetch(`/api/obsidian/note?path=${encodeURIComponent(lookup)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (!isCancelled && data.success && data.note) {
+            const n = data.note;
+            const pdfUrl = n.frontmatter?.pdf_url || activeItem.pdfUrl;
+            setActiveItem(prev => ({
+              ...prev,
+              id: n.id || prev.id,
+              title: n.title || prev.title,
+              content: n.rawContent || n.content || prev.content,
+              pdfUrl: pdfUrl || prev.pdfUrl
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn('Initial note fetch failed:', err);
+      }
+    }
+    loadActiveNote();
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
   return (

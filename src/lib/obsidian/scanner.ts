@@ -194,10 +194,35 @@ export async function getNoteByPath(
       query = query.eq('user_id', userId);
     }
 
-    const { data: rows, error } = await query;
+    let { data: rows, error } = await query;
 
     if (error) {
       return { success: false, error: error.message, statusCode: 500 };
+    }
+
+    // Fallback: If not found by exact path, try searching by title, id (if UUID), or Documents/*.pdf.md
+    if (!rows || rows.length === 0) {
+      let fallbackQuery = client.from('vault_notes').select('*');
+      if (userId) fallbackQuery = fallbackQuery.eq('user_id', userId);
+      
+      const cleanTitle = safeRelPath.replace(/\.pdf\.md$/i, '').replace(/\.md$/i, '').replace(/^Documents\//i, '');
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(safeRelPath);
+
+      const orClauses = [
+        `title.eq.${cleanTitle}`,
+        `title.eq.${safeRelPath}`,
+        `path.eq.Documents/${safeRelPath}.pdf.md`,
+        `path.eq.Documents/${cleanTitle}.pdf.md`
+      ];
+      if (isUuid) {
+        orClauses.push(`id.eq.${safeRelPath}`);
+      }
+
+      const { data: titleRows } = await fallbackQuery.or(orClauses.join(',')).limit(1);
+
+      if (titleRows && titleRows.length > 0) {
+        rows = titleRows;
+      }
     }
 
     if (!rows || rows.length === 0) {

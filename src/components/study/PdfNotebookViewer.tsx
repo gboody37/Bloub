@@ -28,6 +28,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { updateFrontmatterField } from '@/lib/obsidian/parser';
 import { recordMutation, markMutationSynced, markMutationFailed } from '@/lib/storage/offline-wal';
+import { extractPdfNotesAndAnnotations } from '@/lib/pdf/notes-extractor';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -358,8 +359,9 @@ export default function PdfNotebookViewer({
 }: PdfNotebookViewerProps) {
   const [numPages, setNumPages] = useState<number>();
   const [pageNumber, setPageNumber] = useState<number>(1);
-  const [notes, setNotes] = useState<Record<number, { text: string; lang: 'en' | 'ar' }>>({});
-  const [annotations, setAnnotations] = useState<Record<number, any[]>>({});
+  const initialData = useMemo(() => extractPdfNotesAndAnnotations(initialNotesStr), [initialNotesStr]);
+  const [notes, setNotes] = useState<Record<number, { text: string; lang: 'en' | 'ar' }>>(() => initialData.notes as any);
+  const [annotations, setAnnotations] = useState<Record<number, any[]>>(() => initialData.annotations);
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [pdfTool, setPdfTool] = useState('cursor');
@@ -697,76 +699,66 @@ export default function PdfNotebookViewer({
     isDirtyRef.current = false;
   }, [noteId, notePath]);
 
-  // Reset or load annotations whenever noteId or initialNotesStr changes
+  // Reset or load annotations whenever noteId, notePath, or initialNotesStr changes
   useEffect(() => {
+    let isCancelled = false;
+
+    const applyExtracted = (extracted: { notes: any; annotations: any }) => {
+      const nextNotes = extracted.notes || {};
+      const nextAnns = extracted.annotations || {};
+      setNotes(nextNotes);
+      setAnnotations(nextAnns);
+      notesRef.current = nextNotes;
+      annotationsRef.current = nextAnns;
+      isDirtyRef.current = false;
+    };
+
     if (prevNoteIdRef.current && prevNoteIdRef.current !== noteId) {
       if (isDirtyRef.current) {
         flushPendingState(notesRef.current, annotationsRef.current, prevNoteIdRef.current, prevNotePathRef.current);
       }
       prevNoteIdRef.current = noteId;
       prevNotePathRef.current = notePath;
-
-      if (initialNotesStr) {
-        try {
-          let parsed = typeof initialNotesStr === 'string' ? JSON.parse(initialNotesStr) : initialNotesStr;
-          if (typeof parsed === 'string') {
-            try {
-              parsed = JSON.parse(parsed);
-            } catch {}
-          }
-          if (parsed && typeof parsed === 'object') {
-            const nextNotes = parsed.notes || (!parsed.annotations ? parsed : {});
-            const nextAnns = parsed.annotations || {};
-            setNotes(nextNotes);
-            setAnnotations(nextAnns);
-            notesRef.current = nextNotes;
-            annotationsRef.current = nextAnns;
-          } else {
-            setNotes({});
-            setAnnotations({});
-            notesRef.current = {};
-            annotationsRef.current = {};
-          }
-        } catch (e) {
-          console.error("Failed to parse initial pdf notes", e);
-          setNotes({});
-          setAnnotations({});
-          notesRef.current = {};
-          annotationsRef.current = {};
-        }
-      } else {
-        setNotes({});
-        setAnnotations({});
-        notesRef.current = {};
-        annotationsRef.current = {};
-      }
-      isDirtyRef.current = false;
-    } else {
-      prevNotePathRef.current = notePath;
-      if (!isDirtyRef.current && initialNotesStr) {
-        try {
-          let parsed = typeof initialNotesStr === 'string' ? JSON.parse(initialNotesStr) : initialNotesStr;
-          if (typeof parsed === 'string') {
-            try {
-              parsed = JSON.parse(parsed);
-            } catch {}
-          }
-          if (parsed && typeof parsed === 'object') {
-            const newNotes = parsed.notes || (!parsed.annotations ? parsed : {});
-            const newAnnotations = parsed.annotations || {};
-            if (JSON.stringify(newNotes) !== JSON.stringify(notesRef.current)) {
-              setNotes(newNotes);
-              notesRef.current = newNotes;
-            }
-            if (JSON.stringify(newAnnotations) !== JSON.stringify(annotationsRef.current)) {
-              setAnnotations(newAnnotations);
-              annotationsRef.current = newAnnotations;
-            }
-          }
-        } catch {}
-      }
     }
-  }, [noteId, initialNotesStr, notePath, flushPendingState]);
+
+    // 1. Immediately apply from initialNotesStr if present
+    const extracted = extractPdfNotesAndAnnotations(initialNotesStr);
+    const hasLocalData = Object.keys(extracted.notes).length > 0 || Object.keys(extracted.annotations).length > 0;
+    if (hasLocalData) {
+      applyExtracted(extracted);
+    }
+
+    // 2. Fetch directly from Supabase vault_notes to ensure 100% sync with database
+    const effNoteId = noteId || prevNoteIdRef.current;
+    const effNotePath = notePath || prevNotePathRef.current;
+
+    if (effNoteId || effNotePath) {
+      (async () => {
+        try {
+          let query = supabase.from('vault_notes').select('id, content, path, title');
+          if (effNoteId) {
+            query = query.eq('id', effNoteId);
+          } else if (effNotePath) {
+            query = query.eq('path', effNotePath);
+          }
+          const { data, error } = await query.maybeSingle();
+          if (!isCancelled && data?.content) {
+            const dbExtracted = extractPdfNotesAndAnnotations(data.content);
+            const dbHasData = Object.keys(dbExtracted.notes).length > 0 || Object.keys(dbExtracted.annotations).length > 0;
+            if (dbHasData && !isDirtyRef.current) {
+              applyExtracted(dbExtracted);
+            }
+          }
+        } catch (err) {
+          console.warn('[PdfNotebookViewer] Error fetching note annotations from Supabase:', err);
+        }
+      })();
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [noteId, initialNotesStr, notePath, flushPendingState, supabase]);
 
   // Document load success handler
   function onDocumentLoadSuccess(pdfDoc: any): void {
