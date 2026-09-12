@@ -120,6 +120,7 @@ export default function BloubHome() {
             title: n.title || existing?.title || noteSummary.title,
             type: pdfUrl ? 'pdf' : 'note',
             folder: n.folder || noteSummary.folder,
+            relativePath: n.relativePath || existing?.relativePath || noteSummary.relativePath,
             tags: n.tags || [],
             wordCount: n.wordCount,
             content: n.rawContent || n.content || existing?.content || '',
@@ -139,6 +140,7 @@ export default function BloubHome() {
         title: noteSummary.title,
         type: noteSummary.title.toLowerCase().endsWith('.pdf') ? 'pdf' : 'note',
         folder: noteSummary.folder,
+        relativePath: noteSummary.relativePath,
         tags: noteSummary.tags || [],
         wordCount: noteSummary.wordCount,
         content: ''
@@ -151,7 +153,7 @@ export default function BloubHome() {
     let isCancelled = false;
     async function loadActiveNote() {
       try {
-        const lookup = activeItem.title || activeItem.id;
+        const lookup = activeItem.relativePath || activeItem.title || activeItem.id;
         const res = await fetch(`/api/obsidian/note?path=${encodeURIComponent(lookup)}`);
         if (res.ok) {
           const data = await res.json();
@@ -162,6 +164,7 @@ export default function BloubHome() {
               ...prev,
               id: n.id || prev.id,
               title: n.title || prev.title,
+              relativePath: n.relativePath || prev.relativePath,
               content: n.rawContent || n.content || prev.content,
               pdfUrl: pdfUrl || prev.pdfUrl
             }));
@@ -449,7 +452,7 @@ export default function BloubHome() {
                   key={activeItem.id || activeItem.pdfUrl}
                   pdfUrl={activeItem.pdfUrl}
                   noteId={activeItem.id}
-                  notePath={activeItem.title}
+                  notePath={activeItem.relativePath || activeItem.title}
                   initialNotesStr={activeItem.content}
                   isDark={true}
                 />

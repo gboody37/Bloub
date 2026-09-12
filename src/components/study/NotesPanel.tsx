@@ -94,6 +94,7 @@ export const NotesPanel = React.memo(function NotesPanel({
 
   // Sync external initialNote when pageNumber changes or when external note text resets
   useEffect(() => {
+    const nextNote = initialNote || { text: '', lang: 'en' };
     // If switching page, immediately flush pending changes for previous page
     if (currentPageRef.current !== pageNumber) {
       if (debounceTimerRef.current) {
@@ -102,19 +103,18 @@ export const NotesPanel = React.memo(function NotesPanel({
         onChangeRef.current(currentPageRef.current, localNoteRef.current);
       }
       currentPageRef.current = pageNumber;
-      const nextNote = initialNote || { text: '', lang: 'en' };
       setLocalNote(nextNote);
       localNoteRef.current = nextNote;
     } else {
       // Same page: only update if remote differs and we don't have an active local debounce timer
-      if (!debounceTimerRef.current && initialNote) {
-        if (initialNote.text !== localNoteRef.current.text || initialNote.lang !== localNoteRef.current.lang) {
-          setLocalNote(initialNote);
-          localNoteRef.current = initialNote;
+      if (!debounceTimerRef.current) {
+        if (nextNote.text !== localNoteRef.current.text || nextNote.lang !== localNoteRef.current.lang) {
+          setLocalNote(nextNote);
+          localNoteRef.current = nextNote;
         }
       }
     }
-  }, [pageNumber, initialNote]);
+  }, [pageNumber, initialNote?.text, initialNote?.lang]);
 
   // Flush on unmount
   useEffect(() => {

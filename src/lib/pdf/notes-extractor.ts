@@ -24,30 +24,28 @@ export function extractPdfNotesAndAnnotations(input: any): ExtractedPdfData {
   const str = typeof input === 'string' ? input.trim() : '';
   if (!str) return { notes: {}, annotations: {} };
 
-  // 2. Check if it's a markdown file with YAML frontmatter
-  if (str.startsWith('---')) {
-    const fmMatch = str.match(/^---[ \t]*\r?\n([\s\S]*?)(?:\r?\n)?[ \t]*---[ \t]*(?:\r?\n)?/);
-    if (fmMatch) {
-      const fmBlock = fmMatch[1];
-      // Match pdf_notes: ... up to next top-level YAML key or end
-      const pdfNotesMatch = fmBlock.match(/pdf_notes:\s*(['"]?)([\s\S]*?)\1(?:\r?\n[a-zA-Z0-9_-]+:|$)/);
-      if (pdfNotesMatch) {
-        let rawVal = pdfNotesMatch[2].trim();
-        // If single quoted YAML, unescape '' -> '
-        if (pdfNotesMatch[1] === "'") {
-          rawVal = rawVal.replace(/''/g, "'");
-        } else if (pdfNotesMatch[1] === '"') {
-          rawVal = rawVal.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-        }
-        try {
-          const parsed = JSON.parse(rawVal);
+  // 2. Check if it's a markdown file with YAML frontmatter or contains pdf_notes
+  if (str.includes('pdf_notes:')) {
+    // Match pdf_notes: '...' or pdf_notes: "..." or unquoted
+    const pdfNotesMatch = str.match(/pdf_notes:\s*(['"]?)([\s\S]*?)\1(?:\r?\n[a-zA-Z0-9_-]+:|\r?\n---|$)/);
+    if (pdfNotesMatch) {
+      let rawVal = pdfNotesMatch[2].trim();
+      // If single quoted YAML, unescape '' -> '
+      if (pdfNotesMatch[1] === "'") {
+        rawVal = rawVal.replace(/''/g, "'");
+      } else if (pdfNotesMatch[1] === '"') {
+        rawVal = rawVal.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+      }
+      try {
+        const parsed = JSON.parse(rawVal);
+        if (parsed && typeof parsed === 'object') {
           return {
             notes: parsed.notes || {},
             annotations: parsed.annotations || {}
           };
-        } catch (e) {
-          console.warn('[extractPdfNotesAndAnnotations] JSON parse error on frontmatter pdf_notes:', e);
         }
+      } catch (e) {
+        console.warn('[extractPdfNotesAndAnnotations] JSON parse error on frontmatter pdf_notes:', e);
       }
     }
   }

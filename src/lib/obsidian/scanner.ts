@@ -232,7 +232,13 @@ export async function getNoteByPath(
     const row = rows[0] as VaultNoteDbRow;
     const parsed = parseObsidianMarkdown(row.content || '', safeRelPath, safeRelPath);
 
-    if (row.title && !parsed.title) {
+    if (row.id) {
+      parsed.id = row.id;
+    }
+    if (row.path) {
+      parsed.relativePath = row.path;
+    }
+    if (row.title) {
       parsed.title = row.title;
     }
     if (row.folder && parsed.folder === 'Root') {

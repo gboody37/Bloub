@@ -566,8 +566,9 @@ export default function PdfNotebookViewer({
 
     try {
       let currentNote: { id: string; content: string; path: string } | null = null;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(effNoteId || '');
 
-      if (effNoteId) {
+      if (isUuid) {
         const { data: byId } = await supabase
           .from('vault_notes')
           .select('id, content, path')
@@ -578,11 +579,13 @@ export default function PdfNotebookViewer({
         }
       }
 
-      if (!currentNote && effNotePath) {
+      if (!currentNote && (effNotePath || effNoteId)) {
+        const term = effNotePath || effNoteId;
         const { data: byPath } = await supabase
           .from('vault_notes')
           .select('id, content, path')
-          .eq('path', effNotePath)
+          .or(`path.eq.${term},title.eq.${term},path.eq.Documents/${term}.pdf.md,title.ilike.%${term}%`)
+          .limit(1)
           .maybeSingle();
         if (byPath) {
           currentNote = byPath;
@@ -731,17 +734,19 @@ export default function PdfNotebookViewer({
     // 2. Fetch directly from Supabase vault_notes to ensure 100% sync with database
     const effNoteId = noteId || prevNoteIdRef.current;
     const effNotePath = notePath || prevNotePathRef.current;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(effNoteId || '');
 
     if (effNoteId || effNotePath) {
       (async () => {
         try {
           let query = supabase.from('vault_notes').select('id, content, path, title');
-          if (effNoteId) {
+          if (isUuid) {
             query = query.eq('id', effNoteId);
-          } else if (effNotePath) {
-            query = query.eq('path', effNotePath);
+          } else {
+            const term = effNotePath || effNoteId;
+            query = query.or(`path.eq.${term},title.eq.${term},path.eq.Documents/${term}.pdf.md,title.ilike.%${term}%`);
           }
-          const { data, error } = await query.maybeSingle();
+          const { data, error } = await query.limit(1).maybeSingle();
           if (!isCancelled && data?.content) {
             const dbExtracted = extractPdfNotesAndAnnotations(data.content);
             const dbHasData = Object.keys(dbExtracted.notes).length > 0 || Object.keys(dbExtracted.annotations).length > 0;
