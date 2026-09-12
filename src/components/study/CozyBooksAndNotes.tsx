@@ -67,6 +67,7 @@ export const INITIAL_STUDY_ITEMS: StudyItem[] = [
     "title": "AI",
     "type": "pdf",
     "folder": "Documents",
+    "relativePath": "Documents/AI.pdf.md",
     "tags": [
       "document",
       "pdf",
@@ -83,6 +84,7 @@ export const INITIAL_STUDY_ITEMS: StudyItem[] = [
     "title": "English",
     "type": "pdf",
     "folder": "Documents",
+    "relativePath": "Documents/English.pdf.md",
     "tags": [
       "document",
       "pdf",
@@ -99,6 +101,7 @@ export const INITIAL_STUDY_ITEMS: StudyItem[] = [
     "title": "Deen",
     "type": "pdf",
     "folder": "Documents",
+    "relativePath": "Documents/Deen.pdf.md",
     "tags": [
       "document",
       "pdf",
@@ -107,7 +110,7 @@ export const INITIAL_STUDY_ITEMS: StudyItem[] = [
     "readProgress": 68,
     "wordCount": 13462,
     "updatedAt": "Synced",
-    "content": "---\ntitle: \"Deen\"\ntype: \"pdf\"\npdf_url: \"https://gbdwswfrscjccaaeciiu.supabase.co/storage/v1/object/public/media/vault_pdfs/27157bfd-443f-4eea-8431-bf58a74bae8b/1787643400666_Deen.pdf\"\nfile_name: \"Deen.pdf\"\nuploaded_at: \"2026-08-25T07:36:47.073Z\"\n---\n\nفريق التأليف  د. نــادي حســن صــرا محمـد أحمــد العــبـادي د. أمحـد حممــد السلمـان عبد القادر عبد احلميد يونس عـبـيـر خــالـــد منصــور جعـفــر فهـمــي زيـــدان د. إيمـان أحمـد فريحـات أ.د. هايــــــــل عبــــد احلفيـــظ داود (رئيـــسًا) أ.د. خالد عطية السعـودي (مرشفًا عىل جلان التأليف) د. ســمــــــر مـحـمــد أبــو يـحيـــى (منســقًا)  11 11  الناشر: المركز الوطني لتطوير المناهج  يرس املركز الوطني لتطوير املناهج استقبال آرائكم وملحوظاتكم عىل هذا الكتاب عن طريق العناوين اآلتية:  06-5376262 / 240   06-5376266   P.O.Box:2088 Amman 11941 @nccdjor   feedback@nccd.gov.jo   www.nccd.gov.jo  التربية اإلسالمية  ف احلادي ع�شر ش ال� ي الثاين ش ل الدرا� ش الف�\nم   2024   هـ /   1445   ُالطبعة األوىل (التجريبية) ِالوِحْدَة ُرقم ُ الصفحة   ِالوِحْدَة ُرقم ُ الصفحة   ِالوِحْدَة رقم ُ الصفحة  قرَّرت وزارة التربية والتعليم تدريس هذا الكتاب في مدارس المملكة األردنية الهاشمية جميعها، بناء ً على ، وقرار 2024/9/5   )، تاريخ 2024/7 قرار المجلس األعلى للمركز الوطني لتطوير المناهج في جلسته رقم ( م. 2025/20",
+    "content": "---\ntitle: \"Deen\"\ntype: \"pdf\"\npdf_url: \"https://gbdwswfrscjccaaeciiu.supabase.co/storage/v1/object/public/media/vault_pdfs/27157bfd-443f-4eea-8431-bf58a74bae8b/1787643400666_Deen.pdf\"\nfile_name: \"Deen.pdf\"\nuploaded_at: \"2026-08-25T07:36:47.073Z\"\n---\n\nفريق التأليف  د. نــادي حســن صــرا محمـد أحمــد العــبـادي د. أمحـد حممــد السلمـان عبد القادر عبد احلميد يونس عـبـيـر خــالـــد منصــور جعـفــر فهـمــي زيـــدان د. إيمـان أحمـد فريحـات أ.د. هايــــــــل عبــــد احلفيـــظ داود (رئيـــسًا) أ.د. خالد عطية السعـودي (مرشفًا عىل جلان التأليف) د. ســمــــــر مـحـمــد أبــو يـحيـــى (منســقًا)  11 11  الناشر: المركز الوطني لتطوير المناهج  يرس املركز الوطني لتطوير املناهج استقبال آرائكم وملحوظاتكم عىل هذا الكتاب عن طريق العناوين اآلتية:  06-5376262 / 240   06-5376266   P.O.Box:2088 Amman 11941 @nccdjor   feedback@nccd.gov.jo   www.nccd.gov.jo  التربية اإلسالمية  ف احلادي عشر ش ال ي الثاين ش ل الدرا ش الف\nم   2024   هـ /   1445   ُالطبعة األوىل (التجريبية) ِالوِحْدَة ُرقم ُ الصفحة   ِالوِحْدَة ُرقم ُ الصفحة   ِالوِحْدَة رقم ُ الصفحة  قرَّرت وزارة التربية والتعليم تدريس هذا الكتاب في مدارس المملكة األردنية الهاشمية جميعها، بناء ً على ، وقرار 2024/9/5   )، تاريخ 2024/7 قرار المجلس األعلى للمركز الوطني لتطوير المناهج في جلسته رقم ( م. 2025/20",
     "pdfUrl": "https://gbdwswfrscjccaaeciiu.supabase.co/storage/v1/object/public/media/vault_pdfs/27157bfd-443f-4eea-8431-bf58a74bae8b/1787643400666_Deen.pdf"
   }
 ];
