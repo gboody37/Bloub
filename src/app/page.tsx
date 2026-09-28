@@ -1036,23 +1036,23 @@ export default function Home() {
     const isDark = true; 
     
     const tc = {
-      card: 'bg-black/20 border border-white/10 hover:border-white/20 hover:bg-black/30 backdrop-blur-md text-white',
-      cardMuted: 'bg-black/40 border-black/50 backdrop-blur-md text-slate-300',
-      nav: 'bg-black/40 border-t border-white/5 backdrop-blur-xl',
-      input: 'bg-black/30 border-white/10 text-white placeholder-white/40 focus:border-white/30 backdrop-blur-md'
+      card: 'bg-zinc-950/40 border border-white/10 hover:border-white/20 active:scale-[0.99] transition-all text-zinc-100',
+      cardMuted: 'bg-zinc-950/20 border-white/5 text-zinc-400',
+      nav: 'bg-zinc-950/80 border-t border-white/10 backdrop-blur-xl',
+      input: 'bg-zinc-950/60 border-white/10 text-zinc-100 placeholder-zinc-500 focus:border-white/25'
     };
 
   const t = {
-    textPrimary: isDark ? 'text-white' : 'text-gray-900',
-    textSecondary: isDark ? 'text-slate-300' : 'text-gray-600',
-    textMuted: isDark ? 'text-slate-500' : 'text-gray-500',
-    card: tc.card + ' shadow-sm',
+    textPrimary: 'text-zinc-100',
+    textSecondary: 'text-zinc-400',
+    textMuted: 'text-zinc-400',
+    card: tc.card,
     cardMuted: tc.cardMuted,
     input: tc.input,
-    nav: tc.nav + ' ',
-    iconCircle: isDark ? 'bg-slate-700/50 text-slate-300' : 'bg-gray-100 text-gray-600',
-    pillActive: isDark ? 'bg-slate-700 border-slate-500 text-white shadow-md scale-105' : 'bg-white border-gray-400 text-gray-900 shadow-md scale-105',
-    pillInactive: isDark ? 'bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
+    nav: tc.nav,
+    iconCircle: 'bg-zinc-900 border border-white/10 text-zinc-300',
+    pillActive: 'bg-zinc-800 border-white/20 text-white shadow-sm',
+    pillInactive: 'bg-zinc-900/60 border-white/10 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/80'
   };
 
   if (loadingAuth) {
@@ -1207,19 +1207,19 @@ export default function Home() {
         {/* Header */}
         {activeTab !== 'settings' && (
           !selectedNote && (
-            <header className={`pt-12 pb-6 px-6 relative z-30 flex justify-between items-center border-b transition-colors duration-500 ${bgTheme} ${isDark ? 'border-slate-800' : 'border-gray-200/30'}`}>
+            <header className={`pt-10 pb-4 px-6 relative z-30 flex justify-between items-center border-b transition-colors duration-500 ${bgTheme} border-white/10`}>
             <div className="flex-1">
-              <h1 className={`text-3xl font-bold tracking-tight transition-colors ${t.textPrimary}`}>
+              <h1 className={`text-3xl font-display font-bold tracking-tight transition-colors ${t.textPrimary}`}>
                 {activeTab === 'lists' ? (isListView ? 'My Lists' : activeCatObj.name) : activeTab === 'today' ? 'Today' : 'Stats'}
               </h1>
               {!isListView && activeTab === 'lists' && (
                 <div className="flex items-center gap-2 mt-1">
                   {activeCatObj.type === 'study' ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                      <GraduationCap size={13} /> Study Workspace
+                    <span className="inline-flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/20">
+                      <GraduationCap size={12} /> Study
                     </span>
                   ) : (
-                    <p className={`text-sm font-medium transition-colors ${t.textSecondary}`}>{completedCount} of {totalCount} completed</p>
+                    <p className={`text-xs font-mono transition-colors ${t.textSecondary}`}>{completedCount} of {totalCount} completed</p>
                   )}
                 </div>
               )}
@@ -1682,21 +1682,14 @@ export default function Home() {
           /* Main Content Area */
         <div className={`flex-1 relative flex flex-col min-h-0 ${selectedNote ? 'p-0 h-full' : 'px-6 py-6'}`}>
         
-        {/* Large Hero Mascot */}
+        {/* Hero Mascot */}
         {!selectedNote && (
           <div 
             data-mascot-container="hero"
-            data-spatial-container="hero"
-            className={`flex justify-center relative items-center transition-all duration-300 overflow-visible p-4 ${showAddModal ? 'mb-2 pt-1' : 'mb-8 pt-4'}`}
+            className={`flex justify-center relative items-center transition-all duration-300 overflow-visible ${showAddModal ? 'mb-1 pt-0' : 'mb-3 pt-2 pb-1'}`}
           >
-            {/* Ambient Aura Halo Glow */}
             <div 
-              className="absolute w-44 h-44 rounded-full opacity-25 pointer-events-none blur-2xl transition-all duration-500"
-              style={{ backgroundColor: COLORS.find(c => c.id === heroColor)?.hex || '#3b82f6' }}
-            />
-
-            <div 
-              className="relative cursor-pointer hover:scale-105 transition-transform duration-300 overflow-visible" 
+              className="relative cursor-pointer hover:scale-105 active:scale-95 transition-transform duration-200 overflow-visible" 
               onClick={() => triggerMascot('orbit', 'heureux')}
             >
               {(() => {
@@ -1704,7 +1697,7 @@ export default function Home() {
                 const catExpr = showListHero ? (catSettings[activeCategory]?.expression) : null;
                 const heroExpr = catExpr || mascotExpression || 'neutre';
                 return (
-                  <BloubMascot size={showAddModal ? 96 : 160}
+                  <BloubMascot size={showAddModal ? 64 : 88}
                     state={animState} 
                     expression={isAnim ? (animExpression || mascotExpression) : (heroExpr as ExpressionId)} 
                     shape={heroShape} 
@@ -2400,38 +2393,38 @@ export default function Home() {
       {(() => {
         const activeColorHex = COLORS.find(c => c.id === mascotColor)?.hex;
         return (
-          <nav className={`fixed left-0 right-0 border-t pb-safe z-40 px-6 py-2 transition-all duration-300 ${t.nav} ${isNavVisible && !selectedNote ? "bottom-0" : "-bottom-24"}`}>
-            <div className="max-w-md mx-auto flex justify-between items-center text-xs font-medium text-gray-400">
+          <nav className={`fixed left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm rounded-2xl border border-white/10 bg-zinc-950/90 shadow-2xl backdrop-blur-xl py-1.5 px-3 z-40 transition-all duration-300 ${isNavVisible && !selectedNote ? "bottom-4" : "-bottom-24"}`}>
+            <div className="flex justify-between items-center text-xs font-medium">
               <button 
                 onClick={() => { setActiveTab('lists'); setIsListView(true); }}
-                className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'lists' ? 'font-semibold' : t.textSecondary}`}
+                className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all active:scale-90 ${activeTab === 'lists' ? 'font-semibold text-white bg-white/10' : 'text-zinc-400 hover:text-zinc-200'}`}
                 style={{ color: activeTab === 'lists' ? activeColorHex : undefined }}>
-                <ListTodo size={22} />
-                <span>Lists</span>
+                <ListTodo size={18} />
+                <span className="text-[10px] font-mono tracking-wider">Lists</span>
               </button>
               
               <button 
                 onClick={() => setActiveTab('today')}
-                className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'today' ? 'font-semibold' : t.textSecondary}`}
+                className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all active:scale-90 ${activeTab === 'today' ? 'font-semibold text-white bg-white/10' : 'text-zinc-400 hover:text-zinc-200'}`}
                 style={{ color: activeTab === 'today' ? activeColorHex : undefined }}>
-                <Calendar size={22} />
-                <span>Today</span>
+                <Calendar size={18} />
+                <span className="text-[10px] font-mono tracking-wider">Today</span>
               </button>
 
               <button 
                 onClick={() => setActiveTab('stats')}
-                className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'stats' ? 'font-semibold' : t.textSecondary}`}
+                className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all active:scale-90 ${activeTab === 'stats' ? 'font-semibold text-white bg-white/10' : 'text-zinc-400 hover:text-zinc-200'}`}
                 style={{ color: activeTab === 'stats' ? activeColorHex : undefined }}>
-                <BarChart3 size={22} />
-                <span>Stats</span>
+                <BarChart3 size={18} />
+                <span className="text-[10px] font-mono tracking-wider">Stats</span>
               </button>
 
               <button 
                 onClick={() => setActiveTab('settings')}
-                className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'settings' ? 'font-semibold' : t.textSecondary}`}
+                className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all active:scale-90 ${activeTab === 'settings' ? 'font-semibold text-white bg-white/10' : 'text-zinc-400 hover:text-zinc-200'}`}
                 style={{ color: activeTab === 'settings' ? activeColorHex : undefined }}>
-                <Settings size={22} />
-                <span>Settings</span>
+                <Settings size={18} />
+                <span className="text-[10px] font-mono tracking-wider">Settings</span>
               </button>
             </div>
           </nav>
